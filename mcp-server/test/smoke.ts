@@ -70,6 +70,20 @@ const app = textOf(
 );
 if (!app.includes('HashRouter')) fail('src/app/App.tsx の内容が不正です');
 
+// generate_source(framework=vue): 別フレームワーク生成(FR-GEN-07)
+const vue = JSON.parse(
+  textOf(await client.callTool({ name: 'generate_source', arguments: { projectId: id, framework: 'vue' } })),
+) as Array<{ path: string }>;
+if (!vue.some((f) => f.path === 'src/App.vue')) fail('framework=vue で App.vue が生成されません');
+const vuePkg = textOf(
+  await client.callTool({
+    name: 'generate_source',
+    arguments: { projectId: id, filePath: 'package.json', framework: 'vue' },
+  }),
+);
+if (!vuePkg.includes('vue-router')) fail('framework=vue の package.json が不正です');
+console.log('generate_source framework=vue OK:', vue.length, 'files');
+
 // TypeSpec export(集約があれば interface/main.tsp が生成される)
 const hasAggregate = desc.dataModel.models.some((m: { kind: string }) => m.kind === 'aggregate');
 if (hasAggregate) {

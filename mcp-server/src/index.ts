@@ -8,9 +8,17 @@ import { exportDiagram } from '@/application/diagram-export';
 import { DataModel, type FieldType } from '@/domain/data-model';
 import { ProjectDoc } from '@/domain/project-doc';
 import { parseProjectDoc } from '@/domain/schema';
-import { generateProject } from '@/generator';
+import { generateProject, generateVueProject, type GeneratedFile } from '@/generator';
 import { api, type ApiProject } from './api-client.js';
 import { describeApp } from './describe.js';
+
+/** 生成フレームワークの選択(FR-GEN-07)。react=完全機能 / vue=UI 層 PoC */
+const Framework = z.enum(['react', 'vue']).optional();
+const genFiles = (doc: ProjectDoc, name: string, framework?: string): GeneratedFile[] =>
+  framework === 'vue' ? generateVueProject(doc, name) : generateProject(doc, name);
+/** Vue は React の生成物と混在しないよう独立ワークスペースでビルドする */
+const buildWorkspace = (projectId: string, framework?: string): string =>
+  framework === 'vue' ? `${projectId}-vue` : projectId;
 
 /**
  * AppForge MCP サーバー(Phase 0: read / generate / build)。
@@ -85,15 +93,16 @@ server.registerTool(
   {
     title: 'ソース生成',
     description:
-      'ビルド可能な React アプリのソース一式を生成する。filePath 指定でそのファイルの内容、未指定でファイル一覧(path / bytes)を返す',
+      'ビルド可能なアプリのソース一式を生成する。framework=react(既定、完全機能)/ vue(UI 層 PoC)。filePath 指定でそのファイルの内容、未指定でファイル一覧(path / bytes)を返す',
     inputSchema: {
       projectId: z.string(),
       filePath: z.string().optional().describe('例: src/App.tsx'),
+      framework: Framework,
     },
   },
-  async ({ projectId, filePath }) => {
+  async ({ projectId, filePath, framework }) => {
     const { project, doc } = await loadDoc(projectId);
-    const files = generateProject(doc, project.name);
+    const files = genFiles(doc, project.name, framework);
     if (filePath !== undefined) {
       const file = files.find((f) => f.path === filePath);
       return file ? text(file.content) : errorText(`ファイルがありません: ${filePath}`);
@@ -107,15 +116,17 @@ server.registerTool(
   {
     title: 'ビルドしてプレビュー',
     description:
-      'ソースを生成し、BE のビルドランナーで npm install / tsc / vite build を実行する。結果・ビルドログ末尾・プレビュー URL を返す(初回は依存取得で時間がかかる)',
-    inputSchema: { projectId: z.string() },
+      'ソースを生成し、BE のビルドランナーで npm install / 型チェック / vite build を実行する。framework=react(既定)/ vue。結果・ビルドログ末尾・プレビュー URL を返す(初回は依存取得で時間がかかる)',
+    inputSchema: { projectId: z.string(), framework: Framework },
   },
-  async ({ projectId }) => {
+  async ({ projectId, framework }) => {
     const { project, doc } = await loadDoc(projectId);
-    const result = await api.build(projectId, generateProject(doc, project.name));
+    // Vue は独立ワークスペースでビルド(React の生成物と混在させない)
+    const workspace = buildWorkspace(projectId, framework);
+    const result = await api.build(workspace, genFiles(doc, project.name, framework));
     return text({
       ok: result.ok,
-      previewUrl: result.ok ? api.previewUrl(projectId) : null,
+      previewUrl: result.ok ? api.previewUrl(workspace) : null,
       log: result.log.slice(-4000),
     });
   },
@@ -131,9 +142,10 @@ server.registerTool(
       projectId: z.string(),
       outDir: z.string().describe('絶対パス'),
       overwrite: z.boolean().optional(),
+      framework: Framework,
     },
   },
-  async ({ projectId, outDir, overwrite }) => {
+  async ({ projectId, outDir, overwrite, framework }) => {
     if (!path.isAbsolute(outDir)) return errorText('outDir は絶対パスで指定してください');
     const existing = await readdir(outDir).catch(() => null);
     if (existing && existing.length > 0 && overwrite !== true) {
@@ -142,7 +154,7 @@ server.registerTool(
       );
     }
     const { project, doc } = await loadDoc(projectId);
-    const files = generateProject(doc, project.name);
+    const files = genFiles(doc, project.name, framework);
     for (const f of files) {
       const target = path.join(outDir, f.path);
       await mkdir(path.dirname(target), { recursive: true });
