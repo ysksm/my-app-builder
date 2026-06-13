@@ -168,12 +168,22 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
       return [`${pad}<footer className="c-footer">{${s(p('text'))}}</footer>`];
     case 'metric': {
       ctx.needsMetric = true;
-      const source = String(p('source')) === 'live' ? 'live' : 'mock';
+      const raw = String(p('source'));
+      const source = raw === 'live' || raw === 'modbus' ? raw : 'mock';
       const attrs = [
         `label={${s(p('label'))}}`,
         `unit={${s(p('unit'))}}`,
         `source={${s(source)}}`,
         `channel={${s(p('channel'))}}`,
+        // Modbus/TCP のときだけ接続パラメータを渡す
+        ...(source === 'modbus'
+          ? [
+              `host={${s(p('host'))}}`,
+              `unitId={${num(p('unit_id'))}}`,
+              `register={${num(p('register'))}}`,
+              `scale={${num(p('scale'))}}`,
+            ]
+          : []),
         `min={${num(p('min'))}}`,
         `max={${num(p('max'))}}`,
         `interval={${num(p('interval'))}}`,

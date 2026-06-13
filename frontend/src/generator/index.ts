@@ -28,7 +28,7 @@ const usesMetric = (doc: ProjectDoc): boolean => {
 };
 
 /** リアルタイム数値カード。mock(模擬データ)または live(WS データチャネル)で更新 */
-const metricComponentTsx = `// 自動生成 — AppForge: リアルタイム数値カード(DataChannel: mock / live)
+const metricComponentTsx = `// 自動生成 — AppForge: リアルタイム数値カード(DataChannel: mock / live / modbus)
 import { useEffect, useState } from 'react';
 
 export type MetricProps = {
@@ -38,21 +38,42 @@ export type MetricProps = {
   max: number;
   interval: number;
   decimals: number;
-  source: 'mock' | 'live';
+  source: 'mock' | 'live' | 'modbus';
   channel: string;
+  // Modbus/TCP(source=modbus のときのみ使用)
+  host?: string;
+  unitId?: number;
+  register?: number;
+  scale?: number;
 };
 
-export function Metric({ label, unit, min, max, interval, decimals, source, channel }: MetricProps) {
+export function Metric({
+  label, unit, min, max, interval, decimals, source, channel,
+  host, unitId, register, scale,
+}: MetricProps) {
   const [value, setValue] = useState<number | null>(null);
-  const live = source === 'live';
+  // mock 以外(live / modbus)は BE の WS データチャネルを購読する
+  const streamed = source === 'live' || source === 'modbus';
   useEffect(() => {
-    if (live) {
+    if (streamed) {
       // BE の WS ゲートウェイ /api/channels/{ch}/stream を購読(FR-RT-01)
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ch = channel || 'default';
+      const q = new URLSearchParams();
+      q.set('min', String(min));
+      q.set('max', String(max));
+      q.set('interval', String(interval));
+      if (source === 'modbus') {
+        // BE は kind=modbus で ModbusConnector を解決(FR-RT-02)
+        q.set('kind', 'modbus');
+        if (host) q.set('host', host);
+        if (unitId != null) q.set('unit', String(unitId));
+        if (register != null) q.set('register', String(register));
+        if (scale != null) q.set('scale', String(scale));
+      }
       const url =
         proto + '//' + window.location.host + '/api/channels/' + encodeURIComponent(ch) +
-        '/stream?min=' + min + '&max=' + max + '&interval=' + interval;
+        '/stream?' + q.toString();
       const ws = new WebSocket(url);
       ws.onmessage = (e) => {
         try {
@@ -69,10 +90,11 @@ export function Metric({ label, unit, min, max, interval, decimals, source, chan
     tick();
     const id = setInterval(tick, Math.max(200, interval));
     return () => clearInterval(id);
-  }, [min, max, interval, live, channel]);
+  }, [min, max, interval, streamed, source, channel, host, unitId, register, scale]);
+  const tag = source === 'modbus' ? ' ● MODBUS' : source === 'live' ? ' ● LIVE' : '';
   return (
     <div className="c-metric">
-      <span className="c-metric-label">{label}{live ? ' ● LIVE' : ''}</span>
+      <span className="c-metric-label">{label}{tag}</span>
       <span className="c-metric-value">
         {value === null ? '—' : value.toFixed(decimals)}
         <span className="c-metric-unit">{unit}</span>

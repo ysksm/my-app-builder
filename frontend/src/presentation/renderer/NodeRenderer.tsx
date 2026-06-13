@@ -132,16 +132,28 @@ function MetricView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
   const max = num(p('max'));
   const interval = num(p('interval'));
   const decimals = num(p('decimals'));
-  const live = str(p('source')) === 'live';
+  const source = str(p('source'));
+  const streamed = source === 'live' || source === 'modbus';
   const value = useMetricValue(
-    { min, max, interval, live, channel: str(p('channel')) },
+    {
+      min,
+      max,
+      interval,
+      source,
+      channel: str(p('channel')),
+      host: str(p('host')),
+      unitId: num(p('unit_id')),
+      register: num(p('register')),
+      scale: num(p('scale')),
+    },
     mode === 'preview',
   );
+  const tag = source === 'modbus' ? '● MODBUS' : source === 'live' ? '● LIVE' : '';
   return (
     <div className="c-metric">
       <span className="c-metric-label">
         {str(p('label'))}
-        {live && <span className="c-metric-live">● LIVE</span>}
+        {streamed && <span className="c-metric-live">{tag}</span>}
       </span>
       <span className="c-metric-value">
         {value === null ? '—' : value.toFixed(decimals)}
@@ -155,24 +167,41 @@ type MetricSource = Readonly<{
   min: number;
   max: number;
   interval: number;
-  live: boolean;
+  source: string;
   channel: string;
+  host: string;
+  unitId: number;
+  register: number;
+  scale: number;
 }>;
 
 /**
  * データチャネル抽象(FR-RT-01)。active のとき:
- * - live: BE の WS ゲートウェイ /api/channels/{ch}/stream を購読
+ * - live: BE の WS ゲートウェイ /api/channels/{ch}/stream を購読(MockConnector)
+ * - modbus: 同 WS を kind=modbus で購読し ModbusConnector を解決(FR-RT-02)
  * - mock: 模擬データジェネレータ(FR-RT-03)で [min,max] を interval ごとに生成
  */
 function useMetricValue(src: MetricSource, active: boolean): number | null {
   const [value, setValue] = useState<number | null>(null);
-  const { min, max, interval, live, channel } = src;
+  const { min, max, interval, source, channel, host, unitId, register, scale } = src;
   useEffect(() => {
     if (!active) return;
-    if (live) {
+    if (source === 'live' || source === 'modbus') {
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ch = channel || 'default';
-      const url = `${proto}//${window.location.host}/api/channels/${encodeURIComponent(ch)}/stream?min=${min}&max=${max}&interval=${interval}`;
+      const q = new URLSearchParams({
+        min: String(min),
+        max: String(max),
+        interval: String(interval),
+      });
+      if (source === 'modbus') {
+        q.set('kind', 'modbus');
+        if (host) q.set('host', host);
+        q.set('unit', String(unitId));
+        q.set('register', String(register));
+        q.set('scale', String(scale));
+      }
+      const url = `${proto}//${window.location.host}/api/channels/${encodeURIComponent(ch)}/stream?${q.toString()}`;
       const ws = new WebSocket(url);
       ws.onmessage = (e) => {
         try {
@@ -188,7 +217,7 @@ function useMetricValue(src: MetricSource, active: boolean): number | null {
     tick();
     const id = setInterval(tick, Math.max(200, interval));
     return () => clearInterval(id);
-  }, [min, max, interval, live, channel, active]);
+  }, [min, max, interval, source, channel, host, unitId, register, scale, active]);
   return value;
 }
 

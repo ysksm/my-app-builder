@@ -45,6 +45,37 @@ describe('metric(数値カード)生成', () => {
     expect(page).toContain('channel={"temp"}');
   });
 
+  it('source=modbus で Modbus 接続パラメータが Metric に渡り、WS URL に kind=modbus が載る', () => {
+    const files = generateProject(
+      docWithMetric({
+        source: 'modbus',
+        channel: 'reg0',
+        host: '127.0.0.1:5502',
+        unit_id: 2,
+        register: 5,
+        scale: 0.1,
+      }),
+      'x',
+    );
+    const page = files.find((f) => f.path === 'src/pages/Page0.tsx')!.content;
+    expect(page).toContain('source={"modbus"}');
+    expect(page).toContain('host={"127.0.0.1:5502"}');
+    expect(page).toContain('unitId={2}');
+    expect(page).toContain('register={5}');
+    expect(page).toContain('scale={0.1}');
+
+    const metricSrc = files.find((f) => f.path === 'src/shared/realtime/Metric.tsx')!.content;
+    expect(metricSrc).toContain(`q.set('kind', 'modbus')`);
+    expect(metricSrc).toContain(`source === 'modbus'`);
+  });
+
+  it('source=mock のときは Modbus 属性を出力しない', () => {
+    const files = generateProject(docWithMetric({ source: 'mock' }), 'x');
+    const page = files.find((f) => f.path === 'src/pages/Page0.tsx')!.content;
+    expect(page).not.toContain('host=');
+    expect(page).not.toContain('unitId=');
+  });
+
   it('metric が無ければ Metric は生成されない', () => {
     const paths = generateProject(ProjectDoc.create(), 'x').map((f) => f.path);
     expect(paths).not.toContain('src/shared/realtime/Metric.tsx');

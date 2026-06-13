@@ -164,6 +164,10 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
       decimals: 0,
       source: 'mock',
       channel: 'cpu',
+      host: '127.0.0.1:5502',
+      unit_id: 1,
+      register: 0,
+      scale: 1,
     },
     propFields: [
       { key: 'label', label: 'ラベル', input: 'text' },
@@ -175,9 +179,15 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
         options: [
           { value: 'mock', label: '模擬データ' },
           { value: 'live', label: 'ライブ(WS)' },
+          { value: 'modbus', label: 'Modbus/TCP' },
         ],
       },
       { key: 'channel', label: 'チャネル ID', input: 'text' },
+      // Modbus/TCP(source=modbus のときのみ意味を持つ)
+      { key: 'host', label: 'Modbus host:port', input: 'text' },
+      { key: 'unit_id', label: 'Modbus ユニット ID', input: 'number' },
+      { key: 'register', label: '保持レジスタ番号', input: 'number' },
+      { key: 'scale', label: 'スケール係数', input: 'number' },
       { key: 'min', label: '最小値', input: 'number' },
       { key: 'max', label: '最大値', input: 'number' },
       { key: 'interval', label: '更新間隔(ms)', input: 'number' },
