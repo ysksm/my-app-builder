@@ -87,6 +87,34 @@ body {
 .c-metric.s-crit { border-color: var(--color-danger); box-shadow: 0 0 0 1px var(--color-danger); }
 .c-metric.s-crit .c-metric-value { color: var(--color-danger); }
 
+/* ゲージ(横バー)。fill 幅で現在値、しきい値で色が変わる */
+.c-gauge {
+  display: flex; flex-direction: column; gap: 6px; align-self: stretch;
+  min-width: 200px; background: var(--color-surface-card);
+  border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 12px 16px;
+}
+.c-gauge-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.c-gauge-label { font-size: 12px; color: var(--color-text-muted); }
+.c-gauge-value { font-size: 18px; font-weight: 700; color: var(--color-primary); }
+.c-gauge-track { height: 10px; border-radius: 999px; background: var(--color-surface); overflow: hidden; }
+.c-gauge-fill { height: 100%; background: var(--color-primary); border-radius: 999px; transition: width .3s ease; }
+.c-gauge.s-warn .c-gauge-fill { background: var(--color-warn, #d98e00); }
+.c-gauge.s-warn .c-gauge-value { color: var(--color-warn, #d98e00); }
+.c-gauge.s-crit .c-gauge-fill { background: var(--color-danger); }
+.c-gauge.s-crit .c-gauge-value { color: var(--color-danger); }
+
+/* ステータスランプ。重大度を色付きの丸で示す(正常=緑 / 警告=黄 / 危険=赤) */
+.c-lamp {
+  display: inline-flex; align-items: center; gap: 10px; align-self: flex-start;
+  background: var(--color-surface-card); border: 1px solid var(--color-border);
+  border-radius: var(--radius-md); padding: 10px 16px; min-width: 160px;
+}
+.c-lamp-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--color-ok, #2f9e44); flex: none; }
+.c-lamp-dot.s-warn { background: var(--color-warn, #d98e00); }
+.c-lamp-dot.s-crit { background: var(--color-danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 25%, transparent); }
+.c-lamp-label { font-size: 13px; color: var(--color-text); }
+.c-lamp-value { font-size: 13px; font-weight: 600; color: var(--color-text-muted); margin-left: auto; }
+
 .c-table {
   border-collapse: collapse;
   width: 100%;

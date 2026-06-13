@@ -121,46 +121,94 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
       return <footer className="c-footer">{str(p('text'))}</footer>;
     case 'metric':
       return <MetricView node={node} mode={mode} />;
+    case 'gauge':
+      return <GaugeView node={node} mode={mode} />;
+    case 'lamp':
+      return <LampView node={node} mode={mode} />;
   }
 }
+
+/** ノード props からデータチャネル設定を読む(metric / gauge / lamp 共通) */
+function channelOf(node: ComponentNode, def: ComponentDef): MetricSource {
+  const p = (key: string) => propOf(node, def, key);
+  return {
+    min: num(p('min')),
+    max: num(p('max')),
+    interval: num(p('interval')),
+    source: str(p('source')),
+    channel: str(p('channel')),
+    host: str(p('host')),
+    unitId: num(p('unit_id')),
+    register: num(p('register')),
+    scale: num(p('scale')),
+  };
+}
+
+const sourceTag = (source: string): string =>
+  source === 'modbus' ? '● MODBUS' : source === 'live' ? '● LIVE' : '';
 
 /** リアルタイム数値カード。preview では模擬 / ライブ(WS)でライブ更新、edit では静的表示 */
 function MetricView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
   const def = componentDefs.metric;
   const p = (key: string) => propOf(node, def, key);
-  const min = num(p('min'));
-  const max = num(p('max'));
-  const interval = num(p('interval'));
-  const decimals = num(p('decimals'));
   const source = str(p('source'));
-  const streamed = source === 'live' || source === 'modbus';
-  const value = useMetricValue(
-    {
-      min,
-      max,
-      interval,
-      source,
-      channel: str(p('channel')),
-      host: str(p('host')),
-      unitId: num(p('unit_id')),
-      register: num(p('register')),
-      scale: num(p('scale')),
-    },
-    mode === 'preview',
-  );
-  const tag = source === 'modbus' ? '● MODBUS' : source === 'live' ? '● LIVE' : '';
+  const value = useMetricValue(channelOf(node, def), mode === 'preview');
   const severity = value === null ? 'normal' : metricSeverity(value, node, def);
   const cls = 'c-metric' + (severity !== 'normal' ? ` s-${severity}` : '');
   return (
     <div className={cls}>
       <span className="c-metric-label">
         {str(p('label'))}
-        {streamed && <span className="c-metric-live">{tag}</span>}
+        {source !== 'mock' && <span className="c-metric-live">{sourceTag(source)}</span>}
       </span>
       <span className="c-metric-value">
-        {value === null ? '—' : value.toFixed(decimals)}
+        {value === null ? '—' : value.toFixed(num(p('decimals')))}
         <span className="c-metric-unit">{str(p('unit'))}</span>
       </span>
+    </div>
+  );
+}
+
+/** 横バーゲージ。[min,max] に対する割合をバーで表示、しきい値で色が変わる */
+function GaugeView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
+  const def = componentDefs.gauge;
+  const p = (key: string) => propOf(node, def, key);
+  const source = str(p('source'));
+  const value = useMetricValue(channelOf(node, def), mode === 'preview');
+  const min = num(p('min'));
+  const max = num(p('max'));
+  const severity = value === null ? 'normal' : metricSeverity(value, node, def);
+  const ratio = value === null || max <= min ? 0 : Math.min(1, Math.max(0, (value - min) / (max - min)));
+  const cls = 'c-gauge' + (severity !== 'normal' ? ` s-${severity}` : '');
+  return (
+    <div className={cls}>
+      <div className="c-gauge-head">
+        <span className="c-gauge-label">
+          {str(p('label'))} {source !== 'mock' && sourceTag(source)}
+        </span>
+        <span className="c-gauge-value">
+          {value === null ? '—' : value.toFixed(num(p('decimals')))}
+          {str(p('unit'))}
+        </span>
+      </div>
+      <div className="c-gauge-track">
+        <div className="c-gauge-fill" style={{ width: `${(ratio * 100).toFixed(1)}%` }} />
+      </div>
+    </div>
+  );
+}
+
+/** ステータスランプ。しきい値の重大度を色付きの丸で示す */
+function LampView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
+  const def = componentDefs.lamp;
+  const p = (key: string) => propOf(node, def, key);
+  const value = useMetricValue(channelOf(node, def), mode === 'preview');
+  const severity = value === null ? 'normal' : metricSeverity(value, node, def);
+  return (
+    <div className="c-lamp">
+      <span className={`c-lamp-dot s-${severity}`} />
+      <span className="c-lamp-label">{str(p('label'))}</span>
+      <span className="c-lamp-value">{value === null ? '—' : value.toFixed(0)}</span>
     </div>
   );
 }
@@ -186,7 +234,7 @@ export function severityOf(v: number, t: MetricThresholds): 'normal' | 'warn' | 
 function metricSeverity(
   v: number,
   node: ComponentNode,
-  def: typeof componentDefs.metric,
+  def: ComponentDef,
 ): 'normal' | 'warn' | 'crit' {
   const t = (key: string): number | null => {
     const raw = propOf(node, def, key);

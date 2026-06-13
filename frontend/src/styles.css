@@ -234,6 +234,30 @@ body {
 .c-metric.s-warn .c-metric-value { color: var(--color-warn, #d98e00); }
 .c-metric.s-crit { border-color: var(--color-danger, #e03131); box-shadow: 0 0 0 1px var(--color-danger, #e03131); }
 .c-metric.s-crit .c-metric-value { color: var(--color-danger, #e03131); }
+.c-gauge {
+  display: flex; flex-direction: column; gap: 6px; align-self: stretch; min-width: 200px;
+  background: var(--color-surface-card, #fff); border: 1px solid var(--color-border, #c6cde4);
+  border-radius: var(--radius-md, 8px); padding: 12px 16px;
+}
+.c-gauge-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.c-gauge-label { font-size: 12px; color: var(--color-text-muted, #5b6480); }
+.c-gauge-value { font-size: 18px; font-weight: 700; color: var(--color-primary, #4263eb); }
+.c-gauge-track { height: 10px; border-radius: 999px; background: var(--color-surface, #eef1f8); overflow: hidden; }
+.c-gauge-fill { height: 100%; background: var(--color-primary, #4263eb); border-radius: 999px; transition: width .3s ease; }
+.c-gauge.s-warn .c-gauge-fill { background: var(--color-warn, #d98e00); }
+.c-gauge.s-warn .c-gauge-value { color: var(--color-warn, #d98e00); }
+.c-gauge.s-crit .c-gauge-fill { background: var(--color-danger, #e03131); }
+.c-gauge.s-crit .c-gauge-value { color: var(--color-danger, #e03131); }
+.c-lamp {
+  display: inline-flex; align-items: center; gap: 10px; align-self: flex-start; min-width: 160px;
+  background: var(--color-surface-card, #fff); border: 1px solid var(--color-border, #c6cde4);
+  border-radius: var(--radius-md, 8px); padding: 10px 16px;
+}
+.c-lamp-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--color-ok, #2f9e44); flex: none; }
+.c-lamp-dot.s-warn { background: var(--color-warn, #d98e00); }
+.c-lamp-dot.s-crit { background: var(--color-danger, #e03131); }
+.c-lamp-label { font-size: 13px; color: var(--color-text, #1f2430); }
+.c-lamp-value { font-size: 13px; font-weight: 600; color: var(--color-text-muted, #5b6480); margin-left: auto; }
 .c-table { border-collapse: collapse; width: 100%; font-size: 13px; background: var(--color-surface-card, #fff); border-radius: var(--radius-sm, 4px); }
 .c-table th, .c-table td { border: 1px solid var(--color-border, #dde2f0); padding: 7px 10px; text-align: left; }
 .c-table th { background: var(--color-surface, #eef1fa); color: var(--color-text-muted, #3c4566); }

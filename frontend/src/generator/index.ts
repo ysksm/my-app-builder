@@ -15,10 +15,12 @@ import { paths } from './layout';
 
 export type { GeneratedFile } from './files';
 
-/** ドキュメント内に metric(数値カード)ノードがあるか */
+/** ドキュメント内にリアルタイムモニタリング部品(metric / gauge / lamp)があるか */
 const usesMetric = (doc: ProjectDoc): boolean => {
+  const isRealtime = (t: ComponentNode['type']): boolean =>
+    t === 'metric' || t === 'gauge' || t === 'lamp';
   const treeHas = (node: ComponentNode): boolean =>
-    node.type === 'metric' || node.children.some(treeHas);
+    isRealtime(node.type) || node.children.some(treeHas);
   return (
     doc.pages.some((pg) => treeHas(pg.root)) ||
     doc.dialogs.some((d) => treeHas(d.root)) ||
@@ -27,26 +29,14 @@ const usesMetric = (doc: ProjectDoc): boolean => {
   );
 };
 
-/** リアルタイム数値カード。mock(模擬データ)または live(WS データチャネル)で更新 */
-const metricComponentTsx = `// 自動生成 — AppForge: リアルタイム数値カード(DataChannel: mock / live / modbus)
+/** リアルタイムモニタリングのランタイム(データチャネル + Metric / Gauge / Lamp)。
+ *  Metric/Gauge/Lamp は同じ useChannel(購読)/ metricSeverity(しきい値)/ useAlert を共有する。 */
+const realtimeRuntimeTsx = `// 自動生成 — AppForge: リアルタイムモニタリング(DataChannel: mock / live / modbus)
 import { useEffect, useRef, useState } from 'react';
 
 export type Severity = 'normal' | 'warn' | 'crit';
 
-export type MetricProps = {
-  label: string;
-  unit: string;
-  min: number;
-  max: number;
-  interval: number;
-  decimals: number;
-  source: 'mock' | 'live' | 'modbus';
-  channel: string;
-  // Modbus/TCP(source=modbus のときのみ使用)
-  host?: string;
-  unitId?: number;
-  register?: number;
-  scale?: number;
+export type Thresholds = {
   // しきい値アラート(FR-RT-04)。未指定=無効
   warnAbove?: number;
   critAbove?: number;
@@ -56,45 +46,33 @@ export type MetricProps = {
 
 const RANK: Record<Severity, number> = { normal: 0, warn: 1, crit: 2 };
 
-/** 値としきい値から重大度を判定(上限/下限の危険を優先) */
-export function metricSeverity(
-  v: number,
-  t: Pick<MetricProps, 'warnAbove' | 'critAbove' | 'warnBelow' | 'critBelow'>,
-): Severity {
+/** 値としきい値から重大度を判定(上限/下限の危険を優先、>= / <=) */
+export function metricSeverity(v: number, t: Thresholds): Severity {
   if ((t.critAbove != null && v >= t.critAbove) || (t.critBelow != null && v <= t.critBelow)) return 'crit';
   if ((t.warnAbove != null && v >= t.warnAbove) || (t.warnBelow != null && v <= t.warnBelow)) return 'warn';
   return 'normal';
 }
 
-/** アプリイベント(FR-RT-04): app シェルがこれを購読してトースト等に橋渡しする */
-export type MetricAlert = { label: string; value: number; unit: string; severity: Severity };
+export type ChannelConfig = {
+  source: 'mock' | 'live' | 'modbus';
+  channel: string;
+  min: number;
+  max: number;
+  interval: number;
+  // Modbus/TCP(source=modbus のときのみ使用)
+  host?: string;
+  unitId?: number;
+  register?: number;
+  scale?: number;
+};
 
-export function Metric({
-  label, unit, min, max, interval, decimals, source, channel,
-  host, unitId, register, scale,
-  warnAbove, critAbove, warnBelow, critBelow,
-}: MetricProps) {
+/** データチャネル購読(FR-RT-01): mock=模擬ジェネレータ, live/modbus=BE WS ゲートウェイ */
+export function useChannel(cfg: ChannelConfig): number | null {
+  const { source, channel, min, max, interval, host, unitId, register, scale } = cfg;
   const [value, setValue] = useState<number | null>(null);
-  const prevRank = useRef(0);
-  const severity: Severity =
-    value === null ? 'normal' : metricSeverity(value, { warnAbove, critAbove, warnBelow, critBelow });
-
-  // 重大度が上昇したときだけイベント発火(同レベル継続では再発火しない)
   useEffect(() => {
-    if (value === null) return;
-    const rank = RANK[severity];
-    if (rank > prevRank.current && rank > 0) {
-      const detail: MetricAlert = { label, value, unit, severity };
-      window.dispatchEvent(new CustomEvent('appforge:alert', { detail }));
-    }
-    prevRank.current = rank;
-  }, [severity, value, label, unit]);
-
-  // mock 以外(live / modbus)は BE の WS データチャネルを購読する
-  const streamed = source === 'live' || source === 'modbus';
-  useEffect(() => {
-    if (streamed) {
-      // BE の WS ゲートウェイ /api/channels/{ch}/stream を購読(FR-RT-01)
+    if (source === 'live' || source === 'modbus') {
+      // BE の WS ゲートウェイ /api/channels/{ch}/stream を購読
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ch = channel || 'default';
       const q = new URLSearchParams();
@@ -128,15 +106,87 @@ export function Metric({
     tick();
     const id = setInterval(tick, Math.max(200, interval));
     return () => clearInterval(id);
-  }, [min, max, interval, streamed, source, channel, host, unitId, register, scale]);
-  const tag = source === 'modbus' ? ' ● MODBUS' : source === 'live' ? ' ● LIVE' : '';
+  }, [source, channel, min, max, interval, host, unitId, register, scale]);
+  return value;
+}
+
+/** アプリイベント(FR-RT-04): app シェルがこれを購読してトースト等に橋渡しする */
+export type MetricAlert = { label: string; value: number; unit: string; severity: Severity };
+
+/** 重大度が上昇したときだけ window アラートイベントを発火(同レベル継続では再発火しない) */
+export function useAlert(label: string, unit: string, value: number | null, severity: Severity): void {
+  const prevRank = useRef(0);
+  useEffect(() => {
+    if (value === null) return;
+    const rank = RANK[severity];
+    if (rank > prevRank.current && rank > 0) {
+      const detail: MetricAlert = { label, value, unit, severity };
+      window.dispatchEvent(new CustomEvent('appforge:alert', { detail }));
+    }
+    prevRank.current = rank;
+  }, [severity, value, label, unit]);
+}
+
+export type RealtimeProps = ChannelConfig &
+  Thresholds & { label: string; unit?: string; decimals?: number };
+
+function sourceTag(source: string): string {
+  return source === 'modbus' ? ' ● MODBUS' : source === 'live' ? ' ● LIVE' : '';
+}
+
+/** 数値カード */
+export function Metric(props: RealtimeProps) {
+  const { label, unit = '', decimals = 0 } = props;
+  const value = useChannel(props);
+  const severity: Severity = value === null ? 'normal' : metricSeverity(value, props);
+  useAlert(label, unit, value, severity);
   const cls = 'c-metric' + (severity !== 'normal' ? ' s-' + severity : '');
   return (
     <div className={cls}>
-      <span className="c-metric-label">{label}{tag}</span>
+      <span className="c-metric-label">{label}{sourceTag(props.source)}</span>
       <span className="c-metric-value">
         {value === null ? '—' : value.toFixed(decimals)}
         <span className="c-metric-unit">{unit}</span>
+      </span>
+    </div>
+  );
+}
+
+/** 横バーゲージ。[min,max] に対する現在値の割合をバーで表し、しきい値で色を変える */
+export function Gauge(props: RealtimeProps) {
+  const { label, unit = '', decimals = 1, min, max } = props;
+  const value = useChannel(props);
+  const severity: Severity = value === null ? 'normal' : metricSeverity(value, props);
+  useAlert(label, unit, value, severity);
+  const ratio = value === null || max <= min ? 0 : Math.min(1, Math.max(0, (value - min) / (max - min)));
+  const cls = 'c-gauge' + (severity !== 'normal' ? ' s-' + severity : '');
+  return (
+    <div className={cls}>
+      <div className="c-gauge-head">
+        <span className="c-gauge-label">{label}{sourceTag(props.source)}</span>
+        <span className="c-gauge-value">
+          {value === null ? '—' : value.toFixed(decimals)}{unit}
+        </span>
+      </div>
+      <div className="c-gauge-track">
+        <div className="c-gauge-fill" style={{ width: (ratio * 100).toFixed(1) + '%' }} />
+      </div>
+    </div>
+  );
+}
+
+/** ステータスランプ。しきい値の重大度を色付きの丸で示す(正常=緑 / 警告=黄 / 危険=赤) */
+export function Lamp(props: RealtimeProps) {
+  const { label, unit = '', decimals = 0 } = props;
+  const value = useChannel(props);
+  const severity: Severity = value === null ? 'normal' : metricSeverity(value, props);
+  useAlert(label, unit, value, severity);
+  return (
+    <div className="c-lamp">
+      <span className={'c-lamp-dot s-' + severity} />
+      <span className="c-lamp-label">{label}</span>
+      <span className="c-lamp-value">
+        {value === null ? '—' : value.toFixed(decimals)}{unit}
       </span>
     </div>
   );
@@ -184,7 +234,7 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
     { path: paths.tokensCss, content: emitTokensCss(doc.tokens, doc.styleEmitter) },
     { path: paths.appCss, content: emitAppCss() },
     // リアルタイム: 数値カードを使うときだけ Metric コンポーネントを出力
-    ...(usesMetric(doc) ? [{ path: paths.metricComponent, content: metricComponentTsx }] : []),
+    ...(usesMetric(doc) ? [{ path: paths.realtimeRuntime, content: realtimeRuntimeTsx }] : []),
     // カスタムコード保護(FR-GEN-05)の第1消費者: ユーザー編集可・再生成で保持
     {
       path: paths.overridesCss,

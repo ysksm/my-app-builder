@@ -18,6 +18,51 @@ export type ComponentDef = Readonly<{
   propFields: ReadonlyArray<PropFieldDef>;
 }>;
 
+// ---------- リアルタイムモニタリング部品の共有プロパティ ----------
+// metric / gauge / lamp は同じデータチャネル(FR-RT-01)としきい値(FR-RT-04)を使う
+
+const channelDefaults: Readonly<Record<string, PropValue>> = {
+  source: 'mock',
+  channel: 'cpu',
+  min: 0,
+  max: 100,
+  interval: 1000,
+  host: '127.0.0.1:5502',
+  unit_id: 1,
+  register: 0,
+  scale: 1,
+};
+
+const channelFields: ReadonlyArray<PropFieldDef> = [
+  {
+    key: 'source',
+    label: 'データ源',
+    input: 'select',
+    options: [
+      { value: 'mock', label: '模擬データ' },
+      { value: 'live', label: 'ライブ(WS)' },
+      { value: 'modbus', label: 'Modbus/TCP' },
+    ],
+  },
+  { key: 'channel', label: 'チャネル ID', input: 'text' },
+  // Modbus/TCP(source=modbus のときのみ意味を持つ)
+  { key: 'host', label: 'Modbus host:port', input: 'text' },
+  { key: 'unit_id', label: 'Modbus ユニット ID', input: 'number' },
+  { key: 'register', label: '保持レジスタ番号', input: 'number' },
+  { key: 'scale', label: 'スケール係数', input: 'number' },
+  { key: 'min', label: '最小値', input: 'number' },
+  { key: 'max', label: '最大値', input: 'number' },
+  { key: 'interval', label: '更新間隔(ms)', input: 'number' },
+];
+
+// しきい値アラート(FR-RT-04)。空欄=無効。上限/下限それぞれに警告・危険を設定可能
+const thresholdFields: ReadonlyArray<PropFieldDef> = [
+  { key: 'warnAbove', label: '警告(以上)', input: 'number' },
+  { key: 'critAbove', label: '危険(以上)', input: 'number' },
+  { key: 'warnBelow', label: '警告(以下)', input: 'number' },
+  { key: 'critBelow', label: '危険(以下)', input: 'number' },
+];
+
 /** パーツ定義カタログ。パレット・プロパティパネル・レンダラを駆動するメタデータ */
 export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
   container: {
@@ -154,49 +199,52 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
     acceptsChildren: false,
     inPalette: true,
     supportsEvents: false,
-    // リアルタイムモニタリング: 模擬(mock)または BE の WS データチャネル(live)で更新
-    defaultProps: {
-      label: 'CPU 使用率',
-      unit: '%',
-      min: 0,
-      max: 100,
-      interval: 1000,
-      decimals: 0,
-      source: 'mock',
-      channel: 'cpu',
-      host: '127.0.0.1:5502',
-      unit_id: 1,
-      register: 0,
-      scale: 1,
-    },
+    // リアルタイムモニタリング: 模擬(mock)/ WS(live)/ Modbus でデータチャネルを購読
+    defaultProps: { label: 'CPU 使用率', unit: '%', decimals: 0, ...channelDefaults },
     propFields: [
       { key: 'label', label: 'ラベル', input: 'text' },
       { key: 'unit', label: '単位', input: 'text' },
-      {
-        key: 'source',
-        label: 'データ源',
-        input: 'select',
-        options: [
-          { value: 'mock', label: '模擬データ' },
-          { value: 'live', label: 'ライブ(WS)' },
-          { value: 'modbus', label: 'Modbus/TCP' },
-        ],
-      },
-      { key: 'channel', label: 'チャネル ID', input: 'text' },
-      // Modbus/TCP(source=modbus のときのみ意味を持つ)
-      { key: 'host', label: 'Modbus host:port', input: 'text' },
-      { key: 'unit_id', label: 'Modbus ユニット ID', input: 'number' },
-      { key: 'register', label: '保持レジスタ番号', input: 'number' },
-      { key: 'scale', label: 'スケール係数', input: 'number' },
-      { key: 'min', label: '最小値', input: 'number' },
-      { key: 'max', label: '最大値', input: 'number' },
-      { key: 'interval', label: '更新間隔(ms)', input: 'number' },
+      ...channelFields,
       { key: 'decimals', label: '小数桁', input: 'number' },
-      // しきい値アラート(FR-RT-04)。空欄=無効。上限/下限それぞれに警告・危険を設定可能
-      { key: 'warnAbove', label: '警告(以上)', input: 'number' },
-      { key: 'critAbove', label: '危険(以上)', input: 'number' },
-      { key: 'warnBelow', label: '警告(以下)', input: 'number' },
-      { key: 'critBelow', label: '危険(以下)', input: 'number' },
+      ...thresholdFields,
+    ],
+  },
+  gauge: {
+    type: 'gauge',
+    label: 'ゲージ',
+    icon: '🎚️',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    // [min,max] に対する現在値を横バーで表示。しきい値で色が変わる
+    defaultProps: { label: '温度', unit: '℃', decimals: 1, ...channelDefaults, max: 200 },
+    propFields: [
+      { key: 'label', label: 'ラベル', input: 'text' },
+      { key: 'unit', label: '単位', input: 'text' },
+      ...channelFields,
+      { key: 'decimals', label: '小数桁', input: 'number' },
+      ...thresholdFields,
+    ],
+  },
+  lamp: {
+    type: 'lamp',
+    label: 'ステータスランプ',
+    icon: '🚦',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    // しきい値の重大度を色付きランプで表す(正常=緑 / 警告=黄 / 危険=赤)
+    defaultProps: {
+      label: '稼働状態',
+      ...channelDefaults,
+      channel: 'status',
+      warnAbove: 70,
+      critAbove: 90,
+    },
+    propFields: [
+      { key: 'label', label: 'ラベル', input: 'text' },
+      ...channelFields,
+      ...thresholdFields,
     ],
   },
   header: {

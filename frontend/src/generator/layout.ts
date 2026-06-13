@@ -89,8 +89,8 @@ export const paths = {
   appCss: `${SHARED}/styles/app.css`,
   // ユーザー所有(再生成で保持される)カスタムスタイル
   overridesCss: `src/custom/overrides.css`,
-  // リアルタイム: 数値カード等のモニタリング部品
-  metricComponent: `${SHARED}/realtime/Metric.tsx`,
+  // リアルタイム: データチャネル + モニタリング部品(Metric / Gauge / Lamp)を1モジュールに集約
+  realtimeRuntime: `${SHARED}/realtime/runtime.tsx`,
 
   // pages(横断 UI)
   appHeader: `${PAGES}/AppHeader.tsx`,

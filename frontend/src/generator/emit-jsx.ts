@@ -17,7 +17,8 @@ type EmitCtx = {
   handlerCount: number;
   needsNavigate: boolean;
   needsDispatch: boolean;
-  needsMetric: boolean;
+  // リアルタイム部品の import 名(Metric / Gauge / Lamp)。すべて同一モジュールから
+  readonly realtimeImports: Set<string>;
   readonly usedActions: Set<UiAction>;
 };
 
@@ -166,8 +167,12 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
     }
     case 'footer':
       return [`${pad}<footer className="c-footer">{${s(p('text'))}}</footer>`];
-    case 'metric': {
-      ctx.needsMetric = true;
+    case 'metric':
+    case 'gauge':
+    case 'lamp': {
+      // metric / gauge / lamp は同じデータチャネル属性を共有(コンポーネント名のみ異なる)
+      const tag = node.type === 'gauge' ? 'Gauge' : node.type === 'lamp' ? 'Lamp' : 'Metric';
+      ctx.realtimeImports.add(tag);
       const raw = String(p('source'));
       const source = raw === 'live' || raw === 'modbus' ? raw : 'mock';
       // しきい値: 有限数のときだけ属性を出力(空欄=無効)
@@ -179,13 +184,15 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
         }
         return null;
       };
-      const threshold = (key: string, attr: string): string[] => {
+      const threshold = (key: string): string[] => {
         const v = finite(p(key));
-        return v === null ? [] : [`${attr}={${v}}`];
+        return v === null ? [] : [`${key}={${v}}`];
       };
+      // lamp は単位/小数桁を表示に使わないので渡さない(props 上は任意)
+      const showsValue = node.type !== 'lamp';
       const attrs = [
         `label={${s(p('label'))}}`,
-        `unit={${s(p('unit'))}}`,
+        ...(showsValue ? [`unit={${s(p('unit'))}}`] : []),
         `source={${s(source)}}`,
         `channel={${s(p('channel'))}}`,
         // Modbus/TCP のときだけ接続パラメータを渡す
@@ -200,14 +207,14 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
         `min={${num(p('min'))}}`,
         `max={${num(p('max'))}}`,
         `interval={${num(p('interval'))}}`,
-        `decimals={${num(p('decimals'))}}`,
+        ...(showsValue ? [`decimals={${num(p('decimals'))}}`] : []),
         // しきい値アラート(設定時のみ)
-        ...threshold('warnAbove', 'warnAbove'),
-        ...threshold('critAbove', 'critAbove'),
-        ...threshold('warnBelow', 'warnBelow'),
-        ...threshold('critBelow', 'critBelow'),
+        ...threshold('warnAbove'),
+        ...threshold('critAbove'),
+        ...threshold('warnBelow'),
+        ...threshold('critBelow'),
       ].join(' ');
-      return [`${pad}<Metric ${attrs} />`];
+      return [`${pad}<${tag} ${attrs} />`];
     }
   }
 };
@@ -228,7 +235,7 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
     handlerCount: 0,
     needsNavigate: false,
     needsDispatch: false,
-    needsMetric: false,
+    realtimeImports: new Set(),
     usedActions: new Set(),
   };
   const body = emitNode(opts.root, 4, ctx);
@@ -236,7 +243,10 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
   const imports: string[] = [];
   if (ctx.needsDispatch) imports.push(`import { useDispatch } from 'react-redux';`);
   if (ctx.needsNavigate) imports.push(`import { useNavigate } from 'react-router';`);
-  if (ctx.needsMetric) imports.push(`import { Metric } from '${relativeImport(opts.filePath, paths.metricComponent)}';`);
+  if (ctx.realtimeImports.size > 0) {
+    const parts = [...ctx.realtimeImports].sort().join(', ');
+    imports.push(`import { ${parts} } from '${relativeImport(opts.filePath, paths.realtimeRuntime)}';`);
+  }
   if (ctx.usedActions.size > 0) {
     const actions = [...ctx.usedActions].sort().join(', ');
     imports.push(`import { ${actions} } from '${relativeImport(opts.filePath, paths.uiSlice)}';`);

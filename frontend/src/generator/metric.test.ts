@@ -19,13 +19,27 @@ const docWithMetric = (props: Record<string, string | number> = {}) => {
   return doc;
 };
 
+/** 任意のリアルタイム部品(metric/gauge/lamp)を複数ぶら下げたドキュメント */
+const docWithParts = (...parts: Array<{ type: 'metric' | 'gauge' | 'lamp'; props?: Record<string, string | number> }>) => {
+  const doc = ProjectDoc.create();
+  const home = doc.pages[0]!;
+  let root = home.root;
+  parts.forEach((part, i) => {
+    const node = ComponentNode.create(part.type, {
+      label: part.type, min: 0, max: 100, interval: 1000, source: 'mock', channel: 'c', ...part.props,
+    });
+    root = unwrap(ComponentNode.insert(root, root.id, i, node));
+  });
+  return ProjectDoc.setTree(doc, EditTarget.page(home.id), root);
+};
+
 describe('metric(数値カード)生成', () => {
   it('metric があると Metric コンポーネントを生成し <Metric/> で参照する', () => {
     const files = generateProject(docWithMetric(), 'x');
     const paths = files.map((f) => f.path);
-    expect(paths).toContain('src/shared/realtime/Metric.tsx');
+    expect(paths).toContain('src/shared/realtime/runtime.tsx');
 
-    const metricSrc = files.find((f) => f.path === 'src/shared/realtime/Metric.tsx')!.content;
+    const metricSrc = files.find((f) => f.path === 'src/shared/realtime/runtime.tsx')!.content;
     expect(metricSrc).toContain('export function Metric(');
     expect(metricSrc).toContain('setInterval');
     expect(metricSrc).toContain('Math.random()');
@@ -35,7 +49,7 @@ describe('metric(数値カード)生成', () => {
 
     const page = files.find((f) => f.path === 'src/pages/Page0.tsx')!.content;
     expect(page).toContain('<Metric label={"CPU"} unit={"%"} source={"mock"} channel={"cpu"} min={0} max={100} interval={1000} decimals={1} />');
-    expect(page).toContain(`import { Metric } from '../shared/realtime/Metric';`);
+    expect(page).toContain(`import { Metric } from '../shared/realtime/runtime';`);
   });
 
   it('source=live を指定すると Metric に source={"live"} が渡る', () => {
@@ -64,7 +78,7 @@ describe('metric(数値カード)生成', () => {
     expect(page).toContain('register={5}');
     expect(page).toContain('scale={0.1}');
 
-    const metricSrc = files.find((f) => f.path === 'src/shared/realtime/Metric.tsx')!.content;
+    const metricSrc = files.find((f) => f.path === 'src/shared/realtime/runtime.tsx')!.content;
     expect(metricSrc).toContain(`q.set('kind', 'modbus')`);
     expect(metricSrc).toContain(`source === 'modbus'`);
   });
@@ -94,7 +108,7 @@ describe('metric(数値カード)生成', () => {
 
   it('Metric は重大度判定 + アラートイベント発火 + 重大度クラスを生成する', () => {
     const metricSrc = generateProject(docWithMetric({ warnAbove: 70 }), 'x').find(
-      (f) => f.path === 'src/shared/realtime/Metric.tsx',
+      (f) => f.path === 'src/shared/realtime/runtime.tsx',
     )!.content;
     expect(metricSrc).toContain('export function metricSeverity(');
     expect(metricSrc).toContain(`new CustomEvent('appforge:alert'`);
@@ -111,7 +125,7 @@ describe('metric(数値カード)生成', () => {
 
   it('metric が無ければ Metric は生成されない', () => {
     const paths = generateProject(ProjectDoc.create(), 'x').map((f) => f.path);
-    expect(paths).not.toContain('src/shared/realtime/Metric.tsx');
+    expect(paths).not.toContain('src/shared/realtime/runtime.tsx');
   });
 
   it('app.css と tokens に c-metric スタイルが含まれる', () => {
@@ -119,5 +133,51 @@ describe('metric(数値カード)生成', () => {
     const appCss = files.find((f) => f.path === 'src/shared/styles/app.css')!.content;
     expect(appCss).toContain('.c-metric');
     expect(appCss).toContain('.c-metric-value');
+  });
+});
+
+describe('gauge / lamp(モニタリング部品)生成', () => {
+  it('gauge / lamp は同じ runtime モジュールから Gauge / Lamp を出力する', () => {
+    const files = generateProject(docWithParts({ type: 'gauge' }, { type: 'lamp' }), 'x');
+    const runtime = files.find((f) => f.path === 'src/shared/realtime/runtime.tsx')!.content;
+    // 1モジュールに3部品 + 共有フックが集約される
+    expect(runtime).toContain('export function Gauge(');
+    expect(runtime).toContain('export function Lamp(');
+    expect(runtime).toContain('export function Metric(');
+    expect(runtime).toContain('export function useChannel(');
+
+    const page = files.find((f) => f.path === 'src/pages/Page0.tsx')!.content;
+    expect(page).toContain('<Gauge ');
+    expect(page).toContain('<Lamp ');
+    // import は1行に集約され、アルファベット順
+    expect(page).toContain(`import { Gauge, Lamp } from '../shared/realtime/runtime';`);
+  });
+
+  it('lamp は表示に使わない unit / decimals 属性を渡さない', () => {
+    const page = generateProject(docWithParts({ type: 'lamp', props: { unit: '%', decimals: 2 } }), 'x').find(
+      (f) => f.path === 'src/pages/Page0.tsx',
+    )!.content;
+    expect(page).toContain('<Lamp ');
+    expect(page).not.toContain('unit=');
+    expect(page).not.toContain('decimals=');
+  });
+
+  it('gauge は unit / decimals としきい値属性を渡す', () => {
+    const page = generateProject(
+      docWithParts({ type: 'gauge', props: { unit: '℃', decimals: 1, critAbove: 80 } }),
+      'x',
+    ).find((f) => f.path === 'src/pages/Page0.tsx')!.content;
+    expect(page).toContain('<Gauge ');
+    expect(page).toContain('unit={"℃"}');
+    expect(page).toContain('decimals={1}');
+    expect(page).toContain('critAbove={80}');
+  });
+
+  it('gauge / lamp 用の CSS が app.css に含まれる', () => {
+    const appCss = generateProject(docWithParts({ type: 'gauge' }, { type: 'lamp' }), 'x').find(
+      (f) => f.path === 'src/shared/styles/app.css',
+    )!.content;
+    expect(appCss).toContain('.c-gauge-fill');
+    expect(appCss).toContain('.c-lamp-dot');
   });
 });
