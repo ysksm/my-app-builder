@@ -3,6 +3,9 @@
 - 作成日: 2026-06-13
 - 対象: マイルストーン M3(requirements.md §10)
 - フェーズ分割: **M3a = モデルデザイナー + ドメイン層コード生成**(本計画の主対象)、**M3b = 中立 I/F モデル + TypeSpec アダプタ + CRUD 画面導出**
+- **ステータス: M3 完了**(2026-06-13)。M3a(T21–T26)/ M3b-1 CRUD(T28)/ features×レイヤード(T30)/ 中立 I/F モデル + TypeSpec export(T29)/ API repository + DI 切替(T31)/ MCP Phase 0(T27)。
+  生成アプリの tsc strict + vite build、生成 TypeSpec の実コンパイラ検証、ブラウザ E2E まで確認済み。
+  次マイルストーン: M3.5(ロジック定義 + コマンド層 + MCP Phase 1)。
 
 ---
 
