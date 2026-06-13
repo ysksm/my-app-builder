@@ -1,0 +1,398 @@
+# 要件定義書 — Webアプリ GUI ビルダー「AppForge(仮称)」
+
+- 作成日: 2026-06-12
+- ステータス: ドラフト v0.1
+- 対象読者: 開発チーム / ステークホルダー
+
+---
+
+## 1. 概要・ビジョン
+
+GUI 操作だけで Web アプリケーションを設計・構築し、最終的に **ビルド可能な React ソースコード一式を生成する** ローコード/プロコードハイブリッドツール。
+
+- **UIファースト**: Figma のようにキャンバス上で画面を組み立て、後からモデル・APIを紐付ける
+- **モデルファースト**: Salesforce / kintone のように DDD モデル(ER図ライク)を先に定義し、画面を導出する
+- どちらの順序でも開発でき、双方向に同期する
+
+対象アプリは業務アプリに限定せず、以下を含む:
+
+- 一般的な業務(CRUD)アプリ
+- サーバー・機器のリアルタイムモニタリングダッシュボード
+- ネットワーク機器などの設定(コンフィグレーション)ツール
+- **Modbus** 等の産業用プロトコル経由のデータ収集・モニタリング
+
+### 1.1 ゴール
+
+1. 非エンジニア〜エンジニアが GUI で画面・モデル・API を設計できる
+2. 生成物は「読める・テストできる・拡張できる」プロダクション品質の TypeScript/React コード
+3. 生成したアプリはそのまま `vite build` でビルド・デプロイ可能
+4. I/F は TypeSpec を単一ソースとして FE/BE/モックサーバーを生成
+
+### 1.2 参考プロダクトと差別化
+
+| プロダクト | 参考にする点 | 本ツールとの違い |
+|---|---|---|
+| **ToolJet** (OSS) | D&D ビルダーの UX、豊富なデータソースコネクタ(REST/DB/API)、クエリとUIのバインディング、セルフホスト構成 | ToolJet はアプリ定義を自社ランタイムで解釈実行する。本ツールは**ビルド可能な React ソースコードを成果物**とし、ツール外でも資産になる |
+| **Appsmith** (OSS) | ウィジェットの属性パネル設計、JS バインディング(`{{ }}`)、ページ/クエリ/JS Object の構成、Git 連携 | 同上(ランタイム解釈型)。また両者ともドメインモデリング層を持たない。本ツールは **DDD モデルファースト**と **TypeSpec による I/F 定義**を一級市民にする |
+| Figma | キャンバス操作感、コメント/閲覧モード、共有リンク | デザインに留まらず動くコードまで生成 |
+| kintone / Salesforce | モデル(フォーム/オブジェクト)ファーストの開発体験 | 生成物がプロプライエタリ環境にロックインされない |
+| Retool / Budibase | コンポーネントカタログ、イベント→アクション連鎖の UI | コード生成・アーキテクチャ規約(レイヤード/DI/Result)の強制 |
+
+> ToolJet / Appsmith は OSS のため、ウィジェットのプロパティスキーマ設計・データソース抽象化・エディタの状態管理など**実装面のリファレンス**としても活用する(ライセンス互換性に留意: ToolJet は AGPL、Appsmith は Apache-2.0)。
+
+### 1.3 非ゴール(初期リリース)
+
+- ネイティブモバイルアプリの生成
+- 既存コードのリバースインポート(将来検討)
+- マルチテナント SaaS としての提供(まずはセルフホスト)
+
+---
+
+## 2. システム構成
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ AppForge (アプリ生成アプリ)                                │
+│                                                         │
+│  FE: Web アプリ (React + TypeScript)                      │
+│   ├─ GUI ビルダー (キャンバス / D&D)                       │
+│   ├─ モデルデザイナー (DDD / ER図ライク)                    │
+│   ├─ I/F デザイナー (TypeSpec)                            │
+│   ├─ モード: 編集 / 閲覧 / 実行                            │
+│   └─ WASM モジュール (レイアウト計算・コード生成の高速化)      │
+│                                                         │
+│  BE: Rust (axum) ※高パフォーマンス要件                     │
+│   ├─ プロジェクト永続化 (SQLite → PostgreSQL)              │
+│   ├─ コード生成パイプライン (TypeSpec Emitter 呼び出し)      │
+│   ├─ ビルドランナー (vite build 実行・成果物配信)            │
+│   ├─ コラボレーション (WebSocket / コメント)                │
+│   └─ ランタイムゲートウェイ (コネクタプラグイン: REST/WS/Modbus…) │
+└─────────────────────────────────────────────────────────┘
+                      │ 生成
+                      ▼
+┌─────────────────────────────────────────────────────────┐
+│ 生成される Web アプリ                                      │
+│  Vite 8+ / React / Redux Toolkit / React Router          │
+│  React Compiler 有効 / レイヤードアーキテクチャ + DI/DIP     │
+│  TypeSpec 由来の API クライアント & モックサーバー           │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 2.1 技術選定
+
+| 領域 | 採用技術 | 備考 |
+|---|---|---|
+| ビルダー FE | React + TypeScript + Vite | ビルダー自身も生成物と同じ思想で構築 |
+| 状態管理 | Redux Toolkit | Undo/Redo はコマンド履歴で実現 |
+| キャンバス | HTML/CSS ベース + (必要に応じ Canvas/WebGL) | Figma ライクな操作感 |
+| 高速化 | WebAssembly (Rust → wasm-bindgen) | レイアウト計算・差分検出・コード生成のホットパス |
+| ビルダー BE | **Rust + axum + tokio**(推奨) | 代替: Go + chi/echo。性能・WASM とのコード共有から Rust を推奨 |
+| 永続化 | SQLite(開発)/ PostgreSQL(本番) | プロジェクト定義は JSON スキーマで保存 |
+| I/F 定義 | 中立 I/F モデル + IDL アダプタ(第1弾: TypeSpec、第2弾: OpenAPI 3.x) | §5 参照。特定 IDL に非依存 |
+| 通信 | DataChannel 抽象 + コネクタプラグイン(初期: REST/WS、M5: Modbus) | §8 参照。特定プロトコルに非依存 |
+| デザインシステム | DTCG 形式トークン + スタイル emitter(css-variables / tailwind) | §3.6 参照。Tailwind 非依存だが連携可能 |
+| リアルタイム | WebSocket / Server-Sent Events | モニタリング・コラボ用 |
+| 産業プロトコル | Modbus TCP/RTU(BE 側ブリッジ) | Rust: `tokio-modbus` |
+
+> **Rust vs Go**: どちらも要件を満たすが、(1) WASM モジュールとドメインロジックを共有できる、(2) コード生成・差分計算など CPU バウンド処理でのピーク性能、(3) tokio-modbus 等のエコシステム、の理由で **Rust を第一候補** とする。チームのスキルセット次第で Go(chi + goroutine ベース)へ差し替え可能なよう、BE は API 境界(OpenAPI/TypeSpec)で疎結合に保つ。
+
+---
+
+## 3. GUI ビルダー(UIファースト)
+
+### 3.1 キャンバスと D&D
+
+- **FR-GUI-01**: パーツパレットからキャンバスへドラッグ&ドロップでコンポーネントを配置できる
+- **FR-GUI-02**: 配置済みパーツの選択・移動・リサイズ・複製・削除・グループ化
+- **FR-GUI-03**: スナップ・ガイドライン・グリッド表示・整列ツール
+- **FR-GUI-04**: コンポーネントツリー(レイヤーパネル)での階層編集
+- **FR-GUI-05**: Undo / Redo(コマンドパターンによる操作履歴)
+
+### 3.2 提供パーツ(初期セット)
+
+| カテゴリ | パーツ |
+|---|---|
+| レイアウト | **ヘッダー**、**フッター**、サイドバー、コンテナ(Flex/Grid)、カード、タブ、アコーディオン |
+| 入力 | テキスト、数値、セレクト、チェックボックス、ラジオ、日付、ファイル、フォーム |
+| 表示 | テキスト/見出し、テーブル(ソート/ページング)、リスト、画像、バッジ、アイコン |
+| ナビゲーション | ボタン、リンク、メニュー、パンくず |
+| オーバーレイ | **ダイアログ(モーダル)**、ドロワー、トースト、ポップオーバー |
+| モニタリング | 折れ線/棒/円グラフ、ゲージ、ステータスランプ、ログビューア、数値カード(KPI) |
+
+- **FR-GUI-06**: ヘッダー・フッターは「共通レイアウト」として全ページ/特定ページ群に適用可能
+- **FR-GUI-07**: パーツはユーザー定義の複合コンポーネントとして登録・再利用できる
+
+### 3.3 ページとナビゲーション
+
+- **FR-PAGE-01**: ページの作成・複製・削除・階層化(ルーティングパスにマップ)
+- **FR-PAGE-02**: ページ間遷移をイベント(ボタンクリック等)に紐付け可能 → React Router の `navigate` に変換
+- **FR-PAGE-03**: パスパラメータ・クエリパラメータの定義と受け渡し
+- **FR-PAGE-04**: ダイアログの表示/非表示をイベントに紐付け可能(ページ内オーバーレイとして管理)
+- **FR-PAGE-05**: 画面遷移図(ページ＝ノード、遷移＝エッジ)の自動生成・表示
+
+### 3.4 属性(プロパティ)編集
+
+- **FR-PROP-01**: 選択パーツの属性をプロパティパネルで編集(ラベル、サイズ、色、バリデーション、表示条件 等)
+- **FR-PROP-02**: 属性へのデータバインディング(モデルのフィールド、API レスポンス、グローバル状態)
+- **FR-PROP-03**: レスポンシブ設定(ブレークポイント別の値)
+- **FR-PROP-04**: テーマ/デザイントークンの一元管理(詳細は §3.6)
+
+### 3.6 デザインシステム(トークンベース・スタイルシステム)
+
+方針: **Tailwind CSS には依存しない中立なデザイントークンを単一ソース**とし、emitter 経由で Tailwind とも双方向に連携する(I/F 定義における TypeSpec と同じ「中立な中間表現 + emitter」の構図)。
+
+- **FR-DS-01**: デザイントークン(色・タイポグラフィ・余白/サイズスケール・角丸・影・ブレークポイント)をプロジェクト単位で定義。**W3C Design Tokens(DTCG)形式**で保存し、ツール外でも可搬にする
+- **FR-DS-02**: トークンエディタ(テーマ編集 UI)。プリミティブトークン(`blue-500` 等)→ セマンティックトークン(`primary` / `surface` / `danger` 等)の参照構造、ライト/ダーク等のマルチテーマ
+- **FR-DS-03**: パーツのスタイル属性は生の CSS 値ではなく**原則トークン参照**で保持(直接値も許可するが lint 的に警告)。ドキュメントモデルに Tailwind クラス名は保存しない = Tailwind 非依存の根拠
+- **FR-DS-04**: プロパティパネルにユーティリティ風のスタイル編集(spacing / size / color 等)。スケールは Tailwind のスケール感覚(4px 基準)に揃えたプリセットを既定にする
+- **FR-DS-05**: **スタイル emitter のプラグイン化**(コード生成時に選択):
+  - `css-variables` emitter(デフォルト・依存ゼロ): `:root` の CSS カスタムプロパティ + それを参照するスタイルを生成
+  - `tailwind` emitter: トークン → **Tailwind v4 の `@theme`(CSS-first 設定)** を生成し、コンポーネントには対応するユーティリティクラスを出力
+  - 将来: CSS Modules / vanilla-extract 等を同じ I/F で追加可能
+- **FR-DS-06**: 既存 Tailwind 資産の取り込み: 既存プロジェクトの `@theme` / `tailwind.config` からトークンへインポート(逆方向の連携)
+- **FR-DS-07**: エディタのキャンバス・プレビュー・閲覧モードでもトークンが CSS 変数として即時反映される(emitter 選択に関わらず編集体験は同一)
+
+### 3.5 イベントバインディング
+
+- **FR-EVT-01**: パーツのイベント(onClick, onChange, onSubmit, onMount 等)にアクションを紐付け
+- **FR-EVT-02**: アクション種別:
+  - ページ遷移 / ダイアログ開閉 / トースト表示
+  - API 呼び出し(TypeSpec 定義の operation を選択)
+  - 状態の更新(Redux アクション dispatch)
+  - 条件分岐・連鎖(アクションフロー: 成功時/失敗時のハンドリング)
+  - カスタムコード(TypeScript スニペット、型チェック付きエディタ)
+- **FR-EVT-03**: アクションフローはノードベースのフローエディタでも編集可能
+
+---
+
+## 4. モデルデザイナー(モデルファースト / DDD)
+
+### 4.1 ER図ライクな DDD モデリング
+
+- **FR-MDL-01**: キャンバス上に DDD 要素を配置し、ER 図のような見た目で編集できる
+  - **Aggregate**(集約: 境界をグループ枠で表現)
+  - **Entity**(エンティティ: ID を持つ)
+  - **Value Object**(値オブジェクト)
+  - **Domain Event** / **Domain Service** / **Repository**(I/F として)
+- **FR-MDL-02**: 要素間のリレーション(参照、包含、1-N/N-N)を線で表現・編集
+- **FR-MDL-03**: フィールド定義(名前、型、必須、制約: 範囲/正規表現/列挙)
+- **FR-MDL-04**: 境界づけられたコンテキスト(Bounded Context)単位のビュー切り替え
+- **FR-MDL-05**: ユビキタス言語の用語集(モデル要素と用語のリンク)
+- **FR-MDL-06**: モデルから CRUD 画面の雛形を自動生成(モデルファースト → UI)
+
+### 4.2 生成される TypeScript コードの規約(最重要)
+
+**class は使わない。** companion object pattern + brand pattern による関数型スタイルで生成し、テスタビリティを最大化する。
+
+```typescript
+// 例: Value Object — brand pattern + companion object pattern
+import { Result, ok, err } from '@/shared/result';
+
+export type Email = string & { readonly __brand: 'Email' };
+
+export const Email = {
+  create(value: string): Result<Email, ValidationError> {
+    if (!/^[^@]+@[^@]+$/.test(value)) {
+      return err(new ValidationError('email', 'invalid format'));
+    }
+    return ok(value as Email);
+  },
+  equals(a: Email, b: Email): boolean {
+    return a === b;
+  },
+} as const;
+```
+
+```typescript
+// 例: Entity / Aggregate — イミュータブルなデータ + 純粋関数の振る舞い
+export type UserId = string & { readonly __brand: 'UserId' };
+
+export type User = Readonly<{
+  id: UserId;
+  email: Email;
+  name: UserName;
+  status: UserStatus;
+}>;
+
+export const User = {
+  create(params: CreateUserParams): Result<User, ValidationError> { /* 検証して生成 */ },
+  changeEmail(user: User, email: Email): User {
+    return { ...user, email };
+  },
+  deactivate(user: User): Result<User, DomainError> { /* 不変条件を検証 */ },
+} as const;
+```
+
+- **FR-CODE-01**: Value Object / Entity の ID は brand 型で生成(プリミティブの取り違えをコンパイルエラーに)
+- **FR-CODE-02**: 生成・変更は `create` / 振る舞い関数経由のみ。データは `Readonly` でイミュータブル
+- **FR-CODE-03**: 失敗しうる操作は `Result<T, E>` を返す(例外を投げない)
+- **FR-CODE-04**: 集約の不変条件はモデルデザイナーで定義し、振る舞い関数内の検証コードとして生成
+- **FR-CODE-05**: 各モデル要素に対しユニットテストの雛形(Vitest)を同時生成
+
+---
+
+## 5. I/F 定義(中立 I/F モデル + アダプタ)
+
+方針: 内部表現を特定の IDL(TypeSpec / OpenAPI 等)に依存させない。**中立 I/F モデルを唯一の内部表現**とし、各 IDL は**アダプタ(import / export)**として接続する。初期対応は TypeSpec の1種類でよいが、アダプタ I/F を最初から切っておく。
+
+```
+TypeSpec ⇄ ┐
+OpenAPI 3.x ⇄ ┤ I/F アダプタ ⇄ 【中立 I/F モデル】 → コード生成(FE クライアント / BE 雛形 / モック)
+(将来: GraphQL / gRPC / AsyncAPI) ┘        ↑ GUI(I/F デザイナー)が直接編集するのもこれ
+```
+
+- **FR-IF-00**: **中立 I/F モデル**: operations(method/path/params/結果/エラー)、models(型・制約)、streams(購読型 I/F)を表現する IDL 非依存のスキーマ。ドキュメントモデルの一部として Zod 検証付きで永続化
+- **FR-IF-05**: **I/F アダプタのプラグイン I/F**(`import` / `export` / `diff` を実装):
+  - 第1弾: **TypeSpec アダプタ**(オーサリング言語としても採用、双方向)
+  - 第2弾: **OpenAPI 3.x アダプタ**(既存 API 資産の取り込みを優先、TypeSpec の `@typespec/openapi3` 出力を中間に使う段階的実装も可)
+  - 将来: GraphQL / gRPC(Protobuf)/ AsyncAPI
+  - 各 IDL 固有でモデル化しきれない情報は拡張メタデータ(`x-` 属性)としてアダプタが保持し、ラウンドトリップで失わない
+- **FR-IF-01**: GUI(フォーム/テーブル UI)で operation・model を定義 → 中立 I/F モデルを編集。TypeSpec ソースとの双方向変換(アダプタ経由)
+- **FR-IF-02**: ドメインモデル(§4)から I/F モデルの model を導出可能(DTO とドメイン型のマッピング定義)
+- **FR-IF-03**: コード生成は**中立 I/F モデルを入力**とする:
+  - **FE クライアント**: 型安全な API クライアント(fetch ベース、Result 返却、Zod 等によるランタイム検証)→ infra 層の repository 実装として出力
+  - **BE サーバー**: ルーティング/ハンドラ雛形 + バリデーション(初期: Node/Hono または Rust/axum の雛形)
+  - **モックサーバー**: TypeSpec の examples からレスポンスを返すスタンドアロンモック
+  - TypeSpec でオーサリングした場合は既存 emitter(`@typespec/openapi3` 等)+ **カスタム emitter** を「TypeSpec → 中立 I/F モデル」のアダプタとして活用し、本ツール固有の規約(Result 型、repository I/F 準拠)は中立モデル側の生成器で実現
+- **FR-IF-04**: API バージョニングと破壊的変更の検出(差分表示)— `diff` はアダプタ I/F の一部とし、IDL を問わず中立モデル上で比較する
+
+---
+
+## 6. 生成される React アプリの仕様
+
+### 6.1 技術スタック
+
+- **Vite 8 以上**(2026-03 安定版リリース済み) / **React**(最新安定版) / **TypeScript**(strict)
+  - Vite 8 はバンドラが **Rolldown**(Rust 製)に統一された(従来の dev=esbuild / build=Rollup 構成を置換)。ビルドが 10〜30 倍高速化されており、実行モードのビルドランナー(NFR-02: フルコード生成+ビルドの所要時間)にも直接効く
+  - 生成プロジェクトの前提: **Node.js 20.19+ / 22.12+**
+  - Rollup 互換のプラグイン API は維持されているが、生成する vite.config で使うプラグインは Vite 8(Rolldown)対応済みのものに限定する
+- **React Compiler 有効**(v1.0 安定版・自動メモ化)
+  - React Compiler はビルド時にコンポーネント/フックを自動メモ化する最適化であり、コードの書き方や意味論は変えない。前提は「Rules of React に従った素直なコード」のみ
+  - したがって生成コードには **`useMemo` / `useCallback` / `React.memo` を手書きで出力しない**(コンパイラに任せる)。`eslint-plugin-react-hooks` のコンパイラ向けルールで検証
+  - Vite 8 では `@vitejs/plugin-react` v6 が内部 Babel を廃止し oxc 化したため、従来の `react({ babel: { plugins: [...] } })` は使えない。**`reactCompilerPreset()` + `@rolldown/plugin-babel`** を React プラグインより前に適用する構成で生成する:
+
+```ts
+// 生成する vite.config.ts
+import { defineConfig } from 'vite';
+import react, { reactCompilerPreset } from '@vitejs/plugin-react';
+import { babel } from '@rolldown/plugin-babel';
+
+export default defineConfig({
+  plugins: [
+    babel({ include: /\.[jt]sx?$/, babelConfig: reactCompilerPreset() }),
+    react(),
+  ],
+});
+```
+- **Redux Toolkit**(グローバル状態) / **React Router**(ルーティング)
+- Vitest + Testing Library(テスト雛形も生成)
+
+### 6.2 アーキテクチャ: レイヤード + DI/DIP
+
+```
+src/
+├── domain/          # ドメイン層(純粋・依存なし)
+│   ├── models/      #   Entity / VO / Aggregate(§4 の規約で生成)
+│   └── repositories/#   Repository インターフェース(型定義のみ)
+├── application/     # アプリケーション層
+│   └── usecases/    #   ユースケース(repository I/F に依存 = DIP)
+├── infrastructure/  # インフラ層
+│   ├── api/         #   TypeSpec 生成クライアントによる repository 実装
+│   └── mock/        #   インメモリ mock repository 実装
+├── presentation/    # プレゼンテーション層
+│   ├── pages/       #   ページコンポーネント(React Router)
+│   ├── components/  #   UI パーツ(ヘッダー/フッター/ダイアログ含む)
+│   └── store/       #   Redux store / slices
+└── di/              # DI コンテナ(Composition Root)
+    └── container.ts #   本番: API 実装 / テスト・閲覧: mock 実装 を注入
+```
+
+- **FR-GEN-01**: repository は domain 層に **インターフェース**、infrastructure 層に **実装**(DIP)
+- **FR-GEN-02**: DI コンテナ(軽量・関数ベース)で実装を差し替え可能。`VITE_APP_MODE=mock` で全 repository が mock 実装に切り替わる
+- **FR-GEN-03**: mock 実装はインメモリ + シードデータ付きで生成 → **ビルダーの閲覧/実行モードがこの mock モードを利用**(§7)
+- **FR-GEN-04**: 生成コードは ESLint/Prettier 設定込み、`npm run build` が初回から成功すること
+- **FR-GEN-06**: スタイルは選択した emitter(§3.6)に応じて生成する。デフォルトは CSS 変数(依存ゼロ)、`tailwind` 選択時は `@theme` + ユーティリティクラスを出力。**どちらを選んでもビルドが通る**こと
+- **FR-GEN-05**: 再生成時、ユーザーが編集したカスタムコード領域は保護(マーカーコメント or 別ファイル分離)
+
+---
+
+## 7. ビルダーの 3 モード
+
+### 7.1 編集モード
+
+- GUI ビルダー / モデルデザイナー / I/F デザイナーをフル機能で操作
+
+### 7.2 閲覧モード(レビュー用)
+
+- **FR-VIEW-01**: 編集不可。画面遷移・ダイアログ表示を **実際に操作して確認できる**(動くワイヤーフレーム)
+- **FR-VIEW-02**: **画面遷移図**としても俯瞰できる(全ページ + 遷移エッジ + ダイアログ)
+- **FR-VIEW-03**: 任意の場所(パーツ・ページ・遷移・モデル要素)に **コメントをピン留め**できる。スレッド・解決済み管理・メンション
+- **FR-VIEW-04**: 実装方式 — DI を活かし、**mock リポジトリを注入した生成 React アプリをアプリ内(iframe/サンドボックス)で実行**する。コード生成を経ずにビルダー内インタープリタで完結する簡易方式と併用し、即時性(インタープリタ)と忠実性(mock 実行)を両立
+- **FR-VIEW-05**: 共有リンク(閲覧専用 URL)の発行
+
+### 7.3 実行モード
+
+- **FR-RUN-01**: 生成された React アプリを**実際に動作させる**(API 接続先: モックサーバー or 実 BE)
+- **FR-RUN-02**: ビルダー BE がビルドランナーとして `vite build` / dev server を実行し、プレビュー URL を提供
+- **FR-RUN-03**: リアルタイム系パーツは WebSocket 経由で実データ(または模擬データジェネレータ)に接続
+
+---
+
+## 8. 通信 / リアルタイムモニタリング / 産業用途
+
+方針: 通信も特定プロトコル(Modbus 等)に依存させない。**中立な DataChannel 抽象 + コネクタプラグイン**で構成し、Modbus はコネクタの一実装とする。初期は少数のコネクタでよいが、SPI(プラグイン I/F)を最初から切っておく。
+
+- **FR-RT-00**: **コネクタ SPI**: すべてのデータソースは BE 側のコネクタプラグインとして実装する。コネクタは以下を宣言する:
+  - **capabilities**: `read` / `write` / `subscribe`(ストリーム購読)の対応有無
+  - **設定スキーマ**: 接続設定(ホスト・ポート・認証・ポーリング周期等)を JSON スキーマで宣言 → GUI の設定フォームを自動生成
+  - **コーデック / ポイントマップ**: 生データ → 型付き値(スケーリング・単位・列挙)への変換定義
+  - **ヘルス / 再接続ポリシー**: 状態報告と再接続制御の共通 I/F
+- **FR-RT-01**: FE は中立な **DataChannel 抽象**(`read` / `write` / `subscribe`)にのみバインドする。プロトコル詳細は BE ブリッジ(コネクタ)に隠蔽し、FE への配信は WebSocket/SSE に正規化。repository の DI と同様に**モックコネクタ**へ差し替え可能(閲覧モード・テストで使用)
+- **FR-RT-01a**: 対応コネクタの計画: 初期 = **REST ポーリング / WebSocket**。M5 = **Modbus TCP・RTU**。将来プラグイン = MQTT / OPC-UA / gRPC streaming / SNMP / 生 TCP・UDP
+- **FR-RT-02**: Modbus コネクタ: レジスタマップ定義(アドレス、型、スケーリング、単位)を GUI で設定(= コーデック定義の一実装)→ DataChannel として FE へ配信
+- **FR-RT-03**: 収集データの時系列バッファリングとグラフ部品への自動バインド
+- **FR-RT-04**: しきい値アラート(色変化・トースト・イベント発火)
+- **FR-RT-05**: 設定ツール用途: フォーム → 機器への書き込み(`write` capability を持つ任意のコネクタ: Modbus write / REST 等)を確認ダイアログ付きで実行
+- **FR-RT-06**: 通信失敗・タイムアウトの状態表示と再接続制御
+
+---
+
+## 9. 非機能要件
+
+| ID | 項目 | 要件 |
+|---|---|---|
+| NFR-01 | 性能(編集) | 500 パーツ規模のページでも D&D 操作 60fps を維持(WASM レイアウト計算) |
+| NFR-02 | 性能(生成) | 50 ページ規模のプロジェクトのフルコード生成 10 秒以内 |
+| NFR-03 | 性能(RT) | モニタリング更新レイテンシ 200ms 以内(LAN 内 Modbus) |
+| NFR-04 | 信頼性 | 編集内容の自動保存(操作ごと)、クラッシュ後復元 |
+| NFR-05 | 生成品質 | 生成コードは `tsc --noEmit` / ESLint / `vite build` をエラーゼロで通過 |
+| NFR-06 | セキュリティ | 実行モードのサンドボックス分離(iframe + CSP)、カスタムコードの実行制限 |
+| NFR-07 | 拡張性 | プラグイン機構を4系統で統一的に提供: ①UI パーツ ②スタイル/コード emitter ③I/F アダプタ(TypeSpec / OpenAPI…) ④通信コネクタ(REST / WS / Modbus…)。いずれも「中立な内部表現 + アダプタ」の構図 |
+| NFR-08 | 国際化 | ビルダー UI: 日本語/英語。生成アプリ: i18n 対応コードを出力可能 |
+
+---
+
+## 10. マイルストーン(案)
+
+| フェーズ | 期間目安 | スコープ |
+|---|---|---|
+| M1: コア編集 | 〜3ヶ月 | キャンバス D&D、ヘッダー/フッター、ページ遷移、ダイアログ、属性編集、プロジェクト保存(BE: Rust 最小) |
+| M2: コード生成 | +2ヶ月 | React コード生成(レイヤード/DI/Result/brand)、vite build 成功、実行モード(mock)、**デザイントークン基盤(DTCG 保存 + css-variables emitter)** |
+| M3: モデル & I/F | +3ヶ月 | DDD モデルデザイナー、**中立 I/F モデル + アダプタ SPI**、TypeSpec アダプタ(双方向)、中立モデルからのコード生成(FE クライアント/モックサーバー) |
+| M4: 閲覧モード | +2ヶ月 | 画面遷移図、コメント、共有リンク、mock 実行プレビュー、**トークンエディタ(テーマ編集 UI・マルチテーマ)** |
+| M5: リアルタイム | +2ヶ月 | **コネクタ SPI + DataChannel 抽象**、REST/WebSocket/Modbus コネクタ、モニタリングパーツ、アラート |
+| M6: 拡張 | 継続 | プラグイン機構の公開、**OpenAPI アダプタ**、追加コネクタ(MQTT / OPC-UA 等)、BE 雛形生成の拡充、コラボレーション強化、**tailwind emitter + 既存 Tailwind 資産の取り込み** |
+
+---
+
+## 11. 主要リスクと対策
+
+| リスク | 対策 |
+|---|---|
+| コード再生成とカスタムコードの衝突 | 保護領域マーカー + 生成物/手書きのファイル分離を最初から設計 |
+| TypeSpec カスタム emitter の学習コスト | 既存 emitter(openapi3)出力を中間表現として活用する段階的アプローチ |
+| Figma ライクなキャンバスの実装難度 | M1 では HTML/CSS ベースの矩形レイアウトに限定し、自由配置は後続 |
+| Vite メジャー更新によるツールチェーン変動(例: Vite 8 で `@vitejs/plugin-react` v6 が内部 Babel を廃止し oxc 化、React Compiler の適用方法が変更) | 生成する `vite.config.ts` をテンプレートとして一元管理し公式推奨構成に追従。CI で生成プロジェクトの `vite build` を常時検証 |
+| Modbus 実機検証環境 | シミュレータ(diagslave 等)による CI 検証 + 模擬データジェネレータ |
+| Tailwind のメジャー更新で emitter が陳腐化 | ドキュメントモデルは中立な DTCG トークンのみを保持し、Tailwind 固有の知識は emitter 内に閉じ込める(薄く保つ)。css-variables emitter が常にフォールバック |
+| 中立 I/F モデルが各 IDL / プロトコルの表現力を吸収しきれない | 最大公約数モデル + 拡張メタデータ(`x-` 属性)でアダプタ固有情報を保持しラウンドトリップを保証。吸収できない機能は「そのアダプタ専用」として GUI 上も明示 |

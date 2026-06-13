@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AppForge — Webアプリ GUI ビルダー 構想プレゼン</title>
+<style>
+  :root {
+    --bg: #0f1220;
+    --panel: #181c30;
+    --panel2: #1f2440;
+    --accent: #6c8cff;
+    --accent2: #41d6a8;
+    --warn: #ffb454;
+    --text: #e8eaf6;
+    --muted: #9aa3c7;
+    --border: #2c3257;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+    overflow: hidden;
+  }
+  .slide {
+    display: none;
+    position: absolute;
+    inset: 0;
+    padding: 56px 80px 90px;
+    flex-direction: column;
+  }
+  .slide.active { display: flex; animation: fadeIn .35s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: none; } }
+
+  h1 { font-size: 56px; line-height: 1.25; }
+  h2 {
+    font-size: 34px; margin-bottom: 28px; padding-bottom: 14px;
+    border-bottom: 2px solid var(--border);
+  }
+  h2 .tag {
+    font-size: 14px; vertical-align: middle; margin-left: 14px;
+    background: var(--accent); color: #fff; padding: 3px 12px; border-radius: 999px;
+  }
+  h3 { font-size: 20px; color: var(--accent); margin-bottom: 10px; }
+  p, li { font-size: 19px; line-height: 1.7; }
+  ul { padding-left: 1.4em; }
+  li { margin-bottom: 8px; }
+  li::marker { color: var(--accent); }
+  strong { color: var(--accent2); }
+  .muted { color: var(--muted); }
+  .small { font-size: 15px; }
+
+  .cols { display: flex; gap: 28px; flex: 1; min-height: 0; }
+  .col { flex: 1; min-width: 0; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px 26px; margin-bottom: 18px;
+  }
+  .card h3 { margin-top: 0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 17px; }
+  th, td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--border); line-height: 1.5; }
+  th { color: var(--accent); font-weight: 600; white-space: nowrap; }
+  td:first-child { white-space: nowrap; color: var(--accent2); }
+
+  pre {
+    background: #0b0e1a; border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 20px; font-size: 14.5px; line-height: 1.55; overflow: auto;
+    font-family: "SF Mono", Menlo, Consolas, monospace; color: #c7d0f0;
+  }
+  code.k { color: #ff7eb6; } code.t { color: #82cfff; } code.f { color: #ffd479; } code.s { color: #9cdc8a; } code.c { color: #6b7399; }
+
+  .badge {
+    display: inline-block; background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 5px 16px; margin: 4px 6px 4px 0; font-size: 16px;
+  }
+  .badge.hot { border-color: var(--accent2); color: var(--accent2); }
+
+  .flow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 14px 0; }
+  .flow .node {
+    background: var(--panel2); border: 1px solid var(--accent);
+    border-radius: 10px; padding: 12px 18px; font-size: 17px; text-align: center;
+  }
+  .flow .arrow { color: var(--accent); font-size: 22px; }
+
+  .footer {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; border-top: 1px solid var(--border);
+    font-size: 14px; color: var(--muted); background: rgba(15,18,32,.9);
+  }
+  .progress { position: absolute; top: 0; left: 0; height: 3px; background: var(--accent); transition: width .3s; }
+  .nav button {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 16px; font-size: 14px; cursor: pointer; margin-left: 8px;
+  }
+  .nav button:hover { border-color: var(--accent); }
+
+  .title-slide { justify-content: center; align-items: flex-start; }
+  .title-slide .sub { font-size: 24px; color: var(--muted); margin-top: 22px; line-height: 1.7; }
+  .title-slide .meta { margin-top: 48px; color: var(--muted); font-size: 16px; }
+  .accentbar { width: 90px; height: 8px; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 4px; margin-bottom: 36px; }
+
+  .arch { font-family: "SF Mono", Menlo, monospace; font-size: 14px; line-height: 1.5; }
+  .kpi { display: flex; gap: 18px; margin-top: 8px; }
+  .kpi .box {
+    flex: 1; background: var(--panel2); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; text-align: center;
+  }
+  .kpi .num { font-size: 30px; color: var(--accent2); font-weight: 700; }
+  .kpi .lbl { font-size: 14px; color: var(--muted); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<!-- 1. タイトル -->
+<section class="slide title-slide active">
+  <div class="accentbar"></div>
+  <h1>AppForge<span style="font-size:26px;color:var(--muted)">(仮称)</span><br>GUI で作り、コードで届ける<br>Web アプリビルダー</h1>
+  <p class="sub">Figma のように画面を描き、kintone のようにモデルを定義し、<br>
+  <strong>ビルド可能な React ソースコード</strong>を生成する開発プラットフォーム構想</p>
+  <p class="meta">2026-06-12 ・ 要件定義ドラフト v0.1(requirements.md 準拠)</p>
+</section>
+
+<!-- 2. ビジョン -->
+<section class="slide">
+  <h2>ビジョン <span class="tag">Why</span></h2>
+  <div class="cols">
+    <div class="col">
+      <div class="card">
+        <h3>2つの入口、1つの成果物</h3>
+        <ul>
+          <li><strong>UIファースト</strong> — Figma のようにキャンバスで画面から作る</li>
+          <li><strong>モデルファースト</strong> — Salesforce / kintone のようにモデルから作る</li>
+          <li>どちらから始めても双方向に同期し、最終的に<strong>プロダクション品質の React コード</strong>へ</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>ローコードの「行き止まり」をなくす</h3>
+        <p>生成物は読める・テストできる・拡張できる TypeScript。<br>
+        ツールを卒業してもコードは資産として残る。</p>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h3>対象アプリ領域</h3>
+        <span class="badge">業務 CRUD アプリ</span>
+        <span class="badge hot">リアルタイムモニタリング</span>
+        <span class="badge">機器設定ツール</span>
+        <span class="badge hot">Modbus データ収集・監視</span>
+        <span class="badge">ダッシュボード</span>
+        <p class="small muted" style="margin-top:14px">ビジネスアプリに限定せず、サーバー/ネットワーク機器の監視・設定、産業プロトコル連携まで。</p>
+      </div>
+      <div class="card">
+        <h3>ゴール</h3>
+        <ul class="small">
+          <li>GUI だけで画面・モデル・API を設計</li>
+          <li>生成アプリは <code>vite build</code> がそのまま通る</li>
+          <li>TypeSpec を単一ソースに FE / BE / モックを生成</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2.5 参考プロダクト -->
+<section class="slide">
+  <h2>参考プロダクトと差別化 <span class="tag">Positioning</span></h2>
+  <table style="margin-bottom:20px">
+    <tr><th>プロダクト</th><th>参考にする点</th><th>本ツールとの違い</th></tr>
+    <tr><td>ToolJet(OSS)</td><td>D&D ビルダー UX、データソースコネクタ、セルフホスト構成</td><td>ランタイム解釈型に対し、本ツールは<strong>ビルド可能な React コードが成果物</strong></td></tr>
+    <tr><td>Appsmith(OSS)</td><td>属性パネル設計、JS バインディング、Git 連携</td><td>同上。さらに <strong>DDD モデリング層と TypeSpec I/F 定義</strong>を一級市民に</td></tr>
+    <tr><td>Figma</td><td>キャンバス操作感、コメント / 閲覧モード、共有リンク</td><td>デザインに留まらず動くコードまで生成</td></tr>
+    <tr><td>kintone / Salesforce</td><td>モデルファーストの開発体験</td><td>プロプライエタリ環境にロックインされない</td></tr>
+    <tr><td>Retool / Budibase</td><td>コンポーネントカタログ、イベント→アクション連鎖 UI</td><td>アーキテクチャ規約(レイヤード / DI / Result)を生成コードに強制</td></tr>
+  </table>
+  <div class="card">
+    <h3>OSS は実装リファレンスとしても活用</h3>
+    <p class="small">ToolJet / Appsmith のウィジェットプロパティスキーマ・データソース抽象化・エディタ状態管理を設計の参考に(ライセンス留意: ToolJet = AGPL、Appsmith = Apache-2.0)。</p>
+  </div>
+</section>
+
+<!-- 3. 全体アーキテクチャ -->
+<section class="slide">
+  <h2>システム構成 <span class="tag">Architecture</span></h2>
+  <div class="cols">
+    <div class="col" style="flex:1.3">
+      <pre class="arch">┌──────────────── AppForge(ビルダー)────────────────┐
+│ FE: React + TypeScript Web アプリ                   │
+│   ├ GUI ビルダー(キャンバス / D&D)                  │
+│   ├ モデルデザイナー(DDD / ER図ライク)              │
+│   ├ I/F デザイナー(TypeSpec)                       │
+│   ├ 編集 / 閲覧 / 実行 の 3 モード                   │
+│   └ WASM(レイアウト計算・コード生成を高速化)         │
+│                                                    │
+│ BE: Rust(axum + tokio)                            │
+│   ├ プロジェクト永続化(SQLite → PostgreSQL)        │
+│   ├ コード生成パイプライン(TypeSpec Emitter)        │
+│   ├ ビルドランナー(vite build / preview)           │
+│   ├ コメント・コラボ(WebSocket)                    │
+│   └ プロトコルブリッジ(Modbus TCP/RTU → WS)        │
+└────────────────────┬───────────────────────────────┘
+                     │ コード生成
+                     ▼
+┌──────────── 生成される React アプリ ────────────────┐
+│ Vite 8+ / React / Redux / React Router              │
+│ React Compiler / レイヤード + DI・DIP / mock 切替    │
+└────────────────────────────────────────────────────┘</pre>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h3>BE は Rust を第一候補</h3>
+        <ul class="small">
+          <li>WASM モジュールと<strong>ドメインロジックを共有</strong></li>
+          <li>コード生成・差分計算など CPU バウンド処理のピーク性能</li>
+          <li><code>tokio-modbus</code> 等の産業プロトコル資産</li>
+          <li>Go(chi/echo)への差し替えも可能なよう API 境界で疎結合に</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>WebAssembly の使い所</h3>
+        <ul class="small">
+          <li>キャンバスのレイアウト計算(500 パーツで 60fps)</li>
+          <li>モデル差分検出・コード生成のホットパス</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. GUIビルダー -->
+<section class="slide">
+  <h2>GUI ビルダー — UIファースト <span class="tag">Feature</span></h2>
+  <div class="cols">
+    <div class="col">
+      <div class="card">
+        <h3>キャンバス & D&D</h3>
+        <ul class="small">
+          <li>パレットから<strong>ドラッグ&ドロップ</strong>で配置</li>
+          <li>選択・移動・リサイズ・グループ化・スナップ・整列</li>
+          <li>レイヤーパネル(コンポーネントツリー)</li>
+          <li>コマンド履歴による Undo / Redo</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>パーツ(初期セット)</h3>
+        <span class="badge hot">ヘッダー</span>
+        <span class="badge hot">フッター</span>
+        <span class="badge hot">ダイアログ</span>
+        <span class="badge">コンテナ</span>
+        <span class="badge">フォーム/入力各種</span>
+        <span class="badge">テーブル</span>
+        <span class="badge">グラフ/ゲージ</span>
+        <span class="badge">ステータスランプ</span>
+        <p class="small muted" style="margin-top:10px">ヘッダー/フッターは「共通レイアウト」として全ページへ適用可能。複合コンポーネントの登録・再利用にも対応。</p>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h3>属性編集 & イベントバインディング</h3>
+        <ul class="small">
+          <li>プロパティパネルで属性編集(ラベル・色・バリデーション・表示条件)</li>
+          <li>モデル / API / 状態への<strong>データバインディング</strong></li>
+          <li>イベント(onClick 等)にアクションを紐付け:
+            <strong>ページ遷移・ダイアログ開閉</strong>・API 呼び出し・状態更新・条件分岐</li>
+          <li>ノードベースのアクションフローエディタ</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>ページとナビゲーション</h3>
+        <div class="flow">
+          <div class="node">一覧ページ</div>
+          <div class="arrow">→ onClick</div>
+          <div class="node">詳細ページ</div>
+          <div class="arrow">→ 削除ボタン</div>
+          <div class="node" style="border-color:var(--warn)">確認ダイアログ</div>
+        </div>
+        <p class="small muted">ページ遷移は React Router、ダイアログはオーバーレイ状態として生成。画面遷移図を自動生成。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. モデルデザイナー -->
+<section class="slide">
+  <h2>モデルデザイナー — DDD を ER 図のように <span class="tag">Feature</span></h2>
+  <div class="cols">
+    <div class="col">
+      <div class="card">
+        <h3>キャンバスで DDD モデリング</h3>
+        <ul class="small">
+          <li><strong>Aggregate</strong>(境界をグループ枠で表現)/ <strong>Entity</strong> / <strong>Value Object</strong></li>
+          <li>Domain Event / Domain Service / Repository(I/F)</li>
+          <li>リレーション(参照・包含・1-N / N-N)を線で編集</li>
+          <li>フィールド定義: 型・必須・制約(範囲 / 正規表現 / 列挙)</li>
+          <li>Bounded Context ごとのビュー + ユビキタス言語の用語集</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>モデルファースト → UI</h3>
+        <p class="small">モデルから CRUD 画面の雛形を自動生成。kintone 的な体験で始めて、GUI ビルダーで磨き込む。</p>
+      </div>
+    </div>
+    <div class="col" style="flex:1.2">
+      <div class="card">
+        <h3>生成コードの規約: class を使わない TypeScript</h3>
+        <pre><code class="c">// brand pattern + companion object pattern</code>
+<code class="k">export type</code> <code class="t">Email</code> = <code class="t">string</code> & { <code class="k">readonly</code> __brand: <code class="s">'Email'</code> };
+
+<code class="k">export const</code> <code class="t">Email</code> = {
+  <code class="f">create</code>(value: <code class="t">string</code>): <code class="t">Result</code>&lt;<code class="t">Email</code>, <code class="t">ValidationError</code>&gt; {
+    <code class="k">if</code> (!/^[^@]+@[^@]+$/.test(value))
+      <code class="k">return</code> <code class="f">err</code>(<code class="k">new</code> <code class="t">ValidationError</code>(<code class="s">'email'</code>, <code class="s">'invalid'</code>));
+    <code class="k">return</code> <code class="f">ok</code>(value <code class="k">as</code> <code class="t">Email</code>);
+  },
+} <code class="k">as const</code>;</pre>
+        <ul class="small" style="margin-top:12px">
+          <li>brand 型で<strong>プリミティブ取り違えをコンパイルエラー</strong>に</li>
+          <li>データは <code>Readonly</code>、振る舞いは純粋関数 → <strong>テスタビリティ最大化</strong></li>
+          <li>失敗は <code>Result&lt;T, E&gt;</code> で表現(例外を投げない)</li>
+          <li>Vitest のユニットテスト雛形も同時生成</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6. TypeSpec -->
+<section class="slide">
+  <h2>I/F 定義 — 中立 I/F モデル + IDL アダプタ <span class="tag">Feature</span></h2>
+  <div class="flow" style="justify-content:center; margin-bottom:24px">
+    <div class="node">TypeSpec(第1弾)<br>OpenAPI 3.x(第2弾)<br><span class="small muted">将来: GraphQL / gRPC / AsyncAPI</span></div>
+    <div class="arrow">⇄ アダプタ</div>
+    <div class="node" style="border-color:var(--accent2)"><strong>中立 I/F モデル</strong><br><span class="small muted">IDL 非依存・GUI が編集する内部表現</span></div>
+    <div class="arrow">→ 生成</div>
+    <div class="node">FE クライアント<br>BE 雛形<br>モックサーバー</div>
+  </div>
+  <div class="cols">
+    <div class="col">
+      <div class="card">
+        <h3>特定 IDL にロックインしない</h3>
+        <ul class="small">
+          <li>内部表現は <strong>IDL 非依存の中立モデル</strong>(operations / models / streams)。アダプタは <code>import / export / diff</code> を実装するプラグイン</li>
+          <li>初期対応は TypeSpec の1種類でよいが、<strong>アダプタ I/F を最初から分離</strong>(デザイントークンと同じ構図)</li>
+          <li>表現しきれない IDL 固有情報は拡張メタデータで保持しラウンドトリップを保証</li>
+        </ul>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h3>コード生成は中立モデルから</h3>
+        <ul class="small">
+          <li><strong>FE クライアント</strong>: 型安全な fetch クライアント + ランタイム検証 → infra 層の repository 実装として出力(Result 型・repository I/F 準拠)</li>
+          <li><strong>BE 雛形 / モックサーバー</strong>も同じモデルから生成</li>
+          <li>TypeSpec オーサリング時は既存 emitter(openapi3 等)をアダプタとして活用</li>
+          <li>破壊的変更の差分検出は中立モデル上で IDL を問わず実行</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6.5 デザインシステム -->
+<section class="slide">
+  <h2>デザインシステム — トークンを単一ソースに <span class="tag">Feature</span></h2>
+  <div class="flow" style="justify-content:center; margin-bottom:24px">
+    <div class="node">トークンエディタ<br><span class="small muted">テーマ / ライト・ダーク</span></div>
+    <div class="arrow">⇄</div>
+    <div class="node" style="border-color:var(--accent2)"><strong>デザイントークン</strong><br><span class="small muted">W3C DTCG 形式・中立</span></div>
+    <div class="arrow">→ emitter</div>
+    <div class="node">CSS 変数(デフォルト)<br>Tailwind v4 @theme<br><span class="small muted">将来: CSS Modules 等</span></div>
+  </div>
+  <div class="cols">
+    <div class="col">
+      <div class="card">
+        <h3>Tailwind に依存しない、けれど連携できる</h3>
+        <ul class="small">
+          <li>ドキュメントモデルには <strong>Tailwind クラス名を保存しない</strong> — スタイルは原則トークン参照で保持</li>
+          <li>TypeSpec と同じ「中立な中間表現 + emitter」の構図。<code>tailwind</code> emitter 選択時はトークン → <strong>@theme(CSS-first 設定)</strong> + ユーティリティクラスを出力</li>
+          <li>逆方向も: 既存の @theme / tailwind.config から<strong>トークンへインポート</strong></li>
+        </ul>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h3>編集体験</h3>
+        <ul class="small">
+          <li>プリミティブ(blue-500)→ セマンティック(primary / surface / danger)の参照構造</li>
+          <li>プロパティパネルはユーティリティ風のスタイル編集(4px 基準スケール = Tailwind のスケール感覚)</li>
+          <li>キャンバス / プレビュー / 閲覧モードには CSS 変数で即時反映 — emitter の選択と編集体験を分離</li>
+          <li>css-variables emitter(依存ゼロ)が常にフォールバック</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 7. 生成アプリ -->
+<section class="slide">
+  <h2>生成される React アプリ <span class="tag">Output</span></h2>
+  <div class="cols">
+    <div class="col">
+      <div class="card">
+        <h3>技術スタック</h3>
+        <span class="badge hot">Vite 8+</span>
+        <span class="badge hot">React Compiler 有効</span>
+        <span class="badge">React</span>
+        <span class="badge">Redux Toolkit</span>
+        <span class="badge">React Router</span>
+        <span class="badge">TypeScript strict</span>
+        <span class="badge">Vitest</span>
+        <p class="small muted" style="margin-top:12px">Vite 8(2026-03 安定版)はバンドラが <strong>Rolldown</strong> に統一されビルド 10〜30 倍高速 — 実行モードのビルドランナーに直接効く。生成プロジェクトの前提は Node.js 20.19+ / 22.12+。React Compiler(v1.0 安定版)が自動メモ化するため、生成コードに <code>useMemo</code> / <code>useCallback</code> は手書き出力しない。適用は <code>reactCompilerPreset()</code> + <code>@rolldown/plugin-babel</code>(plugin-react v6 の oxc 化に対応)。</p>
+      </div>
+      <div class="card">
+        <h3>品質保証</h3>
+        <ul class="small">
+          <li>生成直後に <code>tsc --noEmit</code> / ESLint / <code>vite build</code> がエラーゼロで通過</li>
+          <li>再生成時、ユーザーのカスタムコード領域は保護(マーカー / ファイル分離)</li>
+          <li><code>VITE_APP_MODE=mock</code> で全 repository が mock に切替</li>
+        </ul>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h3>レイヤードアーキテクチャ + DI / DIP</h3>
+        <pre class="arch">src/
+├ domain/          <code class="c"># 純粋・依存なし</code>
+│ ├ models/        <code class="c"># Entity / VO / Aggregate</code>
+│ └ repositories/  <code class="c"># I/F のみ(DIP)</code>
+├ application/     <code class="c"># ユースケース(I/F に依存)</code>
+├ infrastructure/
+│ ├ api/           <code class="c"># TypeSpec 生成クライアント実装</code>
+│ └ mock/          <code class="c"># インメモリ mock 実装</code>
+├ presentation/    <code class="c"># pages / components / store</code>
+└ di/container.ts  <code class="c"># Composition Root で注入</code></pre>
+        <p class="small muted" style="margin-top:10px">domain と infra の間の repository を <strong>mock 差し替え可能</strong>に — テストもプレビューも同じ仕組みで。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 8. 3モード -->
+<section class="slide">
+  <h2>ビルダーの 3 モード <span class="tag">UX</span></h2>
+  <div class="cols">
+    <div class="col">
+      <div class="card">
+        <h3>✏️ 編集モード</h3>
+        <p class="small">GUI ビルダー / モデルデザイナー / I/F デザイナーをフル機能で操作。操作ごとの自動保存と Undo/Redo。</p>
+      </div>
+      <div class="card">
+        <h3>▶️ 実行モード</h3>
+        <ul class="small">
+          <li>生成された React アプリが<strong>実際に動作</strong></li>
+          <li>接続先: モックサーバー or 実 BE</li>
+          <li>BE のビルドランナーが <code>vite build</code> / dev server を実行しプレビュー URL を提供</li>
+          <li>リアルタイムパーツは WebSocket で実データ / 模擬データに接続</li>
+        </ul>
+      </div>
+    </div>
+    <div class="col" style="flex:1.15">
+      <div class="card" style="border-color:var(--accent2)">
+        <h3>👀 閲覧モード(レビュー用)</h3>
+        <ul class="small">
+          <li>編集不可。だが<strong>画面遷移・ダイアログ表示は実際に操作して確認できる</strong>「動くワイヤーフレーム」</li>
+          <li><strong>画面遷移図</strong>ビュー: 全ページ + 遷移エッジ + ダイアログを俯瞰</li>
+          <li>パーツ・ページ・遷移・モデル要素に<strong>コメントをピン留め</strong>(スレッド / 解決済み / メンション)</li>
+          <li>共有リンク(閲覧専用 URL)発行</li>
+        </ul>
+        <h3 style="margin-top:16px">実装方式 — DI を活かす</h3>
+        <p class="small"><strong>mock リポジトリを注入した生成 React アプリ</strong>をサンドボックス(iframe + CSP)内で実行。ビルダー内インタープリタ(即時性)と mock 実行(忠実性)の併用。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 9. リアルタイム / Modbus -->
+<section class="slide">
+  <h2>通信 — コネクタプラグイン & リアルタイム <span class="tag">Feature</span></h2>
+  <div class="flow" style="justify-content:center; margin-bottom:22px">
+    <div class="node">REST / WebSocket<br>Modbus / MQTT / OPC-UA…<br><span class="small muted">コネクタプラグイン(BE)</span></div>
+    <div class="arrow">→</div>
+    <div class="node" style="border-color:var(--accent2)"><strong>DataChannel 抽象</strong><br><span class="small muted">read / write / subscribe</span></div>
+    <div class="arrow">→ WS で正規化</div>
+    <div class="node">生成アプリの<br>グラフ / ゲージ / ランプ</div>
+  </div>
+  <div class="cols">
+    <div class="col">
+      <div class="card">
+        <h3>コネクタ SPI — プロトコル非依存</h3>
+        <ul class="small">
+          <li>コネクタは <strong>capabilities(read/write/subscribe)・設定スキーマ・コーデック・再接続ポリシー</strong>を宣言するプラグイン。設定 GUI はスキーマから自動生成</li>
+          <li>FE は DataChannel 抽象にのみバインド。<strong>モックコネクタへ DI 差し替え可能</strong>(閲覧モード・テスト)</li>
+          <li>初期 = REST / WebSocket → M5 = Modbus → 将来 = MQTT / OPC-UA / gRPC streaming / SNMP</li>
+        </ul>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h3>監視と設定の両方向</h3>
+        <ul class="small">
+          <li>しきい値アラート(色変化・トースト・イベント発火)</li>
+          <li>設定ツール: フォーム → 機器への書き込み(Modbus write / REST)を<strong>確認ダイアログ付き</strong>で実行</li>
+          <li>通信失敗・タイムアウトの状態表示と再接続制御</li>
+          <li>更新レイテンシ目標: <strong>200ms 以内</strong>(LAN 内)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 10. 非機能要件 -->
+<section class="slide">
+  <h2>非機能要件(抜粋) <span class="tag">NFR</span></h2>
+  <div class="kpi" style="margin-bottom:22px">
+    <div class="box"><div class="num">60fps</div><div class="lbl">500 パーツ規模での D&D 操作(WASM)</div></div>
+    <div class="box"><div class="num">≤10s</div><div class="lbl">50 ページ規模のフルコード生成</div></div>
+    <div class="box"><div class="num">≤200ms</div><div class="lbl">モニタリング更新レイテンシ</div></div>
+    <div class="box"><div class="num">0 errors</div><div class="lbl">生成コードの tsc / ESLint / vite build</div></div>
+  </div>
+  <table>
+    <tr><th>項目</th><th>要件</th></tr>
+    <tr><td>信頼性</td><td>操作ごとの自動保存、クラッシュ後の復元</td></tr>
+    <tr><td>セキュリティ</td><td>実行モードのサンドボックス分離(iframe + CSP)、カスタムコードの実行制限</td></tr>
+    <tr><td>拡張性</td><td>パーツ / emitter / データソースのプラグイン機構</td></tr>
+    <tr><td>国際化</td><td>ビルダー UI: 日本語 / 英語。生成アプリは i18n 対応コードを出力可能</td></tr>
+  </table>
+</section>
+
+<!-- 11. マイルストーン -->
+<section class="slide">
+  <h2>マイルストーン(案) <span class="tag">Roadmap</span></h2>
+  <table>
+    <tr><th>フェーズ</th><th>期間目安</th><th>スコープ</th></tr>
+    <tr><td>M1: コア編集</td><td>〜3ヶ月</td><td>キャンバス D&D、ヘッダー/フッター、ページ遷移、ダイアログ、属性編集、保存(Rust BE 最小)</td></tr>
+    <tr><td>M2: コード生成</td><td>+2ヶ月</td><td>React コード生成(レイヤード / DI / Result / brand)、vite build 成功、実行モード(mock)、デザイントークン基盤(css-variables emitter)</td></tr>
+    <tr><td>M3: モデル & I/F</td><td>+3ヶ月</td><td>DDD モデルデザイナー、中立 I/F モデル + アダプタ SPI、TypeSpec アダプタ(双方向)、コード生成(FE クライアント / モックサーバー)</td></tr>
+    <tr><td>M4: 閲覧モード</td><td>+2ヶ月</td><td>画面遷移図、コメント、共有リンク、mock 実行プレビュー、トークンエディタ(テーマ編集)</td></tr>
+    <tr><td>M5: リアルタイム</td><td>+2ヶ月</td><td>コネクタ SPI + DataChannel 抽象、REST / WebSocket / Modbus コネクタ、モニタリングパーツ、アラート</td></tr>
+    <tr><td>M6: 拡張</td><td>継続</td><td>プラグイン公開、OpenAPI アダプタ、追加コネクタ(MQTT / OPC-UA)、tailwind emitter + 既存資産取込、コラボ強化</td></tr>
+  </table>
+  <p class="small muted" style="margin-top:18px">※ M2 完了時点で「GUI で作って動く React アプリを出力」という最小価値が成立。</p>
+</section>
+
+<!-- 12. リスク -->
+<section class="slide">
+  <h2>主要リスクと対策 <span class="tag">Risk</span></h2>
+  <table>
+    <tr><th>リスク</th><th>対策</th></tr>
+    <tr><td>再生成とカスタムコードの衝突</td><td>保護領域マーカー + 生成物 / 手書きのファイル分離を最初から設計</td></tr>
+    <tr><td>カスタム emitter の学習コスト</td><td>既存 emitter(openapi3)出力を中間表現として活用する段階的アプローチ</td></tr>
+    <tr><td>Figma ライクなキャンバスの実装難度</td><td>M1 は HTML/CSS ベースの矩形レイアウトに限定、自由配置は後続フェーズ</td></tr>
+    <tr><td>Vite メジャー更新によるツールチェーン変動</td><td>例: Vite 8 で plugin-react v6 が Babel を廃止し oxc 化 → 生成する vite.config をテンプレート一元管理し公式推奨構成(reactCompilerPreset + @rolldown/plugin-babel)に追従、CI で生成物ビルドを常時検証</td></tr>
+    <tr><td>Modbus 実機検証環境</td><td>シミュレータ(diagslave 等)による CI 検証 + 模擬データジェネレータ</td></tr>
+  </table>
+</section>
+
+<!-- 13. まとめ -->
+<section class="slide title-slide">
+  <div class="accentbar"></div>
+  <h1 style="font-size:44px">まとめ</h1>
+  <div style="margin-top:32px; max-width:1000px">
+    <ul style="font-size:23px; line-height:2">
+      <li><strong>UIファースト × モデルファースト</strong> — Figma 的にも kintone 的にも作れる</li>
+      <li>生成物は <strong>class を使わない関数型 TypeScript</strong>(brand + companion object)+ レイヤード + DI で、読めてテストできる</li>
+      <li><strong>TypeSpec</strong> を単一ソースに FE / BE / モックを生成、DI で mock 切替 → 閲覧・実行モードに直結</li>
+      <li>BE は <strong>Rust</strong>、ホットパスは <strong>WASM</strong> — Modbus 監視までこなす性能</li>
+    </ul>
+    <p class="meta" style="margin-top:40px">次のステップ: M1 スコープの詳細設計(キャンバスのデータモデル / プロジェクト保存スキーマ)</p>
+  </div>
+</section>
+
+<div class="progress" id="progress"></div>
+<div class="footer">
+  <span>AppForge 構想プレゼン — 2026-06-12</span>
+  <span id="counter"></span>
+  <span class="nav">
+    <button onclick="go(-1)">← 前へ</button>
+    <button onclick="go(1)">次へ →</button>
+  </span>
+</div>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  let idx = 0;
+  function render() {
+    slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+    document.getElementById('counter').textContent = (idx + 1) + ' / ' + slides.length;
+    document.getElementById('progress').style.width = ((idx + 1) / slides.length * 100) + '%';
+    location.hash = idx + 1;
+  }
+  function go(d) { idx = Math.max(0, Math.min(slides.length - 1, idx + d)); render(); }
+  document.addEventListener('keydown', e => {
+    if (['ArrowRight', ' ', 'PageDown', 'Enter'].includes(e.key)) { e.preventDefault(); go(1); }
+    if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); go(-1); }
+    if (e.key === 'Home') { idx = 0; render(); }
+    if (e.key === 'End') { idx = slides.length - 1; render(); }
+  });
+  document.addEventListener('click', e => {
+    if (e.target.closest('.nav') || e.target.closest('a')) return;
+    go(e.clientX > innerWidth / 2 ? 1 : -1);
+  });
+  const h = parseInt(location.hash.slice(1));
+  if (h >= 1 && h <= slides.length) idx = h - 1;
+  render();
+</script>
+</body>
+</html>
