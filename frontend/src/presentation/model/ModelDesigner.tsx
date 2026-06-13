@@ -6,8 +6,9 @@ import {
   type RelationDef,
   type RelationKind,
   type RuleOp,
+  type ServiceReturn,
 } from '@/domain/data-model';
-import type { FieldId, ModelId, RuleId } from '@/domain/ids';
+import type { FieldId, ModelId, RuleId, ServiceId } from '@/domain/ids';
 import {
   dmFieldAdded,
   dmFieldRemoved,
@@ -20,6 +21,9 @@ import {
   dmRuleAdded,
   dmRuleRemoved,
   dmRuleUpdated,
+  dmServiceAdded,
+  dmServiceRemoved,
+  dmServiceUpdated,
   modelSelected,
 } from '../store/editor-slice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -269,6 +273,8 @@ function ModelCard({
         <RulesSection model={model} />
       )}
 
+      {model.kind === 'aggregate' && <ServicesSection model={model} />}
+
       <div className="model-card-actions">
         <button
           type="button"
@@ -421,6 +427,60 @@ function RulesSection({ model }: { model: ModelDef }) {
             .map((r) => `${fieldName(r.left)} ${OP_LABEL[r.op]} ${r.right.kind === 'field' ? fieldName(r.right.fieldId) : r.right.value}`)
             .join(' / ')}
         </p>
+      )}
+    </div>
+  );
+}
+
+/** ドメインサービス契約の編集(名前・戻り値)。契約は生成、実装は保護コードに手書き(FR-LOGIC-03) */
+function ServicesSection({ model }: { model: ModelDef }) {
+  const dispatch = useAppDispatch();
+  return (
+    <div className="rules-section">
+      <div className="rules-head">ドメインサービス(契約)</div>
+      {model.services.map((service) => (
+        <div key={service.id} className="rule-row">
+          <input
+            key={service.name}
+            type="text"
+            className="rule-message"
+            defaultValue={service.name}
+            title="サービス名(camelCase)"
+            onBlur={(e) => {
+              if (e.target.value !== service.name) {
+                dispatch(dmServiceUpdated({ modelId: model.id, serviceId: service.id as ServiceId, patch: { name: e.target.value } }));
+              }
+            }}
+          />
+          <span className="muted" style={{ fontSize: 11 }}>→</span>
+          <select
+            value={service.returns}
+            title="戻り値の型"
+            onChange={(e) =>
+              dispatch(dmServiceUpdated({ modelId: model.id, serviceId: service.id as ServiceId, patch: { returns: e.target.value as ServiceReturn } }))
+            }
+          >
+            <option value="self">自身</option>
+            <option value="boolean">boolean</option>
+            <option value="number">number</option>
+            <option value="string">string</option>
+            <option value="void">void</option>
+          </select>
+          <button
+            type="button"
+            className="icon-btn"
+            title="サービス削除"
+            onClick={() => dispatch(dmServiceRemoved({ modelId: model.id, serviceId: service.id as ServiceId }))}
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+      <button type="button" className="btn rule-add" onClick={() => dispatch(dmServiceAdded({ modelId: model.id }))}>
+        + サービス
+      </button>
+      {model.services.length > 0 && (
+        <p className="rule-hint muted">契約を生成し、実装は *.impl.ts(再生成で保持)に手書きします</p>
       )}
     </div>
   );

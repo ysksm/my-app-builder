@@ -3,6 +3,7 @@ import { applyCommand, type Command, type CreatedEntities } from '@/application/
 import type { EventBinding } from '@/domain/actions';
 import { ComponentNode, type ComponentType, type PropValue } from '@/domain/component-node';
 import type {
+  DomainServiceDef,
   FieldDef,
   ModelDef,
   ModelKind,
@@ -20,6 +21,7 @@ import type {
   ProjectId,
   RelationId,
   RuleId,
+  ServiceId,
 } from '@/domain/ids';
 import { EditTarget, ProjectDoc } from '@/domain/project-doc';
 import type { Page } from '@/domain/page';
@@ -305,6 +307,25 @@ export const editorSlice = createSlice({
       run(state, { kind: 'removeRule', ...action.payload });
     },
 
+    dmServiceAdded(state, action: PayloadAction<{ modelId: ModelId }>) {
+      run(state, { kind: 'addService', ...action.payload });
+    },
+
+    dmServiceUpdated(
+      state,
+      action: PayloadAction<{
+        modelId: ModelId;
+        serviceId: ServiceId;
+        patch: Partial<Omit<DomainServiceDef, 'id'>>;
+      }>,
+    ) {
+      run(state, { kind: 'updateService', ...action.payload });
+    },
+
+    dmServiceRemoved(state, action: PayloadAction<{ modelId: ModelId; serviceId: ServiceId }>) {
+      run(state, { kind: 'removeService', ...action.payload });
+    },
+
     modelSelected(state, action: PayloadAction<ModelId | null>) {
       state.selectedModelId = action.payload;
     },
@@ -375,6 +396,9 @@ export const {
   dmRuleAdded,
   dmRuleUpdated,
   dmRuleRemoved,
+  dmServiceAdded,
+  dmServiceUpdated,
+  dmServiceRemoved,
   modelSelected,
   undone,
   redone,

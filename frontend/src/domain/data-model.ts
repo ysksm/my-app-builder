@@ -1,6 +1,6 @@
 import { err, ok, type Result } from '@/shared/result';
 import { DomainError } from './errors';
-import { FieldId, ModelId, RelationId, RuleId } from './ids';
+import { FieldId, ModelId, RelationId, RuleId, ServiceId } from './ids';
 
 /**
  * DDD モデルデザイナーのドメイン。
@@ -43,6 +43,25 @@ export type ValidationRule = Readonly<{
   message: string;
 }>;
 
+/** ドメインサービスのパラメータ / 戻り値の型(プリミティブ + 集約自身) */
+export type ServiceType = 'string' | 'number' | 'boolean';
+export type ServiceReturn = ServiceType | 'void' | 'self';
+
+export type ServiceParam = Readonly<{ name: string; type: ServiceType }>;
+
+/**
+ * ドメインサービス契約(§4.3 FR-LOGIC-03)。
+ * ビルダーでは「契約(名前・入出力・依存)」のみ定義し、実装は生成コードの
+ * 保護領域(FR-GEN-05)に手書きする。複数集約にまたがる処理・複雑な計算向け。
+ */
+export type DomainServiceDef = Readonly<{
+  id: ServiceId;
+  /** camelCase 識別子 */
+  name: string;
+  params: ReadonlyArray<ServiceParam>;
+  returns: ServiceReturn;
+}>;
+
 export type ModelDef = Readonly<{
   id: ModelId;
   /** PascalCase 識別子 */
@@ -50,6 +69,7 @@ export type ModelDef = Readonly<{
   kind: ModelKind;
   fields: ReadonlyArray<FieldDef>;
   rules: ReadonlyArray<ValidationRule>;
+  services: ReadonlyArray<DomainServiceDef>;
   x: number;
   y: number;
 }>;
@@ -96,7 +116,16 @@ export const DataModel = {
     const base = kind === 'aggregate' ? 'Aggregate' : kind === 'entity' ? 'Entity' : 'Value';
     let n = dm.models.length + 1;
     while (dm.models.some((m) => m.name === `${base}${n}`)) n += 1;
-    const model: ModelDef = { id: ModelId.create(), name: `${base}${n}`, kind, fields: [], rules: [], x, y };
+    const model: ModelDef = {
+      id: ModelId.create(),
+      name: `${base}${n}`,
+      kind,
+      fields: [],
+      rules: [],
+      services: [],
+      x,
+      y,
+    };
     return { dataModel: { ...dm, models: [...dm.models, model] }, model };
   },
 
@@ -256,6 +285,70 @@ export const DataModel = {
       ...dm,
       models: dm.models.map((m) =>
         m.id === modelId ? { ...m, rules: m.rules.filter((r) => r.id !== ruleId) } : m,
+      ),
+    });
+  },
+
+  addService(
+    dm: DataModel,
+    modelId: ModelId,
+  ): Result<Readonly<{ dataModel: DataModel; service: DomainServiceDef }>, DomainError> {
+    const model = DataModel.findModel(dm, modelId);
+    if (!model) return err(DomainError.notFound('model'));
+    let n = model.services.length + 1;
+    while (model.services.some((s) => s.name === `service${n}`)) n += 1;
+    const service: DomainServiceDef = {
+      id: ServiceId.create(),
+      name: `service${n}`,
+      params: [],
+      returns: 'self',
+    };
+    const dataModel = {
+      ...dm,
+      models: dm.models.map((m) =>
+        m.id === modelId ? { ...m, services: [...m.services, service] } : m,
+      ),
+    };
+    return ok({ dataModel, service });
+  },
+
+  updateService(
+    dm: DataModel,
+    modelId: ModelId,
+    serviceId: ServiceId,
+    patch: Partial<Omit<DomainServiceDef, 'id'>>,
+  ): Result<DataModel, DomainError> {
+    const model = DataModel.findModel(dm, modelId);
+    if (!model) return err(DomainError.notFound('model'));
+    const service = model.services.find((s) => s.id === serviceId);
+    if (!service) return err(DomainError.notFound('service'));
+    const normalized = { ...patch };
+    if (patch.name !== undefined) {
+      const name = DataModel.sanitizeFieldName(patch.name);
+      if (!name) return err(DomainError.create('INVALID', 'service name must not be empty'));
+      if (model.services.some((s) => s.id !== serviceId && s.name === name)) {
+        return err(DomainError.create('INVALID', `duplicate service name: ${name}`));
+      }
+      normalized.name = name;
+    }
+    return ok({
+      ...dm,
+      models: dm.models.map((m) =>
+        m.id === modelId
+          ? { ...m, services: m.services.map((s) => (s.id === serviceId ? { ...s, ...normalized } : s)) }
+          : m,
+      ),
+    });
+  },
+
+  removeService(dm: DataModel, modelId: ModelId, serviceId: ServiceId): Result<DataModel, DomainError> {
+    const model = DataModel.findModel(dm, modelId);
+    if (!model) return err(DomainError.notFound('model'));
+    if (!model.services.some((s) => s.id === serviceId)) return err(DomainError.notFound('service'));
+    return ok({
+      ...dm,
+      models: dm.models.map((m) =>
+        m.id === modelId ? { ...m, services: m.services.filter((s) => s.id !== serviceId) } : m,
       ),
     });
   },

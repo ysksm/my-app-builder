@@ -118,6 +118,17 @@ export const modelPaths = (layout: FeatureLayout, model: ModelDef) => {
   };
 };
 
+/** ドメインサービスの契約 / 実装スタブのパス */
+export const servicePaths = (layout: FeatureLayout, model: ModelDef, serviceName: string) => {
+  const feature = layout.featureOf(model.id);
+  const dir = feature ? `src/features/${feature}/domain/services` : `${SHARED}/domain/services`;
+  const file = toKebabCase(serviceName);
+  return {
+    contract: `${dir}/${file}.ts`,
+    impl: `${dir}/${file}.impl.ts`,
+  };
+};
+
 // ---------- import パス解決 ----------
 
 /** 2つの src 相対パス間の ESM import 指定子(拡張子なし・相対)を計算する */

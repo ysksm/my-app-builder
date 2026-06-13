@@ -3,7 +3,16 @@ import { err, ok, type Result } from '@/shared/result';
 import type { ComponentNode } from './component-node';
 import { DesignTokens } from './design-tokens';
 import { DomainError } from './errors';
-import type { DialogId, FieldId, ModelId, NodeId, PageId, RelationId, RuleId } from './ids';
+import type {
+  DialogId,
+  FieldId,
+  ModelId,
+  NodeId,
+  PageId,
+  RelationId,
+  RuleId,
+  ServiceId,
+} from './ids';
 import type { ProjectDoc } from './project-doc';
 
 const idSchema = <T extends string>() =>
@@ -97,13 +106,26 @@ const validationRuleSchema = z.object({
   message: z.string(),
 });
 
+const serviceParamSchema = z.object({
+  name: z.string(),
+  type: z.enum(['string', 'number', 'boolean']),
+});
+
+const domainServiceSchema = z.object({
+  id: idSchema<ServiceId>(),
+  name: z.string().min(1),
+  params: z.array(serviceParamSchema),
+  returns: z.enum(['string', 'number', 'boolean', 'void', 'self']),
+});
+
 const modelDefSchema = z.object({
   id: idSchema<ModelId>(),
   name: z.string().min(1),
   kind: z.enum(['aggregate', 'entity', 'valueObject']),
   fields: z.array(fieldDefSchema),
-  // rules 導入以前のドキュメントは空配列で補完
+  // rules / services 導入以前のドキュメントは空配列で補完
   rules: z.array(validationRuleSchema).default(() => []),
+  services: z.array(domainServiceSchema).default(() => []),
   x: z.number(),
   y: z.number(),
 });

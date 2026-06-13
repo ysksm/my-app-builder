@@ -139,6 +139,29 @@ const productSrc = textOf(
 if (!productSrc.includes('input.price >= 0')) fail('ルールが validate に展開されていません');
 console.log('addRule → validate 展開 OK');
 
+// ドメインサービス契約: addService → updateService(name=calcShipping, returns=number)
+const svcAdd = JSON.parse(
+  textOf(await client.callTool({ name: 'apply_commands', arguments: { projectId: pid, commands: [{ kind: 'addService', modelId: product.id }] } })),
+) as { ok: boolean; created: { serviceId: string } };
+if (!svcAdd.ok) fail('apply_commands(addService) が失敗しました');
+const svcUpd = await client.callTool({
+  name: 'apply_commands',
+  arguments: {
+    projectId: pid,
+    commands: [
+      { kind: 'updateService', modelId: product.id, serviceId: svcAdd.created.serviceId, patch: { name: 'calcShipping', returns: 'number', params: [{ name: 'weight', type: 'number' }] } },
+    ],
+  },
+});
+if (svcUpd.isError) fail('apply_commands(updateService) が失敗しました');
+const contractSrc = textOf(
+  await client.callTool({ name: 'generate_source', arguments: { projectId: pid, filePath: 'src/features/product/domain/services/calc-shipping.ts' } }),
+);
+if (!contractSrc.includes('CalcShippingService = (entity: Product, weight: number) => number')) {
+  fail('ドメインサービス契約が正しく生成されていません');
+}
+console.log('addService → 契約生成 OK');
+
 // 不正コマンドは拒否される
 const bad = await client.callTool({ name: 'apply_commands', arguments: { projectId: pid, commands: [{ kind: 'dropEverything' }] } });
 if (!bad.isError) fail('不正コマンドが拒否されませんでした');

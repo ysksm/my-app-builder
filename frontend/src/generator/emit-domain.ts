@@ -1,9 +1,11 @@
 import type {
   DataModel,
+  DomainServiceDef,
   FieldDef,
   ModelDef,
   RelationDef,
   RuleOp,
+  ServiceReturn,
   ValidationRule,
 } from '@/domain/data-model';
 import type { ModelId } from '@/domain/ids';
@@ -15,6 +17,7 @@ import {
   modelPaths,
   paths,
   relativeImport,
+  servicePaths,
   type FeatureLayout,
 } from './layout';
 
@@ -447,7 +450,43 @@ export const createInMemory${name}Repository = (): ${name}Repository => {
 `;
 };
 
-/** DataModel → ドメイン層 + repository + mock のファイル群 */
+const pascal = (s: string): string => (s ? s[0]!.toUpperCase() + s.slice(1) : s);
+const serviceTypeName = (service: DomainServiceDef): string => `${pascal(service.name)}Service`;
+const serviceReturnType = (returns: ServiceReturn, aggName: string): string =>
+  returns === 'self' ? aggName : returns; // 'void' | primitive はそのまま
+
+/** ドメインサービス契約(overwrite=true): 入出力の型のみ。実装は impl 側 */
+const emitServiceContract = (model: ModelDef, service: DomainServiceDef, ctx: Ctx): string => {
+  const p = servicePaths(ctx.layout, model, service.name);
+  const aggSpec = relativeImport(p.contract, modelPaths(ctx.layout, model).model);
+  const sig = [
+    `entity: ${model.name}`,
+    ...service.params.map((pp) => `${pp.name}: ${pp.type}`),
+  ].join(', ');
+  return `// 自動生成 — AppForge ドメインサービス契約(${service.name})
+// 契約はビルダーが生成。実装は ${service.name}.impl.ts に手書きする(FR-LOGIC-03)。
+import type { ${model.name} } from '${aggSpec}';
+
+export type ${serviceTypeName(service)} = (${sig}) => ${serviceReturnType(service.returns, model.name)};
+`;
+};
+
+/** ドメインサービス実装スタブ(overwrite=false): 再生成で保持され、ユーザーが実装する */
+const emitServiceImpl = (model: ModelDef, service: DomainServiceDef, ctx: Ctx): string => {
+  const p = servicePaths(ctx.layout, model, service.name);
+  const contractSpec = relativeImport(p.impl, p.contract);
+  const argNames = ['entity', ...service.params.map((pp) => pp.name)].join(', ');
+  return `// AppForge ドメインサービス実装 — このファイルは再生成で上書きされません(FR-GEN-05)。
+// 契約: ${serviceTypeName(service)}。ここに実装を書いてください。
+import type { ${serviceTypeName(service)} } from '${contractSpec}';
+
+export const ${service.name}: ${serviceTypeName(service)} = (${argNames}) => {
+  throw new Error('${service.name} は未実装です');
+};
+`;
+};
+
+/** DataModel → ドメイン層 + repository + mock + サービス契約のファイル群 */
 export const emitDomainFiles = (dm: DataModel): GeneratedFile[] => {
   if (dm.models.length === 0) return [];
   const ctx = buildCtx(dm);
@@ -468,6 +507,12 @@ export const emitDomainFiles = (dm: DataModel): GeneratedFile[] => {
     if (model.kind === 'aggregate') {
       files.push({ path: p.repository, content: emitRepositoryInterface(model, ctx) });
       files.push({ path: p.mock, content: emitMockRepository(model, ctx) });
+    }
+    // ドメインサービス: 契約(上書き)+ 実装スタブ(ユーザー所有・保持)
+    for (const service of model.services) {
+      const sp = servicePaths(ctx.layout, model, service.name);
+      files.push({ path: sp.contract, content: emitServiceContract(model, service, ctx) });
+      files.push({ path: sp.impl, overwrite: false, content: emitServiceImpl(model, service, ctx) });
     }
   }
   return files;

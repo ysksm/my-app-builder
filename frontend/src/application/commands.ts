@@ -6,6 +6,7 @@ import { DomainError } from '@/domain/errors';
 import { ComponentNode, type ComponentType, type PropValue } from '@/domain/component-node';
 import {
   DataModel,
+  type DomainServiceDef,
   type FieldDef,
   type ModelDef,
   type ModelKind,
@@ -14,7 +15,16 @@ import {
   type RuleOperand,
   type ValidationRule,
 } from '@/domain/data-model';
-import type { DialogId, FieldId, ModelId, NodeId, PageId, RelationId, RuleId } from '@/domain/ids';
+import type {
+  DialogId,
+  FieldId,
+  ModelId,
+  NodeId,
+  PageId,
+  RelationId,
+  RuleId,
+  ServiceId,
+} from '@/domain/ids';
 import type { Page } from '@/domain/page';
 import { ProjectDoc, type EditTarget } from '@/domain/project-doc';
 
@@ -62,7 +72,11 @@ export type Command =
   // バリデーションルール(クロスフィールド制約)
   | Readonly<{ kind: 'addRule'; modelId: ModelId; left: FieldId; op: RuleOp; right: RuleOperand; message: string }>
   | Readonly<{ kind: 'updateRule'; modelId: ModelId; ruleId: RuleId; patch: Partial<Omit<ValidationRule, 'id'>> }>
-  | Readonly<{ kind: 'removeRule'; modelId: ModelId; ruleId: RuleId }>;
+  | Readonly<{ kind: 'removeRule'; modelId: ModelId; ruleId: RuleId }>
+  // ドメインサービス契約
+  | Readonly<{ kind: 'addService'; modelId: ModelId }>
+  | Readonly<{ kind: 'updateService'; modelId: ModelId; serviceId: ServiceId; patch: Partial<Omit<DomainServiceDef, 'id'>> }>
+  | Readonly<{ kind: 'removeService'; modelId: ModelId; serviceId: ServiceId }>;
 
 export type CommandKind = Command['kind'];
 
@@ -74,6 +88,7 @@ export type CreatedEntities = Readonly<{
   fieldId?: FieldId;
   relationId?: RelationId;
   ruleId?: RuleId;
+  serviceId?: ServiceId;
 }>;
 
 export type CommandOutcome = Readonly<{
@@ -210,6 +225,21 @@ export const applyCommand = (
       const res = DataModel.removeRule(doc.dataModel, cmd.modelId, cmd.ruleId);
       return res.ok ? ok(outcome({ ...doc, dataModel: res.value })) : res;
     }
+
+    case 'addService': {
+      const res = DataModel.addService(doc.dataModel, cmd.modelId);
+      return res.ok
+        ? ok(outcome({ ...doc, dataModel: res.value.dataModel }, { serviceId: res.value.service.id }))
+        : res;
+    }
+    case 'updateService': {
+      const res = DataModel.updateService(doc.dataModel, cmd.modelId, cmd.serviceId, cmd.patch);
+      return res.ok ? ok(outcome({ ...doc, dataModel: res.value })) : res;
+    }
+    case 'removeService': {
+      const res = DataModel.removeService(doc.dataModel, cmd.modelId, cmd.serviceId);
+      return res.ok ? ok(outcome({ ...doc, dataModel: res.value })) : res;
+    }
   }
 };
 
@@ -260,6 +290,14 @@ const ruleOperand = z.discriminatedUnion('kind', [
 const rulePatch = z
   .object({ left: id, op: ruleOp, right: ruleOperand, message: z.string() })
   .partial();
+const serviceType = z.enum(['string', 'number', 'boolean']);
+const servicePatch = z
+  .object({
+    name: z.string(),
+    params: z.array(z.object({ name: z.string(), type: serviceType })),
+    returns: z.enum(['string', 'number', 'boolean', 'void', 'self']),
+  })
+  .partial();
 const pagePatch = z
   .object({ name: z.string(), path: z.string(), useHeader: z.boolean(), useFooter: z.boolean() })
   .partial();
@@ -298,6 +336,9 @@ const commandSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('addRule'), modelId: id, left: id, op: ruleOp, right: ruleOperand, message: z.string() }),
   z.object({ kind: z.literal('updateRule'), modelId: id, ruleId: id, patch: rulePatch }),
   z.object({ kind: z.literal('removeRule'), modelId: id, ruleId: id }),
+  z.object({ kind: z.literal('addService'), modelId: id }),
+  z.object({ kind: z.literal('updateService'), modelId: id, serviceId: id, patch: servicePatch }),
+  z.object({ kind: z.literal('removeService'), modelId: id, serviceId: id }),
 ]);
 
 /** 外部入力(JSON)→ 検証済み Command 配列。MCP の apply_commands が信頼境界で使う */
