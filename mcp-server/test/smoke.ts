@@ -190,6 +190,15 @@ if (!ucSrc.includes('export const placeProduct = async (') || !ucSrc.includes('P
 }
 console.log('addUsecase → application 関数生成 OK');
 
+// 設計図エクスポート(FR-VIEW-06)
+const trace = textOf(await client.callTool({ name: 'export_diagrams', arguments: { projectId: pid, kind: 'traceability' } }));
+if (!trace.includes('| Product |') || !trace.includes('ドメイン層')) fail('トレーサビリティ表が不正です');
+const seq = textOf(await client.callTool({ name: 'export_diagrams', arguments: { projectId: pid, kind: 'sequence' } }));
+if (!seq.includes('sequenceDiagram') || !seq.includes('placeProduct')) fail('シーケンス図が不正です');
+const flow2 = textOf(await client.callTool({ name: 'export_diagrams', arguments: { projectId: pid, kind: 'screen-flow' } }));
+if (!flow2.includes('flowchart')) fail('画面遷移図が不正です');
+console.log('export_diagrams(遷移図/シーケンス/トレーサビリティ)OK');
+
 // 不正コマンドは拒否される
 const bad = await client.callTool({ name: 'apply_commands', arguments: { projectId: pid, commands: [{ kind: 'dropEverything' }] } });
 if (!bad.isError) fail('不正コマンドが拒否されませんでした');

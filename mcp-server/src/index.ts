@@ -4,6 +4,7 @@ import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import { applyCommand, applyCommands, parseCommands } from '@/application/commands';
+import { exportDiagram } from '@/application/diagram-export';
 import { DataModel, type FieldType } from '@/domain/data-model';
 import { ProjectDoc } from '@/domain/project-doc';
 import { parseProjectDoc } from '@/domain/schema';
@@ -148,6 +149,24 @@ server.registerTool(
       await writeFile(target, f.content, 'utf8');
     }
     return text({ written: files.length, outDir });
+  },
+);
+
+server.registerTool(
+  'export_diagrams',
+  {
+    title: '設計図エクスポート',
+    description:
+      '中立ドキュメントから設計図を出力する(FR-VIEW-06)。kind: screen-flow(画面遷移図 Mermaid)/ ' +
+      'sequence(ユースケースのシーケンス図 Mermaid)/ traceability(レイヤー×機能トレーサビリティ Markdown)',
+    inputSchema: {
+      projectId: z.string(),
+      kind: z.enum(['screen-flow', 'sequence', 'traceability']),
+    },
+  },
+  async ({ projectId, kind }) => {
+    const { doc } = await loadDoc(projectId);
+    return text(exportDiagram(doc, kind));
   },
 );
 

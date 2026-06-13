@@ -4,6 +4,7 @@ import { container } from './di/container';
 import { EditorPage } from './presentation/editor/EditorPage';
 import { TopBar } from './presentation/editor/TopBar';
 import { ScreenBoard } from './presentation/board/ScreenBoard';
+import { DiagramsView } from './presentation/diagrams/DiagramsView';
 import { ModelDesigner } from './presentation/model/ModelDesigner';
 import { PreviewApp } from './presentation/preview/PreviewApp';
 import { RunApp } from './presentation/run/RunApp';
@@ -88,6 +89,7 @@ export function App() {
       {viewMode === 'edit' && <EditorPage />}
       {viewMode === 'model' && <ModelDesigner />}
       {viewMode === 'board' && <ScreenBoard />}
+      {viewMode === 'diagrams' && <DiagramsView />}
       {viewMode === 'preview' && <PreviewApp />}
       {viewMode === 'run' && <RunApp />}
     </div>

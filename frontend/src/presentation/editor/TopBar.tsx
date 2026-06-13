@@ -64,6 +64,13 @@ export function TopBar() {
           </button>
           <button
             type="button"
+            className={viewMode === 'diagrams' ? 'on' : ''}
+            onClick={() => dispatch(viewModeChanged('diagrams'))}
+          >
+            📄 設計図
+          </button>
+          <button
+            type="button"
             className={viewMode === 'preview' ? 'on' : ''}
             onClick={() => dispatch(viewModeChanged('preview'))}
           >
