@@ -342,7 +342,8 @@ export const generateVueProject = (doc: ProjectDoc, projectName: string): Genera
     file('src/main.ts', mainTs),
     file('src/App.vue', appVue(doc)),
     file('src/router.ts', routerTs(doc)),
-    file('src/styles/tokens.css', emitTokensCss(doc.tokens, doc.styleEmitter)),
+    // Vue PoC は tailwind プラグインを配線しないため css-variables 固定(依存ゼロ)
+    file('src/styles/tokens.css', emitTokensCss(doc.tokens, 'css-variables')),
     file('src/styles/app.css', emitAppCss()),
     ...doc.pages.map((page, i) =>
       file(`src/pages/Page${i}.vue`, emitVuePage(page.root, `Page${i}`, '../shared/realtime')),

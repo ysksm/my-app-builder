@@ -15,6 +15,7 @@ import { deriveInterfaceModel } from './interface-model';
 import { paths } from './layout';
 
 export type { GeneratedFile } from './files';
+export { generateVueProject } from './emit-vue-project';
 
 /** ドキュメント内にリアルタイムモニタリング部品(metric / gauge / lamp)があるか */
 const usesMetric = (doc: ProjectDoc): boolean => {
