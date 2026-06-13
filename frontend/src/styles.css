@@ -596,6 +596,9 @@ body {
 }
 .run-framework button.on { background: var(--accent); color: #fff; }
 .run-framework button:disabled { cursor: default; opacity: .6; }
+.run-notice { padding: 28px; display: flex; flex-direction: column; gap: 10px; }
+.run-notice p { font-size: 14px; }
+.run-notice .muted { max-width: 640px; line-height: 1.7; }
 .run-status { font-size: 13px; color: var(--muted); margin-right: auto; }
 .run-status.ok { color: var(--accent2); }
 .run-status.error { color: var(--danger); }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import JSZip from 'jszip';
 import {
   generateProject,
+  generateRemixProject,
   generateSvelteProject,
   generateVueProject,
   type GeneratedFile,
@@ -14,13 +15,18 @@ type BuildState =
   | Readonly<{ phase: 'ok'; log: string }>
   | Readonly<{ phase: 'error'; log: string }>;
 
-type Framework = 'react' | 'vue' | 'svelte';
+type Framework = 'react' | 'vue' | 'svelte' | 'remix';
 
 const FRAMEWORKS: ReadonlyArray<{ id: Framework; label: string }> = [
   { id: 'react', label: 'React' },
   { id: 'vue', label: 'Vue' },
   { id: 'svelte', label: 'Svelte' },
+  { id: 'remix', label: 'Remix' },
 ];
+
+// Remix はパスルーティングのため、動的サブパス(/preview/{id}/)での
+// アプリ内プレビューに非対応(ルート '/' でデプロイすれば正しく動く)
+const PREVIEWABLE = new Set<Framework>(['react', 'vue', 'svelte']);
 
 const generateFor = (framework: Framework, doc: Parameters<typeof generateProject>[0], name: string): GeneratedFile[] => {
   switch (framework) {
@@ -28,6 +34,8 @@ const generateFor = (framework: Framework, doc: Parameters<typeof generateProjec
       return generateVueProject(doc, name);
     case 'svelte':
       return generateSvelteProject(doc, name);
+    case 'remix':
+      return generateRemixProject(doc, name);
     default:
       return generateProject(doc, name);
   }
@@ -140,13 +148,22 @@ export function RunApp() {
       {(showLog || state.phase === 'error') && state.phase !== 'building' && (
         <pre className="run-log">{state.log}</pre>
       )}
-      {state.phase === 'ok' && (
+      {state.phase === 'ok' && PREVIEWABLE.has(framework) && (
         <iframe
           className="run-iframe"
           title="生成アプリ"
           sandbox="allow-scripts allow-same-origin"
           src={`/preview/${buildId}/?v=${nonce}&fw=${framework}`}
         />
+      )}
+      {state.phase === 'ok' && !PREVIEWABLE.has(framework) && (
+        <div className="run-notice">
+          <p>✅ {framework} アプリのビルドに成功しました。</p>
+          <p className="muted">
+            Remix はパスルーティングのため、この動的サブパス(/preview/…)でのアプリ内プレビューに非対応です。
+            「ソースを ZIP ダウンロード」してルート(/)で実行すると正しく動作します。
+          </p>
+        </div>
       )}
       {state.phase === 'building' && (
         <div className="boot">ソース生成 → npm install → tsc + vite build を実行中…</div>
