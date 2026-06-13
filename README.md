@@ -41,8 +41,12 @@ cd mcp-server && npm install
 claude mcp add appforge -- npx tsx <リポジトリ>/mcp-server/src/index.ts
 ```
 
-ツール: `list_projects` / `get_project` / `describe_app` / `generate_source` / `build_and_preview` / `export_source`。
-ドメイン・ジェネレータは frontend と同一コードを共有(検証: `cd mcp-server && npm test`)。
+ツール:
+- 読み取り/生成/ビルド(Phase 0): `list_projects` / `get_project` / `describe_app` / `generate_source` / `build_and_preview` / `export_source`
+- 編集(Phase 1): `create_project` / `apply_commands`(GUI と同一のコマンド層・検証を通る)/ `add_aggregate` / `add_page`
+
+ドメイン・ジェネレータ・**コマンド層**は frontend と同一コードを共有(検証: `cd mcp-server && npm test`)。
+GUI と MCP が同じ `applyCommand` を通るため機能パリティが構造的に担保される(requirements.md §9)。
 
 ## 開発コマンド
 

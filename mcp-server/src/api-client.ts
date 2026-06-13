@@ -21,6 +21,20 @@ export const api = {
   getProject: (id: string): Promise<ApiProject> =>
     request(`/api/projects/${id}`) as Promise<ApiProject>,
 
+  createProject: (name: string, doc: unknown): Promise<ApiProject> =>
+    request('/api/projects', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name, doc }),
+    }) as Promise<ApiProject>,
+
+  saveProject: (id: string, name: string, doc: unknown): Promise<ApiProject> =>
+    request(`/api/projects/${id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name, doc }),
+    }) as Promise<ApiProject>,
+
   build: (id: string, files: ReadonlyArray<GeneratedFile>): Promise<{ ok: boolean; log: string }> =>
     request(`/api/projects/${id}/build`, {
       method: 'POST',

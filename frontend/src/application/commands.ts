@@ -1,9 +1,10 @@
+import { z } from 'zod';
 import { err, ok, type Result } from '@/shared/result';
 import type { EventBinding } from '@/domain/actions';
 import { componentDefs } from '@/domain/catalog/component-defs';
+import { DomainError } from '@/domain/errors';
 import { ComponentNode, type ComponentType, type PropValue } from '@/domain/component-node';
 import { DataModel, type FieldDef, type ModelDef, type ModelKind, type RelationKind } from '@/domain/data-model';
-import { DomainError } from '@/domain/errors';
 import type { DialogId, FieldId, ModelId, NodeId, PageId, RelationId } from '@/domain/ids';
 import type { Page } from '@/domain/page';
 import { ProjectDoc, type EditTarget } from '@/domain/project-doc';
@@ -197,4 +198,71 @@ export const applyCommands = (
     created = { ...created, ...res.value.created };
   }
   return ok(outcome(current, created));
+};
+
+// ---------- 直列化境界の検証(MCP など外部入力を信頼しない) ----------
+
+const id = z.string().min(1);
+const propValue = z.union([z.string(), z.number(), z.boolean()]);
+const editTarget = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('page'), pageId: id }),
+  z.object({ kind: z.literal('header') }),
+  z.object({ kind: z.literal('footer') }),
+  z.object({ kind: z.literal('dialog'), dialogId: id }),
+]);
+const action = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('navigate'), pageId: id }),
+  z.object({ kind: z.literal('openDialog'), dialogId: id }),
+  z.object({ kind: z.literal('closeDialog') }),
+  z.object({ kind: z.literal('showToast'), message: z.string() }),
+]);
+const eventBinding = z.object({ event: z.literal('onClick'), action });
+const componentType = z.enum([
+  'container', 'heading', 'text', 'button', 'input', 'image', 'table', 'header', 'footer',
+]);
+const modelKind = z.enum(['aggregate', 'entity', 'valueObject']);
+const relationKind = z.enum(['hasOne', 'hasMany']);
+const fieldType = z.enum(['string', 'number', 'boolean', 'date']);
+const pagePatch = z
+  .object({ name: z.string(), path: z.string(), useHeader: z.boolean(), useFooter: z.boolean() })
+  .partial();
+const modelPatch = z.object({ name: z.string(), kind: modelKind, x: z.number(), y: z.number() }).partial();
+const fieldPatch = z
+  .object({
+    name: z.string(),
+    type: fieldType,
+    required: z.boolean(),
+    min: z.number().nullable(),
+    max: z.number().nullable(),
+    pattern: z.string().nullable(),
+  })
+  .partial();
+
+const commandSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('insertNode'), target: editTarget, parentId: id, index: z.number(), type: componentType }),
+  z.object({ kind: z.literal('moveNode'), target: editTarget, nodeId: id, parentId: id, index: z.number() }),
+  z.object({ kind: z.literal('removeNode'), target: editTarget, nodeId: id }),
+  z.object({ kind: z.literal('updateNodeProps'), target: editTarget, nodeId: id, patch: z.record(z.string(), propValue) }),
+  z.object({ kind: z.literal('setNodeEvents'), target: editTarget, nodeId: id, events: z.array(eventBinding) }),
+  z.object({ kind: z.literal('addPage'), name: z.string(), path: z.string() }),
+  z.object({ kind: z.literal('removePage'), pageId: id }),
+  z.object({ kind: z.literal('updatePage'), pageId: id, patch: pagePatch }),
+  z.object({ kind: z.literal('addDialog'), title: z.string() }),
+  z.object({ kind: z.literal('removeDialog'), dialogId: id }),
+  z.object({ kind: z.literal('renameDialog'), dialogId: id, title: z.string() }),
+  z.object({ kind: z.literal('addModel'), modelKind, x: z.number(), y: z.number() }),
+  z.object({ kind: z.literal('updateModel'), modelId: id, patch: modelPatch }),
+  z.object({ kind: z.literal('removeModel'), modelId: id }),
+  z.object({ kind: z.literal('addField'), modelId: id }),
+  z.object({ kind: z.literal('updateField'), modelId: id, fieldId: id, patch: fieldPatch }),
+  z.object({ kind: z.literal('removeField'), modelId: id, fieldId: id }),
+  z.object({ kind: z.literal('addRelation'), from: id, to: id, relationKind }),
+  z.object({ kind: z.literal('removeRelation'), relationId: id }),
+]);
+
+/** 外部入力(JSON)→ 検証済み Command 配列。MCP の apply_commands が信頼境界で使う */
+export const parseCommands = (input: unknown): Result<Command[], DomainError> => {
+  const parsed = z.array(commandSchema).safeParse(input);
+  if (!parsed.success) return err(DomainError.create('INVALID', parsed.error.message));
+  return ok(parsed.data as Command[]);
 };

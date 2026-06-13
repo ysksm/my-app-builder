@@ -3,8 +3,10 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
+import { applyCommand, applyCommands, parseCommands } from '@/application/commands';
+import { DataModel, type FieldType } from '@/domain/data-model';
+import { ProjectDoc } from '@/domain/project-doc';
 import { parseProjectDoc } from '@/domain/schema';
-import type { ProjectDoc } from '@/domain/project-doc';
 import { generateProject } from '@/generator';
 import { api, type ApiProject } from './api-client.js';
 import { describeApp } from './describe.js';
@@ -146,6 +148,127 @@ server.registerTool(
       await writeFile(target, f.content, 'utf8');
     }
     return text({ written: files.length, outDir });
+  },
+);
+
+// ---------- Phase 1: 編集ツール(コマンド層経由) ----------
+
+server.registerTool(
+  'create_project',
+  {
+    title: 'プロジェクト作成',
+    description: '空のプロジェクト(ホームページ + 共通ヘッダー/フッター)を新規作成し id を返す',
+    inputSchema: { name: z.string() },
+  },
+  async ({ name }) => {
+    const created = await api.createProject(name, ProjectDoc.create());
+    return text({ id: created.id, name: created.name });
+  },
+);
+
+server.registerTool(
+  'apply_commands',
+  {
+    title: 'コマンド適用(編集)',
+    description:
+      'ドキュメント編集コマンドの配列を順に適用して保存する。GUI と同一のコマンド層・検証を通る。' +
+      'コマンド種別: insertNode/moveNode/removeNode/updateNodeProps/setNodeEvents/addPage/removePage/updatePage/' +
+      'addDialog/removeDialog/renameDialog/addModel/updateModel/removeModel/addField/updateField/removeField/addRelation/removeRelation。' +
+      'expectedUpdatedAt を渡すとエディタ等による競合を検出する(get_project の updatedAt を渡す)',
+    inputSchema: {
+      projectId: z.string(),
+      commands: z.array(z.record(z.string(), z.unknown())).describe('Command の JSON 配列'),
+      expectedUpdatedAt: z.number().optional().describe('楽観ロック用(任意)'),
+    },
+  },
+  async ({ projectId, commands, expectedUpdatedAt }) => {
+    const { project, doc } = await loadDoc(projectId);
+    if (expectedUpdatedAt !== undefined && project.updated_at !== expectedUpdatedAt) {
+      return errorText(
+        `競合: プロジェクトは別の編集で更新されています(expected ${expectedUpdatedAt}, actual ${project.updated_at})。get_project で再取得してください`,
+      );
+    }
+    const parsed = parseCommands(commands);
+    if (!parsed.ok) return errorText(`コマンド検証エラー: ${parsed.error.message}`);
+    const result = applyCommands(doc, parsed.value);
+    if (!result.ok) return errorText(`コマンド適用エラー: ${result.error.message}`);
+    const saved = await api.saveProject(project.id, project.name, result.value.doc);
+    return text({ ok: true, created: result.value.created, updatedAt: saved.updated_at });
+  },
+);
+
+server.registerTool(
+  'add_aggregate',
+  {
+    title: '集約モデル追加(高水準)',
+    description:
+      'DDD 集約とそのフィールドを一括で追加する便利ツール(内部はコマンド層に展開)。名前/フィールド名はサニタイズされる',
+    inputSchema: {
+      projectId: z.string(),
+      name: z.string().describe('集約名(PascalCase 推奨)'),
+      fields: z
+        .array(
+          z.object({
+            name: z.string(),
+            type: z.enum(['string', 'number', 'boolean', 'date']).optional(),
+            required: z.boolean().optional(),
+          }),
+        )
+        .optional(),
+    },
+  },
+  async ({ projectId, name, fields }) => {
+    const { project, doc } = await loadDoc(projectId);
+    const count = doc.dataModel.models.length;
+    let working = doc;
+
+    const m = applyCommand(working, {
+      kind: 'addModel',
+      modelKind: 'aggregate',
+      x: 60 + (count % 4) * 320,
+      y: 60 + Math.floor(count / 4) * 280,
+    });
+    if (!m.ok) return errorText(m.error.message);
+    working = m.value.doc;
+    const modelId = m.value.created.modelId!;
+
+    const named = applyCommand(working, { kind: 'updateModel', modelId, patch: { name } });
+    if (!named.ok) return errorText(named.error.message);
+    working = named.value.doc;
+
+    for (const f of fields ?? []) {
+      const af = applyCommand(working, { kind: 'addField', modelId });
+      if (!af.ok) return errorText(af.error.message);
+      working = af.value.doc;
+      const uf = applyCommand(working, {
+        kind: 'updateField',
+        modelId,
+        fieldId: af.value.created.fieldId!,
+        patch: { name: f.name, type: (f.type ?? 'string') as FieldType, required: f.required ?? true },
+      });
+      if (!uf.ok) return errorText(uf.error.message);
+      working = uf.value.doc;
+    }
+
+    const saved = await api.saveProject(project.id, project.name, working);
+    const model = DataModel.findModel(working.dataModel, modelId);
+    return text({ ok: true, modelId, name: model?.name, updatedAt: saved.updated_at });
+  },
+);
+
+server.registerTool(
+  'add_page',
+  {
+    title: 'ページ追加(高水準)',
+    description: 'ページを1枚追加する便利ツール(内部は addPage コマンド)',
+    inputSchema: { projectId: z.string(), name: z.string(), path: z.string() },
+  },
+  async ({ projectId, name, path }) => {
+    const { project, doc } = await loadDoc(projectId);
+    const result = applyCommand(doc, { kind: 'addPage', name, path });
+    if (!result.ok) return errorText(result.error.message);
+    const saved = await api.saveProject(project.id, project.name, result.value.doc);
+    return text({ ok: true, pageId: result.value.created.pageId, updatedAt: saved.updated_at });
   },
 );
 

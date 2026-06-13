@@ -87,5 +87,60 @@ const build = JSON.parse(textOf(await client.callTool({ name: 'build_and_preview
 if (!build.ok) fail(`ビルド失敗:\n${build.log}`);
 console.log('build ok, preview:', build.previewUrl);
 
+// ---------- Phase 1: 編集ツール(新規プロジェクトで非破壊に検証)----------
+const createdProject = JSON.parse(
+  textOf(await client.callTool({ name: 'create_project', arguments: { name: 'MCP Phase1 Smoke' } })),
+) as { id: string };
+const pid = createdProject.id;
+console.log(`create_project: ${pid}`);
+
+// add_aggregate(高水準)
+const agg = JSON.parse(
+  textOf(
+    await client.callTool({
+      name: 'add_aggregate',
+      arguments: {
+        projectId: pid,
+        name: 'Product',
+        fields: [
+          { name: 'title', type: 'string' },
+          { name: 'price', type: 'number' },
+        ],
+      },
+    }),
+  ),
+) as { ok: boolean; name: string };
+if (!agg.ok || agg.name !== 'Product') fail('add_aggregate が失敗しました');
+console.log('add_aggregate: Product OK');
+
+// apply_commands(生コマンド)で関連集約 + リレーションを追加
+const orderCmds = JSON.parse(
+  textOf(await client.callTool({ name: 'apply_commands', arguments: { projectId: pid, commands: [{ kind: 'addModel', modelKind: 'aggregate', x: 400, y: 60 }] } })),
+) as { ok: boolean; created: { modelId: string } };
+if (!orderCmds.ok) fail('apply_commands(addModel) が失敗しました');
+
+// 不正コマンドは拒否される
+const bad = await client.callTool({ name: 'apply_commands', arguments: { projectId: pid, commands: [{ kind: 'dropEverything' }] } });
+if (!bad.isError) fail('不正コマンドが拒否されませんでした');
+console.log('apply_commands: 不正コマンド拒否 OK');
+
+// add_page
+const pageRes = JSON.parse(
+  textOf(await client.callTool({ name: 'add_page', arguments: { projectId: pid, name: '一覧', path: '/list' } })),
+) as { ok: boolean };
+if (!pageRes.ok) fail('add_page が失敗しました');
+
+// describe で反映確認
+const pdesc = JSON.parse(textOf(await client.callTool({ name: 'describe_app', arguments: { projectId: pid } })));
+const modelNames = pdesc.dataModel.models.map((m: { name: string }) => m.name);
+if (!modelNames.includes('Product')) fail('describe_app に Product がありません');
+if (!pdesc.pages.some((p: { path: string }) => p.path === '/list')) fail('describe_app に /list がありません');
+console.log('describe_app(編集後): models=' + JSON.stringify(modelNames));
+
+// 編集したプロジェクトもビルドできる
+const pbuild = JSON.parse(textOf(await client.callTool({ name: 'build_and_preview', arguments: { projectId: pid } })));
+if (!pbuild.ok) fail(`編集後プロジェクトのビルド失敗:\n${pbuild.log}`);
+console.log('build_and_preview(編集後): OK');
+
 await client.close();
 console.log('SMOKE TEST: ALL OK');

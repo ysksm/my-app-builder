@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ComponentNode } from '@/domain/component-node';
 import { NodeId } from '@/domain/ids';
 import { EditTarget, ProjectDoc } from '@/domain/project-doc';
-import { applyCommand, applyCommands, type Command } from './commands';
+import { applyCommand, applyCommands, parseCommands, type Command } from './commands';
 
 const homeTarget = (doc: ProjectDoc) => EditTarget.page(doc.pages[0]!.id);
 
@@ -111,5 +111,21 @@ describe('applyCommands: コマンド列', () => {
       { kind: 'removePage', pageId: 'missing' as never },
     ]);
     expect(res.ok).toBe(false);
+  });
+});
+
+describe('parseCommands(外部入力の検証)', () => {
+  it('妥当な JSON コマンド配列を受理する', () => {
+    const res = parseCommands([
+      { kind: 'addModel', modelKind: 'aggregate', x: 0, y: 0 },
+      { kind: 'addPage', name: 'A', path: '/a' },
+    ]);
+    expect(res.ok).toBe(true);
+  });
+
+  it('未知の kind や不正な形は INVALID で拒否する', () => {
+    expect(parseCommands([{ kind: 'dropDatabase' }]).ok).toBe(false);
+    expect(parseCommands([{ kind: 'addPage', name: 'A' }]).ok).toBe(false); // path 欠落
+    expect(parseCommands('not an array').ok).toBe(false);
   });
 });
