@@ -5,10 +5,12 @@ import { EditorPage } from './presentation/editor/EditorPage';
 import { TopBar } from './presentation/editor/TopBar';
 import { DesignTokens } from './domain/design-tokens';
 import { ScreenBoard } from './presentation/board/ScreenBoard';
+import { ChannelsView } from './presentation/channels/ChannelsView';
 import { DesignSystemView } from './presentation/design/DesignSystemView';
 import { DiagramsView } from './presentation/diagrams/DiagramsView';
 import { ModelDesigner } from './presentation/model/ModelDesigner';
 import { PreviewApp } from './presentation/preview/PreviewApp';
+import { ChannelsContext } from './presentation/renderer/NodeRenderer';
 import { RunApp } from './presentation/run/RunApp';
 import {
   docLoaded,
@@ -48,6 +50,7 @@ export function App() {
   const dispatch = useAppDispatch();
   const [boot, setBoot] = useState<BootState>({ phase: 'loading' });
   const viewMode = useAppSelector((s) => s.editor.viewMode);
+  const channels = useAppSelector((s) => s.editor.doc.channels);
   useAutosave();
 
   useEffect(() => {
@@ -86,17 +89,20 @@ export function App() {
     );
   }
   return (
-    <div className="app">
-      <TokenVars />
-      <TopBar />
-      {viewMode === 'edit' && <EditorPage />}
-      {viewMode === 'model' && <ModelDesigner />}
-      {viewMode === 'board' && <ScreenBoard />}
-      {viewMode === 'diagrams' && <DiagramsView />}
-      {viewMode === 'design' && <DesignSystemView />}
-      {viewMode === 'preview' && <PreviewApp />}
-      {viewMode === 'run' && <RunApp />}
-    </div>
+    <ChannelsContext.Provider value={channels}>
+      <div className="app">
+        <TokenVars />
+        <TopBar />
+        {viewMode === 'edit' && <EditorPage />}
+        {viewMode === 'model' && <ModelDesigner />}
+        {viewMode === 'board' && <ScreenBoard />}
+        {viewMode === 'diagrams' && <DiagramsView />}
+        {viewMode === 'design' && <DesignSystemView />}
+        {viewMode === 'channels' && <ChannelsView />}
+        {viewMode === 'preview' && <PreviewApp />}
+        {viewMode === 'run' && <RunApp />}
+      </div>
+    </ChannelsContext.Provider>
   );
 }
 

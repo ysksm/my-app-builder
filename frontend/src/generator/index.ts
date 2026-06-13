@@ -277,6 +277,7 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
         root: page.root,
         names,
         filePath: paths.page(i),
+        channels: doc.channels,
       }),
     })),
     ...doc.dialogs.map((dialog, i) => ({
@@ -287,6 +288,7 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
         root: dialog.root,
         names,
         filePath: paths.dialog(i),
+        channels: doc.channels,
       }),
     })),
     { path: paths.tokensCss, content: emitTokensCss(doc.tokens, doc.styleEmitter) },

@@ -70,9 +70,27 @@ function PropField({
   field: PropFieldDef;
 }) {
   const dispatch = useAppDispatch();
+  const channels = useAppSelector((s) => s.editor.doc.channels);
   const value = propValueOf(node.props, def, field.key);
   const set = (v: PropValue) =>
     dispatch(nodePropsUpdated({ nodeId: node.id, patch: { [field.key]: v } }));
+
+  // データチャネル参照: 登録簿のチャネルから選ぶ(空 = 部品の直接指定にフォールバック)
+  if (field.key === 'channelRef') {
+    return (
+      <label className="field">
+        <span>{field.label}</span>
+        <select value={String(value)} onChange={(e) => set(e.target.value)}>
+          <option value="">(直接指定)</option>
+          {channels.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
 
   switch (field.input) {
     case 'number':

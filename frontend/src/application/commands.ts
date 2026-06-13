@@ -18,6 +18,7 @@ import {
   type ValidationRule,
 } from '@/domain/data-model';
 import type {
+  ChannelId,
   CustomPartId,
   DialogId,
   FieldId,
@@ -29,6 +30,7 @@ import type {
   ServiceId,
   UsecaseId,
 } from '@/domain/ids';
+import type { DataChannelDef } from '@/domain/data-channel';
 import type { Page } from '@/domain/page';
 import { ProjectDoc, type EditTarget, type StyleEmitter } from '@/domain/project-doc';
 
@@ -92,7 +94,11 @@ export type Command =
   | Readonly<{ kind: 'insertCustomPart'; target: EditTarget; parentId: NodeId; index: number; partId: CustomPartId }>
   // デザイントークン
   | Readonly<{ kind: 'setToken'; group: keyof DesignTokens; key: string; value: string }>
-  | Readonly<{ kind: 'setStyleEmitter'; emitter: StyleEmitter }>;
+  | Readonly<{ kind: 'setStyleEmitter'; emitter: StyleEmitter }>
+  // データチャネル(FR-RT-01)
+  | Readonly<{ kind: 'addChannel'; name?: string; patch?: Partial<Omit<DataChannelDef, 'id'>> }>
+  | Readonly<{ kind: 'updateChannel'; channelId: ChannelId; patch: Partial<Omit<DataChannelDef, 'id'>> }>
+  | Readonly<{ kind: 'removeChannel'; channelId: ChannelId }>;
 
 export type CommandKind = Command['kind'];
 
@@ -107,6 +113,7 @@ export type CreatedEntities = Readonly<{
   serviceId?: ServiceId;
   usecaseId?: UsecaseId;
   partId?: CustomPartId;
+  channelId?: ChannelId;
 }>;
 
 export type CommandOutcome = Readonly<{
@@ -306,6 +313,18 @@ export const applyCommand = (
     case 'setStyleEmitter': {
       return ok(outcome({ ...doc, styleEmitter: cmd.emitter }));
     }
+    case 'addChannel': {
+      const { doc: next, channel } = ProjectDoc.addChannel(doc, cmd.name ?? '新規チャネル', cmd.patch ?? {});
+      return ok(outcome(next, { channelId: channel.id }));
+    }
+    case 'updateChannel': {
+      const res = ProjectDoc.updateChannel(doc, cmd.channelId, cmd.patch);
+      return res.ok ? ok(outcome(res.value)) : res;
+    }
+    case 'removeChannel': {
+      const res = ProjectDoc.removeChannel(doc, cmd.channelId);
+      return res.ok ? ok(outcome(res.value)) : res;
+    }
   }
 };
 
@@ -371,6 +390,20 @@ const pagePatch = z
   .object({ name: z.string(), path: z.string(), useHeader: z.boolean(), useFooter: z.boolean() })
   .partial();
 const modelPatch = z.object({ name: z.string(), kind: modelKind, x: z.number(), y: z.number() }).partial();
+const channelPatch = z
+  .object({
+    name: z.string(),
+    key: z.string(),
+    source: z.enum(['mock', 'live', 'modbus']),
+    min: z.number(),
+    max: z.number(),
+    interval: z.number(),
+    host: z.string(),
+    unit: z.number(),
+    register: z.number(),
+    scale: z.number(),
+  })
+  .partial();
 const fieldPatch = z
   .object({
     name: z.string(),
@@ -417,6 +450,9 @@ const commandSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('insertCustomPart'), target: editTarget, parentId: id, index: z.number(), partId: id }),
   z.object({ kind: z.literal('setToken'), group: z.enum(['color', 'spacing', 'radius', 'font']), key: z.string(), value: z.string() }),
   z.object({ kind: z.literal('setStyleEmitter'), emitter: z.enum(['css-variables', 'tailwind']) }),
+  z.object({ kind: z.literal('addChannel'), name: z.string().optional(), patch: channelPatch.optional() }),
+  z.object({ kind: z.literal('updateChannel'), channelId: id, patch: channelPatch }),
+  z.object({ kind: z.literal('removeChannel'), channelId: id }),
 ]);
 
 /** 外部入力(JSON)→ 検証済み Command 配列。MCP の apply_commands が信頼境界で使う */

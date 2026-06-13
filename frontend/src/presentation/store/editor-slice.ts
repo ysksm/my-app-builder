@@ -13,9 +13,11 @@ import type {
   UsecaseDef,
   ValidationRule,
 } from '@/domain/data-model';
+import type { DataChannelDef } from '@/domain/data-channel';
 import type { DesignTokens } from '@/domain/design-tokens';
 import type { StyleEmitter } from '@/domain/project-doc';
 import type {
+  ChannelId,
   CustomPartId,
   DialogId,
   FieldId,
@@ -32,7 +34,7 @@ import { EditTarget, ProjectDoc } from '@/domain/project-doc';
 import type { Page } from '@/domain/page';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error';
-export type ViewMode = 'edit' | 'model' | 'board' | 'diagrams' | 'design' | 'preview' | 'run';
+export type ViewMode = 'edit' | 'model' | 'board' | 'diagrams' | 'design' | 'channels' | 'preview' | 'run';
 
 export type EditorState = {
   projectId: ProjectId | null;
@@ -380,6 +382,21 @@ export const editorSlice = createSlice({
       run(state, { kind: 'setStyleEmitter', emitter: action.payload });
     },
 
+    channelAdded(state, action: PayloadAction<{ name?: string; patch?: Partial<Omit<DataChannelDef, 'id'>> } | undefined>) {
+      run(state, { kind: 'addChannel', name: action.payload?.name, patch: action.payload?.patch });
+    },
+
+    channelUpdated(
+      state,
+      action: PayloadAction<{ channelId: ChannelId; patch: Partial<Omit<DataChannelDef, 'id'>> }>,
+    ) {
+      run(state, { kind: 'updateChannel', ...action.payload });
+    },
+
+    channelRemoved(state, action: PayloadAction<ChannelId>) {
+      run(state, { kind: 'removeChannel', channelId: action.payload });
+    },
+
     modelSelected(state, action: PayloadAction<ModelId | null>) {
       state.selectedModelId = action.payload;
     },
@@ -462,6 +479,9 @@ export const {
   customPartInserted,
   tokenSet,
   styleEmitterSet,
+  channelAdded,
+  channelUpdated,
+  channelRemoved,
   modelSelected,
   undone,
   redone,

@@ -1,6 +1,7 @@
 import type { EventBinding } from '@/domain/actions';
 import type { ComponentNode } from '@/domain/component-node';
 import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
+import type { DataChannelDef } from '@/domain/data-channel';
 import type { NameTable } from './identifiers';
 import { paths, relativeImport } from './layout';
 
@@ -17,8 +18,10 @@ type EmitCtx = {
   handlerCount: number;
   needsNavigate: boolean;
   needsDispatch: boolean;
-  // リアルタイム部品の import 名(Metric / Gauge / Lamp)。すべて同一モジュールから
+  // リアルタイム部品の import 名(Metric / Gauge / Lamp / Chart)。すべて同一モジュールから
   readonly realtimeImports: Set<string>;
+  // データチャネル登録簿(channelRef の解決に使う)
+  readonly channels: ReadonlyArray<DataChannelDef>;
   readonly usedActions: Set<UiAction>;
 };
 
@@ -181,8 +184,19 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
               ? 'Chart'
               : 'Metric';
       ctx.realtimeImports.add(tag);
-      const raw = String(p('source'));
-      const source = raw === 'live' || raw === 'modbus' ? raw : 'mock';
+      // channelRef が登録簿のチャネルを指していればその設定を優先。なければ inline props
+      const ref = String(p('channelRef') ?? '');
+      const ch = ref ? ctx.channels.find((c) => c.id === ref) : undefined;
+      const rawSource = ch ? ch.source : String(p('source'));
+      const source = rawSource === 'live' || rawSource === 'modbus' ? rawSource : 'mock';
+      const channelKey = ch ? ch.key : String(p('channel'));
+      const cMin = ch ? ch.min : num(p('min'));
+      const cMax = ch ? ch.max : num(p('max'));
+      const cInterval = ch ? ch.interval : num(p('interval'));
+      const cHost = ch ? (ch.host ?? '') : String(p('host'));
+      const cUnit = ch ? (ch.unit ?? 1) : num(p('unit_id'));
+      const cRegister = ch ? (ch.register ?? 0) : num(p('register'));
+      const cScale = ch ? (ch.scale ?? 1) : num(p('scale'));
       // しきい値: 有限数のときだけ属性を出力(空欄=無効)
       const finite = (v: unknown): number | null => {
         if (typeof v === 'number' && Number.isFinite(v)) return v;
@@ -202,19 +216,19 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
         `label={${s(p('label'))}}`,
         ...(showsValue ? [`unit={${s(p('unit'))}}`] : []),
         `source={${s(source)}}`,
-        `channel={${s(p('channel'))}}`,
+        `channel={${s(channelKey)}}`,
         // Modbus/TCP のときだけ接続パラメータを渡す
         ...(source === 'modbus'
           ? [
-              `host={${s(p('host'))}}`,
-              `unitId={${num(p('unit_id'))}}`,
-              `register={${num(p('register'))}}`,
-              `scale={${num(p('scale'))}}`,
+              `host={${s(cHost)}}`,
+              `unitId={${cUnit}}`,
+              `register={${cRegister}}`,
+              `scale={${cScale}}`,
             ]
           : []),
-        `min={${num(p('min'))}}`,
-        `max={${num(p('max'))}}`,
-        `interval={${num(p('interval'))}}`,
+        `min={${cMin}}`,
+        `max={${cMax}}`,
+        `interval={${cInterval}}`,
         ...(showsValue ? [`decimals={${num(p('decimals'))}}`] : []),
         // チャートのみ: 保持サンプル数
         ...(node.type === 'chart' ? [`capacity={${num(p('capacity'))}}`] : []),
@@ -236,6 +250,8 @@ export type ComponentFileOptions = Readonly<{
   names: NameTable;
   /** このコンポーネントファイルの src 相対パス(ui-slice への import 解決に使う) */
   filePath: string;
+  /** データチャネル登録簿(channelRef 解決用。未指定なら inline props にフォールバック) */
+  channels?: ReadonlyArray<DataChannelDef>;
 }>;
 
 export const emitComponentFile = (opts: ComponentFileOptions): string => {
@@ -246,6 +262,7 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
     needsNavigate: false,
     needsDispatch: false,
     realtimeImports: new Set(),
+    channels: opts.channels ?? [],
     usedActions: new Set(),
   };
   const body = emitNode(opts.root, 4, ctx);

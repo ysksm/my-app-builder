@@ -1,11 +1,12 @@
 import { err, ok, type Result } from '@/shared/result';
 import { ComponentNode } from './component-node';
 import { DataModel } from './data-model';
+import { DataChannelDef } from './data-channel';
 import { DesignTokens } from './design-tokens';
 import { DialogDef } from './dialog';
 import { CustomPartId } from './ids';
 import { DomainError } from './errors';
-import type { DialogId, PageId } from './ids';
+import type { ChannelId, DialogId, PageId } from './ids';
 import { Page } from './page';
 
 export type EditTarget =
@@ -50,6 +51,8 @@ export type ProjectDoc = Readonly<{
   dataModel: DataModel;
   customParts: ReadonlyArray<CustomPartDef>;
   styleEmitter: StyleEmitter;
+  /** データチャネル登録簿(FR-RT-01)。モニタリング部品が参照する */
+  channels: ReadonlyArray<DataChannelDef>;
 }>;
 
 export const ProjectDoc = {
@@ -66,6 +69,7 @@ export const ProjectDoc = {
       dataModel: DataModel.empty(),
       customParts: [],
       styleEmitter: 'css-variables',
+      channels: [],
     };
   },
 
@@ -183,5 +187,35 @@ export const ProjectDoc = {
       ...doc,
       customParts: doc.customParts.map((p) => (p.id === partId ? { ...p, name } : p)),
     });
+  },
+
+  findChannel(doc: ProjectDoc, channelId: ChannelId): DataChannelDef | null {
+    return doc.channels.find((c) => c.id === channelId) ?? null;
+  },
+
+  addChannel(
+    doc: ProjectDoc,
+    name: string,
+    patch: Partial<Omit<DataChannelDef, 'id'>> = {},
+  ): Readonly<{ doc: ProjectDoc; channel: DataChannelDef }> {
+    const channel = DataChannelDef.create(name, patch);
+    return { doc: { ...doc, channels: [...doc.channels, channel] }, channel };
+  },
+
+  updateChannel(
+    doc: ProjectDoc,
+    channelId: ChannelId,
+    patch: Partial<Omit<DataChannelDef, 'id'>>,
+  ): Result<ProjectDoc, DomainError> {
+    if (!ProjectDoc.findChannel(doc, channelId)) return err(DomainError.notFound('channel'));
+    return ok({
+      ...doc,
+      channels: doc.channels.map((c) => (c.id === channelId ? { ...c, ...patch } : c)),
+    });
+  },
+
+  removeChannel(doc: ProjectDoc, channelId: ChannelId): Result<ProjectDoc, DomainError> {
+    if (!ProjectDoc.findChannel(doc, channelId)) return err(DomainError.notFound('channel'));
+    return ok({ ...doc, channels: doc.channels.filter((c) => c.id !== channelId) });
   },
 } as const;

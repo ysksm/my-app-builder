@@ -426,6 +426,7 @@ export const emitProjectShell = (
           root: doc.layout.header,
           names,
           filePath: paths.appHeader,
+          channels: doc.channels,
         }),
       ),
     );
@@ -440,6 +441,7 @@ export const emitProjectShell = (
           root: doc.layout.footer,
           names,
           filePath: paths.appFooter,
+          channels: doc.channels,
         }),
       ),
     );

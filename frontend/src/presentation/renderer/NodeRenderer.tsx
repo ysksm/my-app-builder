@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { EventBinding, EventType } from '@/domain/actions';
 import type { ComponentNode, PropValue } from '@/domain/component-node';
+import type { DataChannelDef } from '@/domain/data-channel';
 import type { NodeId } from '@/domain/ids';
 import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
 import { DragPayload, useEditInteraction } from '../editor/edit-interaction';
@@ -21,6 +22,9 @@ export type ActionRunner = Readonly<{
 }>;
 
 export const ActionRunnerContext = createContext<ActionRunner | null>(null);
+
+/** データチャネル登録簿。モニタリング部品の channelRef 解決に使う(既定 = 空) */
+export const ChannelsContext = createContext<ReadonlyArray<DataChannelDef>>([]);
 
 const str = (v: PropValue): string => String(v);
 const num = (v: PropValue): number => (typeof v === 'number' ? v : Number(v) || 0);
@@ -130,9 +134,32 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
   }
 }
 
-/** ノード props からデータチャネル設定を読む(metric / gauge / lamp 共通) */
-function channelOf(node: ComponentNode, def: ComponentDef): MetricSource {
+/**
+ * ノード props からデータチャネル設定を読む(metric / gauge / lamp / chart 共通)。
+ * channelRef が登録簿のチャネルを指していればそれを優先、なければ inline props。
+ * 生成側 emit-jsx の解決と意味論を一致させること。
+ */
+function channelOf(
+  node: ComponentNode,
+  def: ComponentDef,
+  channels: ReadonlyArray<DataChannelDef>,
+): MetricSource {
   const p = (key: string) => propOf(node, def, key);
+  const ref = str(p('channelRef'));
+  const ch = ref ? channels.find((c) => c.id === ref) : undefined;
+  if (ch) {
+    return {
+      min: ch.min,
+      max: ch.max,
+      interval: ch.interval,
+      source: ch.source,
+      channel: ch.key,
+      host: ch.host ?? '',
+      unitId: ch.unit ?? 1,
+      register: ch.register ?? 0,
+      scale: ch.scale ?? 1,
+    };
+  }
   return {
     min: num(p('min')),
     max: num(p('max')),
@@ -146,6 +173,12 @@ function channelOf(node: ComponentNode, def: ComponentDef): MetricSource {
   };
 }
 
+/** モニタリング部品の解決済みデータチャネル設定(channelRef 優先)を返すフック */
+function useResolvedChannel(node: ComponentNode, def: ComponentDef): MetricSource {
+  const channels = useContext(ChannelsContext);
+  return channelOf(node, def, channels);
+}
+
 const sourceTag = (source: string): string =>
   source === 'modbus' ? '● MODBUS' : source === 'live' ? '● LIVE' : '';
 
@@ -153,8 +186,9 @@ const sourceTag = (source: string): string =>
 function MetricView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
   const def = componentDefs.metric;
   const p = (key: string) => propOf(node, def, key);
-  const source = str(p('source'));
-  const value = useMetricValue(channelOf(node, def), mode === 'preview');
+  const resolved = useResolvedChannel(node, def);
+  const source = resolved.source;
+  const value = useMetricValue(resolved, mode === 'preview');
   const severity = value === null ? 'normal' : metricSeverity(value, node, def);
   const cls = 'c-metric' + (severity !== 'normal' ? ` s-${severity}` : '');
   return (
@@ -175,10 +209,11 @@ function MetricView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
 function GaugeView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
   const def = componentDefs.gauge;
   const p = (key: string) => propOf(node, def, key);
-  const source = str(p('source'));
-  const value = useMetricValue(channelOf(node, def), mode === 'preview');
-  const min = num(p('min'));
-  const max = num(p('max'));
+  const resolved = useResolvedChannel(node, def);
+  const source = resolved.source;
+  const value = useMetricValue(resolved, mode === 'preview');
+  const min = resolved.min;
+  const max = resolved.max;
   const severity = value === null ? 'normal' : metricSeverity(value, node, def);
   const ratio = value === null || max <= min ? 0 : Math.min(1, Math.max(0, (value - min) / (max - min)));
   const cls = 'c-gauge' + (severity !== 'normal' ? ` s-${severity}` : '');
@@ -204,7 +239,7 @@ function GaugeView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
 function LampView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
   const def = componentDefs.lamp;
   const p = (key: string) => propOf(node, def, key);
-  const value = useMetricValue(channelOf(node, def), mode === 'preview');
+  const value = useMetricValue(useResolvedChannel(node, def), mode === 'preview');
   const severity = value === null ? 'normal' : metricSeverity(value, node, def);
   return (
     <div className="c-lamp">
@@ -219,12 +254,13 @@ function LampView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
 function ChartView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
   const def = componentDefs.chart;
   const p = (key: string) => propOf(node, def, key);
-  const source = str(p('source'));
+  const resolved = useResolvedChannel(node, def);
+  const source = resolved.source;
   const capacity = Math.max(2, num(p('capacity')) || 40);
-  const series = useMetricSeries(channelOf(node, def), mode === 'preview', capacity);
+  const series = useMetricSeries(resolved, mode === 'preview', capacity);
   const value = series.length > 0 ? series[series.length - 1]! : null;
-  const min = num(p('min'));
-  const max = num(p('max'));
+  const min = resolved.min;
+  const max = resolved.max;
   const severity = value === null ? 'normal' : metricSeverity(value, node, def);
   const W = 240;
   const H = 56;

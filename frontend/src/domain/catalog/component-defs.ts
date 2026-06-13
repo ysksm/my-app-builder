@@ -22,6 +22,8 @@ export type ComponentDef = Readonly<{
 // metric / gauge / lamp は同じデータチャネル(FR-RT-01)としきい値(FR-RT-04)を使う
 
 const channelDefaults: Readonly<Record<string, PropValue>> = {
+  // channelRef を設定すると登録簿のチャネルから source/min/max/interval/Modbus を継承する
+  channelRef: '',
   source: 'mock',
   channel: 'cpu',
   min: 0,
@@ -34,9 +36,11 @@ const channelDefaults: Readonly<Record<string, PropValue>> = {
 };
 
 const channelFields: ReadonlyArray<PropFieldDef> = [
+  // データチャネル登録簿への参照(PropertyPanel が登録済みチャネルで options を埋める)
+  { key: 'channelRef', label: 'データチャネル', input: 'select', options: [] },
   {
     key: 'source',
-    label: 'データ源',
+    label: 'データ源(直接指定)',
     input: 'select',
     options: [
       { value: 'mock', label: '模擬データ' },

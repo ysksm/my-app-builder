@@ -78,6 +78,13 @@ export function TopBar() {
           </button>
           <button
             type="button"
+            className={viewMode === 'channels' ? 'on' : ''}
+            onClick={() => dispatch(viewModeChanged('channels'))}
+          >
+            📡 チャネル
+          </button>
+          <button
+            type="button"
             className={viewMode === 'preview' ? 'on' : ''}
             onClick={() => dispatch(viewModeChanged('preview'))}
           >

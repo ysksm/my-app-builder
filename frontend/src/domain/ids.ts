@@ -66,3 +66,10 @@ export const CustomPartId = {
   create: (): CustomPartId => newId() as CustomPartId,
   from: (value: string): CustomPartId => value as CustomPartId,
 } as const;
+
+export type ChannelId = string & { readonly __brand: 'ChannelId' };
+
+export const ChannelId = {
+  create: (): ChannelId => newId() as ChannelId,
+  from: (value: string): ChannelId => value as ChannelId,
+} as const;

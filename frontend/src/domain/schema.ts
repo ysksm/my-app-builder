@@ -4,6 +4,7 @@ import type { ComponentNode } from './component-node';
 import { DesignTokens } from './design-tokens';
 import { DomainError } from './errors';
 import type {
+  ChannelId,
   CustomPartId,
   DialogId,
   FieldId,
@@ -152,6 +153,20 @@ const relationDefSchema = z.object({
   name: z.string().min(1),
 });
 
+const dataChannelSchema = z.object({
+  id: idSchema<ChannelId>(),
+  name: z.string(),
+  key: z.string(),
+  source: z.enum(['mock', 'live', 'modbus']),
+  min: z.number(),
+  max: z.number(),
+  interval: z.number(),
+  host: z.string().optional(),
+  unit: z.number().optional(),
+  register: z.number().optional(),
+  scale: z.number().optional(),
+});
+
 const dataModelSchema = z.object({
   models: z.array(modelDefSchema),
   relations: z.array(relationDefSchema),
@@ -172,6 +187,7 @@ export const projectDocSchema = z.object({
     .array(z.object({ id: idSchema<CustomPartId>(), name: z.string(), root: componentNodeSchema }))
     .default(() => []),
   styleEmitter: z.enum(['css-variables', 'tailwind']).default('css-variables'),
+  channels: z.array(dataChannelSchema).default(() => []),
 });
 
 /** 保存/読込境界での検証。永続化された JSON を信頼せず必ずここを通す */
