@@ -84,6 +84,13 @@ const vuePkg = textOf(
 if (!vuePkg.includes('vue-router')) fail('framework=vue の package.json が不正です');
 console.log('generate_source framework=vue OK:', vue.length, 'files');
 
+// generate_source(framework=svelte)
+const svelte = JSON.parse(
+  textOf(await client.callTool({ name: 'generate_source', arguments: { projectId: id, framework: 'svelte' } })),
+) as Array<{ path: string }>;
+if (!svelte.some((f) => f.path === 'src/App.svelte')) fail('framework=svelte で App.svelte が生成されません');
+console.log('generate_source framework=svelte OK:', svelte.length, 'files');
+
 // TypeSpec export(集約があれば interface/main.tsp が生成される)
 const hasAggregate = desc.dataModel.models.some((m: { kind: string }) => m.kind === 'aggregate');
 if (hasAggregate) {

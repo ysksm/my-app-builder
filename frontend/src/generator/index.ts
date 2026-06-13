@@ -16,6 +16,7 @@ import { paths } from './layout';
 
 export type { GeneratedFile } from './files';
 export { generateVueProject } from './emit-vue-project';
+export { generateSvelteProject } from './emit-svelte-project';
 
 /** ドキュメント内にリアルタイムモニタリング部品(metric / gauge / lamp)があるか */
 const usesMetric = (doc: ProjectDoc): boolean => {

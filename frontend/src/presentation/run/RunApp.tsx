@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import JSZip from 'jszip';
-import { generateProject, generateVueProject } from '@/generator';
+import {
+  generateProject,
+  generateSvelteProject,
+  generateVueProject,
+  type GeneratedFile,
+} from '@/generator';
 import { toPackageName } from '@/generator/identifiers';
 import { useAppSelector } from '../store/hooks';
 
@@ -9,10 +14,27 @@ type BuildState =
   | Readonly<{ phase: 'ok'; log: string }>
   | Readonly<{ phase: 'error'; log: string }>;
 
-type Framework = 'react' | 'vue';
+type Framework = 'react' | 'vue' | 'svelte';
+
+const FRAMEWORKS: ReadonlyArray<{ id: Framework; label: string }> = [
+  { id: 'react', label: 'React' },
+  { id: 'vue', label: 'Vue' },
+  { id: 'svelte', label: 'Svelte' },
+];
+
+const generateFor = (framework: Framework, doc: Parameters<typeof generateProject>[0], name: string): GeneratedFile[] => {
+  switch (framework) {
+    case 'vue':
+      return generateVueProject(doc, name);
+    case 'svelte':
+      return generateSvelteProject(doc, name);
+    default:
+      return generateProject(doc, name);
+  }
+};
 
 /**
- * 実行モード: ドキュメントから React / Vue(FR-GEN-07)ソースを生成し、BE の
+ * 実行モード: ドキュメントから React / Vue / Svelte(FR-GEN-07)ソースを生成し、BE の
  * ビルドランナーで npm install → 型チェック + vite build を実行、成果物を iframe で表示する。
  */
 export function RunApp() {
@@ -24,19 +46,15 @@ export function RunApp() {
   const [nonce, setNonce] = useState(0);
   const [showLog, setShowLog] = useState(false);
 
-  const genFiles = () =>
-    framework === 'vue' ? generateVueProject(doc, projectName) : generateProject(doc, projectName);
-
-  // フレームワークごとに独立したビルドワークスペースを使う(React の生成物と Vue の
-  // 生成物が混在しないように。共有すると一方の残存ファイルが他方の型チェックを壊す)
-  const buildId = framework === 'vue' ? `${projectId}-vue` : projectId;
+  // フレームワークごとに独立したビルドワークスペースを使う(各フレームワークの生成物が
+  // 混在しないように。共有すると一方の残存ファイルが他方の型チェックを壊す)
+  const buildId = framework === 'react' ? projectId : `${projectId}-${framework}`;
 
   useEffect(() => {
     if (!projectId) return;
     let cancelled = false;
     setState({ phase: 'building' });
-    const files =
-      framework === 'vue' ? generateVueProject(doc, projectName) : generateProject(doc, projectName);
+    const files = generateFor(framework, doc, projectName);
     void fetch(`/api/projects/${buildId}/build`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -62,7 +80,7 @@ export function RunApp() {
 
   const download = async () => {
     const zip = new JSZip();
-    for (const f of genFiles()) {
+    for (const f of generateFor(framework, doc, projectName)) {
       zip.file(f.path, f.content);
     }
     const blob = await zip.generateAsync({ type: 'blob' });
@@ -89,22 +107,17 @@ export function RunApp() {
     <div className="run-root">
       <div className="run-toolbar">
         <div className="run-framework" role="group" aria-label="生成フレームワーク">
-          <button
-            type="button"
-            className={framework === 'react' ? 'on' : ''}
-            disabled={state.phase === 'building'}
-            onClick={() => setFramework('react')}
-          >
-            React
-          </button>
-          <button
-            type="button"
-            className={framework === 'vue' ? 'on' : ''}
-            disabled={state.phase === 'building'}
-            onClick={() => setFramework('vue')}
-          >
-            Vue
-          </button>
+          {FRAMEWORKS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              className={framework === f.id ? 'on' : ''}
+              disabled={state.phase === 'building'}
+              onClick={() => setFramework(f.id)}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
         <span className={`run-status ${state.phase}`}>{statusLabel}</span>
         <button
