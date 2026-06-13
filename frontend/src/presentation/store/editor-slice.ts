@@ -29,7 +29,7 @@ import { EditTarget, ProjectDoc } from '@/domain/project-doc';
 import type { Page } from '@/domain/page';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error';
-export type ViewMode = 'edit' | 'model' | 'preview' | 'run';
+export type ViewMode = 'edit' | 'model' | 'board' | 'preview' | 'run';
 
 export type EditorState = {
   projectId: ProjectId | null;
