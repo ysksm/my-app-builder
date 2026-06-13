@@ -107,6 +107,28 @@ describe('emitDomainFiles', () => {
     expect(get('src/features/customer/domain/customer.test.ts')).toContain('expect(result.ok).toBe(true)');
   });
 
+  it('クロスフィールドルールが validate に展開される', () => {
+    const unwrap = <T,>(r: { ok: true; value: T } | { ok: false; error: unknown }): T => {
+      if (!r.ok) throw new Error('fixture');
+      return r.value;
+    };
+    let dm2 = DataModel.empty();
+    const m = DataModel.addModel(dm2, 'aggregate', 0, 0);
+    dm2 = unwrap(DataModel.updateModel(m.dataModel, m.model.id, { name: 'Booking' }));
+    const f1 = unwrap(DataModel.addField(dm2, m.model.id));
+    dm2 = unwrap(DataModel.updateField(f1.dataModel, m.model.id, f1.field.id, { name: 'startDay', type: 'number' }));
+    const f2 = unwrap(DataModel.addField(dm2, m.model.id));
+    dm2 = unwrap(DataModel.updateField(f2.dataModel, m.model.id, f2.field.id, { name: 'endDay', type: 'number' }));
+    dm2 = unwrap(
+      DataModel.addRule(dm2, m.model.id, f2.field.id, 'gte', { kind: 'field', fieldId: f1.field.id }, '終了日は開始日以降にしてください'),
+    ).dataModel;
+
+    const src = emitDomainFiles(dm2).find((f) => f.path === 'src/features/booking/domain/booking.ts')!.content;
+    expect(src).toContain(
+      `if (!(input.endDay >= input.startDay)) errors.push(ValidationError.create("endDay", "終了日は開始日以降にしてください"));`,
+    );
+  });
+
   it('container は集約の repository を配線する(API 対応集約は api/mock 切替)', () => {
     const container = emitContainerWithRepositories(dm);
     expect(container).toContain('customerRepository: CustomerRepository;');

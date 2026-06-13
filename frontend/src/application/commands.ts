@@ -4,8 +4,17 @@ import type { EventBinding } from '@/domain/actions';
 import { componentDefs } from '@/domain/catalog/component-defs';
 import { DomainError } from '@/domain/errors';
 import { ComponentNode, type ComponentType, type PropValue } from '@/domain/component-node';
-import { DataModel, type FieldDef, type ModelDef, type ModelKind, type RelationKind } from '@/domain/data-model';
-import type { DialogId, FieldId, ModelId, NodeId, PageId, RelationId } from '@/domain/ids';
+import {
+  DataModel,
+  type FieldDef,
+  type ModelDef,
+  type ModelKind,
+  type RelationKind,
+  type RuleOp,
+  type RuleOperand,
+  type ValidationRule,
+} from '@/domain/data-model';
+import type { DialogId, FieldId, ModelId, NodeId, PageId, RelationId, RuleId } from '@/domain/ids';
 import type { Page } from '@/domain/page';
 import { ProjectDoc, type EditTarget } from '@/domain/project-doc';
 
@@ -49,7 +58,11 @@ export type Command =
   | Readonly<{ kind: 'updateField'; modelId: ModelId; fieldId: FieldId; patch: FieldPatch }>
   | Readonly<{ kind: 'removeField'; modelId: ModelId; fieldId: FieldId }>
   | Readonly<{ kind: 'addRelation'; from: ModelId; to: ModelId; relationKind: RelationKind }>
-  | Readonly<{ kind: 'removeRelation'; relationId: RelationId }>;
+  | Readonly<{ kind: 'removeRelation'; relationId: RelationId }>
+  // バリデーションルール(クロスフィールド制約)
+  | Readonly<{ kind: 'addRule'; modelId: ModelId; left: FieldId; op: RuleOp; right: RuleOperand; message: string }>
+  | Readonly<{ kind: 'updateRule'; modelId: ModelId; ruleId: RuleId; patch: Partial<Omit<ValidationRule, 'id'>> }>
+  | Readonly<{ kind: 'removeRule'; modelId: ModelId; ruleId: RuleId }>;
 
 export type CommandKind = Command['kind'];
 
@@ -60,6 +73,7 @@ export type CreatedEntities = Readonly<{
   modelId?: ModelId;
   fieldId?: FieldId;
   relationId?: RelationId;
+  ruleId?: RuleId;
 }>;
 
 export type CommandOutcome = Readonly<{
@@ -181,6 +195,21 @@ export const applyCommand = (
       const res = DataModel.removeRelation(doc.dataModel, cmd.relationId);
       return res.ok ? ok(outcome({ ...doc, dataModel: res.value })) : res;
     }
+
+    case 'addRule': {
+      const res = DataModel.addRule(doc.dataModel, cmd.modelId, cmd.left, cmd.op, cmd.right, cmd.message);
+      return res.ok
+        ? ok(outcome({ ...doc, dataModel: res.value.dataModel }, { ruleId: res.value.rule.id }))
+        : res;
+    }
+    case 'updateRule': {
+      const res = DataModel.updateRule(doc.dataModel, cmd.modelId, cmd.ruleId, cmd.patch);
+      return res.ok ? ok(outcome({ ...doc, dataModel: res.value })) : res;
+    }
+    case 'removeRule': {
+      const res = DataModel.removeRule(doc.dataModel, cmd.modelId, cmd.ruleId);
+      return res.ok ? ok(outcome({ ...doc, dataModel: res.value })) : res;
+    }
   }
 };
 
@@ -223,6 +252,14 @@ const componentType = z.enum([
 const modelKind = z.enum(['aggregate', 'entity', 'valueObject']);
 const relationKind = z.enum(['hasOne', 'hasMany']);
 const fieldType = z.enum(['string', 'number', 'boolean', 'date']);
+const ruleOp = z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte']);
+const ruleOperand = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('field'), fieldId: id }),
+  z.object({ kind: z.literal('literal'), value: propValue }),
+]);
+const rulePatch = z
+  .object({ left: id, op: ruleOp, right: ruleOperand, message: z.string() })
+  .partial();
 const pagePatch = z
   .object({ name: z.string(), path: z.string(), useHeader: z.boolean(), useFooter: z.boolean() })
   .partial();
@@ -258,6 +295,9 @@ const commandSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('removeField'), modelId: id, fieldId: id }),
   z.object({ kind: z.literal('addRelation'), from: id, to: id, relationKind }),
   z.object({ kind: z.literal('removeRelation'), relationId: id }),
+  z.object({ kind: z.literal('addRule'), modelId: id, left: id, op: ruleOp, right: ruleOperand, message: z.string() }),
+  z.object({ kind: z.literal('updateRule'), modelId: id, ruleId: id, patch: rulePatch }),
+  z.object({ kind: z.literal('removeRule'), modelId: id, ruleId: id }),
 ]);
 
 /** 外部入力(JSON)→ 検証済み Command 配列。MCP の apply_commands が信頼境界で使う */

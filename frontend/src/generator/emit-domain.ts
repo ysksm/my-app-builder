@@ -1,4 +1,11 @@
-import type { DataModel, FieldDef, ModelDef, RelationDef } from '@/domain/data-model';
+import type {
+  DataModel,
+  FieldDef,
+  ModelDef,
+  RelationDef,
+  RuleOp,
+  ValidationRule,
+} from '@/domain/data-model';
 import type { ModelId } from '@/domain/ids';
 import type { GeneratedFile } from './files';
 import { supportsApi } from './emit-api';
@@ -103,6 +110,38 @@ const fieldValidations = (f: FieldDef, access: string): string[] => {
   return lines;
 };
 
+const JS_OP: Record<RuleOp, string> = {
+  eq: '===',
+  neq: '!==',
+  gt: '>',
+  gte: '>=',
+  lt: '<',
+  lte: '<=',
+};
+
+/** クロスフィールドルール(§4.3)→ validate 内の検証行。「left op right が偽なら message」 */
+const ruleValidations = (model: ModelDef): string[] => {
+  const fieldName = (idValue: string): string | null =>
+    model.fields.find((f) => f.id === idValue)?.name ?? null;
+  const lines: string[] = [];
+  for (const rule of model.rules as ReadonlyArray<ValidationRule>) {
+    const left = fieldName(rule.left);
+    if (!left) continue; // 参照先フィールドが消えている場合はスキップ
+    let right: string;
+    if (rule.right.kind === 'field') {
+      const name = fieldName(rule.right.fieldId);
+      if (!name) continue;
+      right = `input.${name}`;
+    } else {
+      right = JSON.stringify(rule.right.value);
+    }
+    lines.push(
+      `  if (!(input.${left} ${JS_OP[rule.op]} ${right})) errors.push(ValidationError.create(${q(left)}, ${q(rule.message)}));`,
+    );
+  }
+  return lines;
+};
+
 const fieldDecl = (f: FieldDef): string =>
   `  ${f.name}: ${tsTypeOf(f)}${f.required ? '' : ' | null'};`;
 
@@ -122,7 +161,10 @@ const emitEntity = (model: ModelDef, ctx: Ctx): string => {
   const name = model.name;
   const selfPath = modelPaths(ctx.layout, model).model;
   const relations = ctx.relationsFrom(model.id);
-  const validations = model.fields.flatMap((f) => fieldValidations(f, `input.${f.name}`));
+  const validations = [
+    ...model.fields.flatMap((f) => fieldValidations(f, `input.${f.name}`)),
+    ...ruleValidations(model),
+  ];
 
   const relationDecls = relations.map((r) => `  ${r.name}: ${relationType(r, ctx)};`);
   const relationInputs = relations.map((r) => `  ${r.name}?: ${relationType(r, ctx)};`);

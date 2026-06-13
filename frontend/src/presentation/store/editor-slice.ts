@@ -2,8 +2,25 @@ import { createSlice, current, type Draft, type PayloadAction } from '@reduxjs/t
 import { applyCommand, type Command, type CreatedEntities } from '@/application/commands';
 import type { EventBinding } from '@/domain/actions';
 import { ComponentNode, type ComponentType, type PropValue } from '@/domain/component-node';
-import type { FieldDef, ModelDef, ModelKind, RelationKind } from '@/domain/data-model';
-import type { DialogId, FieldId, ModelId, NodeId, PageId, ProjectId, RelationId } from '@/domain/ids';
+import type {
+  FieldDef,
+  ModelDef,
+  ModelKind,
+  RelationKind,
+  RuleOp,
+  RuleOperand,
+  ValidationRule,
+} from '@/domain/data-model';
+import type {
+  DialogId,
+  FieldId,
+  ModelId,
+  NodeId,
+  PageId,
+  ProjectId,
+  RelationId,
+  RuleId,
+} from '@/domain/ids';
 import { EditTarget, ProjectDoc } from '@/domain/project-doc';
 import type { Page } from '@/domain/page';
 
@@ -260,6 +277,34 @@ export const editorSlice = createSlice({
       run(state, { kind: 'removeRelation', ...action.payload });
     },
 
+    dmRuleAdded(
+      state,
+      action: PayloadAction<{
+        modelId: ModelId;
+        left: FieldId;
+        op: RuleOp;
+        right: RuleOperand;
+        message: string;
+      }>,
+    ) {
+      run(state, { kind: 'addRule', ...action.payload });
+    },
+
+    dmRuleUpdated(
+      state,
+      action: PayloadAction<{
+        modelId: ModelId;
+        ruleId: RuleId;
+        patch: Partial<Omit<ValidationRule, 'id'>>;
+      }>,
+    ) {
+      run(state, { kind: 'updateRule', ...action.payload });
+    },
+
+    dmRuleRemoved(state, action: PayloadAction<{ modelId: ModelId; ruleId: RuleId }>) {
+      run(state, { kind: 'removeRule', ...action.payload });
+    },
+
     modelSelected(state, action: PayloadAction<ModelId | null>) {
       state.selectedModelId = action.payload;
     },
@@ -327,6 +372,9 @@ export const {
   dmFieldRemoved,
   dmRelationAdded,
   dmRelationRemoved,
+  dmRuleAdded,
+  dmRuleUpdated,
+  dmRuleRemoved,
   modelSelected,
   undone,
   redone,

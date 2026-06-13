@@ -1,6 +1,6 @@
 import { err, ok, type Result } from '@/shared/result';
 import { DomainError } from './errors';
-import { FieldId, ModelId, RelationId } from './ids';
+import { FieldId, ModelId, RelationId, RuleId } from './ids';
 
 /**
  * DDD モデルデザイナーのドメイン。
@@ -24,12 +24,32 @@ export type FieldDef = Readonly<{
 
 export type ModelKind = 'aggregate' | 'entity' | 'valueObject';
 
+/** フィールド間 / フィールド対リテラルの比較ルール演算子 */
+export type RuleOp = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte';
+
+export type RuleOperand =
+  | Readonly<{ kind: 'field'; fieldId: FieldId }>
+  | Readonly<{ kind: 'literal'; value: string | number | boolean }>;
+
+/**
+ * クロスフィールド制約(§4.3 FR-LOGIC-01)。「left op right が成り立つときに妥当」を意味する。
+ * 単一ソースとして生成コードの validate(ドメイン)へ展開され、CRUD フォーム等の UI にも波及する。
+ */
+export type ValidationRule = Readonly<{
+  id: RuleId;
+  left: FieldId;
+  op: RuleOp;
+  right: RuleOperand;
+  message: string;
+}>;
+
 export type ModelDef = Readonly<{
   id: ModelId;
   /** PascalCase 識別子 */
   name: string;
   kind: ModelKind;
   fields: ReadonlyArray<FieldDef>;
+  rules: ReadonlyArray<ValidationRule>;
   x: number;
   y: number;
 }>;
@@ -76,7 +96,7 @@ export const DataModel = {
     const base = kind === 'aggregate' ? 'Aggregate' : kind === 'entity' ? 'Entity' : 'Value';
     let n = dm.models.length + 1;
     while (dm.models.some((m) => m.name === `${base}${n}`)) n += 1;
-    const model: ModelDef = { id: ModelId.create(), name: `${base}${n}`, kind, fields: [], x, y };
+    const model: ModelDef = { id: ModelId.create(), name: `${base}${n}`, kind, fields: [], rules: [], x, y };
     return { dataModel: { ...dm, models: [...dm.models, model] }, model };
   },
 
@@ -170,10 +190,72 @@ export const DataModel = {
     const model = DataModel.findModel(dm, modelId);
     if (!model) return err(DomainError.notFound('model'));
     if (!model.fields.some((f) => f.id === fieldId)) return err(DomainError.notFound('field'));
+    const refsField = (r: ValidationRule): boolean =>
+      r.left === fieldId || (r.right.kind === 'field' && r.right.fieldId === fieldId);
     return ok({
       ...dm,
       models: dm.models.map((m) =>
-        m.id === modelId ? { ...m, fields: m.fields.filter((f) => f.id !== fieldId) } : m,
+        m.id === modelId
+          ? {
+              ...m,
+              fields: m.fields.filter((f) => f.id !== fieldId),
+              // 削除フィールドを参照するルールも除去(ダングリング防止)
+              rules: m.rules.filter((r) => !refsField(r)),
+            }
+          : m,
+      ),
+    });
+  },
+
+  addRule(
+    dm: DataModel,
+    modelId: ModelId,
+    left: FieldId,
+    op: RuleOp,
+    right: RuleOperand,
+    message: string,
+  ): Result<Readonly<{ dataModel: DataModel; rule: ValidationRule }>, DomainError> {
+    const model = DataModel.findModel(dm, modelId);
+    if (!model) return err(DomainError.notFound('model'));
+    if (!model.fields.some((f) => f.id === left)) return err(DomainError.notFound('left field'));
+    if (right.kind === 'field' && !model.fields.some((f) => f.id === right.fieldId)) {
+      return err(DomainError.notFound('right field'));
+    }
+    const rule: ValidationRule = { id: RuleId.create(), left, op, right, message };
+    const dataModel = {
+      ...dm,
+      models: dm.models.map((m) => (m.id === modelId ? { ...m, rules: [...m.rules, rule] } : m)),
+    };
+    return ok({ dataModel, rule });
+  },
+
+  updateRule(
+    dm: DataModel,
+    modelId: ModelId,
+    ruleId: RuleId,
+    patch: Partial<Omit<ValidationRule, 'id'>>,
+  ): Result<DataModel, DomainError> {
+    const model = DataModel.findModel(dm, modelId);
+    if (!model) return err(DomainError.notFound('model'));
+    if (!model.rules.some((r) => r.id === ruleId)) return err(DomainError.notFound('rule'));
+    return ok({
+      ...dm,
+      models: dm.models.map((m) =>
+        m.id === modelId
+          ? { ...m, rules: m.rules.map((r) => (r.id === ruleId ? { ...r, ...patch } : r)) }
+          : m,
+      ),
+    });
+  },
+
+  removeRule(dm: DataModel, modelId: ModelId, ruleId: RuleId): Result<DataModel, DomainError> {
+    const model = DataModel.findModel(dm, modelId);
+    if (!model) return err(DomainError.notFound('model'));
+    if (!model.rules.some((r) => r.id === ruleId)) return err(DomainError.notFound('rule'));
+    return ok({
+      ...dm,
+      models: dm.models.map((m) =>
+        m.id === modelId ? { ...m, rules: m.rules.filter((r) => r.id !== ruleId) } : m,
       ),
     });
   },

@@ -27,6 +27,7 @@ export const DialogId = {
 export type ModelId = string & { readonly __brand: 'ModelId' };
 export type FieldId = string & { readonly __brand: 'FieldId' };
 export type RelationId = string & { readonly __brand: 'RelationId' };
+export type RuleId = string & { readonly __brand: 'RuleId' };
 
 export const ModelId = {
   create: (): ModelId => newId() as ModelId,
@@ -41,4 +42,9 @@ export const FieldId = {
 export const RelationId = {
   create: (): RelationId => newId() as RelationId,
   from: (value: string): RelationId => value as RelationId,
+} as const;
+
+export const RuleId = {
+  create: (): RuleId => newId() as RuleId,
+  from: (value: string): RuleId => value as RuleId,
 } as const;

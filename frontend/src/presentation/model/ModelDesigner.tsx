@@ -5,8 +5,9 @@ import {
   type ModelKind,
   type RelationDef,
   type RelationKind,
+  type RuleOp,
 } from '@/domain/data-model';
-import type { FieldId, ModelId } from '@/domain/ids';
+import type { FieldId, ModelId, RuleId } from '@/domain/ids';
 import {
   dmFieldAdded,
   dmFieldRemoved,
@@ -16,9 +17,16 @@ import {
   dmModelUpdated,
   dmRelationAdded,
   dmRelationRemoved,
+  dmRuleAdded,
+  dmRuleRemoved,
+  dmRuleUpdated,
   modelSelected,
 } from '../store/editor-slice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
+
+const OP_LABEL: Record<RuleOp, string> = {
+  eq: '=', neq: '≠', gt: '>', gte: '≥', lt: '<', lte: '≤',
+};
 
 const CARD_WIDTH = 280;
 const ANCHOR_Y = 22;
@@ -257,6 +265,10 @@ function ModelCard({
         {model.fields.length === 0 && <p className="muted small-note">フィールドがありません</p>}
       </div>
 
+      {(model.kind === 'aggregate' || model.kind === 'entity') && model.fields.length >= 1 && (
+        <RulesSection model={model} />
+      )}
+
       <div className="model-card-actions">
         <button
           type="button"
@@ -291,6 +303,125 @@ function ModelCard({
           関連 1:N
         </button>
       </div>
+    </div>
+  );
+}
+
+/** クロスフィールドルール編集(left op right + メッセージ)。生成コードの validate に展開される */
+function RulesSection({ model }: { model: ModelDef }) {
+  const dispatch = useAppDispatch();
+  const fields = model.fields;
+  const fieldName = (idValue: string) => fields.find((f) => f.id === idValue)?.name ?? '?';
+
+  const addRule = () => {
+    const left = fields[0]!.id;
+    const right =
+      fields.length >= 2
+        ? ({ kind: 'field', fieldId: fields[1]!.id } as const)
+        : ({ kind: 'literal', value: 0 } as const);
+    dispatch(dmRuleAdded({ modelId: model.id, left, op: 'gte', right, message: '条件を満たしません' }));
+  };
+
+  return (
+    <div className="rules-section">
+      <div className="rules-head">ルール(検証)</div>
+      {model.rules.map((rule) => (
+        <div key={rule.id} className="rule-row">
+          <select
+            value={rule.left}
+            onChange={(e) =>
+              dispatch(dmRuleUpdated({ modelId: model.id, ruleId: rule.id as RuleId, patch: { left: e.target.value as FieldId } }))
+            }
+          >
+            {fields.map((f) => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
+          </select>
+          <select
+            value={rule.op}
+            onChange={(e) =>
+              dispatch(dmRuleUpdated({ modelId: model.id, ruleId: rule.id as RuleId, patch: { op: e.target.value as RuleOp } }))
+            }
+          >
+            {(Object.keys(OP_LABEL) as RuleOp[]).map((op) => (
+              <option key={op} value={op}>{OP_LABEL[op]}</option>
+            ))}
+          </select>
+          {rule.right.kind === 'field' ? (
+            <select
+              value={rule.right.fieldId}
+              onChange={(e) =>
+                dispatch(dmRuleUpdated({ modelId: model.id, ruleId: rule.id as RuleId, patch: { right: { kind: 'field', fieldId: e.target.value as FieldId } } }))
+              }
+            >
+              {fields.map((f) => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              className="rule-literal"
+              defaultValue={String(rule.right.value)}
+              title="リテラル値"
+              onBlur={(e) => {
+                const raw = e.target.value;
+                const num = Number(raw);
+                const value = raw !== '' && !Number.isNaN(num) ? num : raw;
+                dispatch(dmRuleUpdated({ modelId: model.id, ruleId: rule.id as RuleId, patch: { right: { kind: 'literal', value } } }));
+              }}
+            />
+          )}
+          <button
+            type="button"
+            className="icon-btn"
+            title={rule.right.kind === 'field' ? 'リテラルに切替' : 'フィールド参照に切替'}
+            onClick={() =>
+              dispatch(
+                dmRuleUpdated({
+                  modelId: model.id,
+                  ruleId: rule.id as RuleId,
+                  patch: {
+                    right:
+                      rule.right.kind === 'field'
+                        ? { kind: 'literal', value: 0 }
+                        : { kind: 'field', fieldId: fields[0]!.id },
+                  },
+                }),
+              )
+            }
+          >
+            ⇄
+          </button>
+          <input
+            type="text"
+            className="rule-message"
+            defaultValue={rule.message}
+            title="エラーメッセージ"
+            onBlur={(e) =>
+              dispatch(dmRuleUpdated({ modelId: model.id, ruleId: rule.id as RuleId, patch: { message: e.target.value } }))
+            }
+          />
+          <button
+            type="button"
+            className="icon-btn"
+            title="ルール削除"
+            onClick={() => dispatch(dmRuleRemoved({ modelId: model.id, ruleId: rule.id as RuleId }))}
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+      <button type="button" className="btn rule-add" onClick={addRule}>
+        + ルール
+      </button>
+      {model.rules.length > 0 && (
+        <p className="rule-hint muted">
+          {model.rules
+            .map((r) => `${fieldName(r.left)} ${OP_LABEL[r.op]} ${r.right.kind === 'field' ? fieldName(r.right.fieldId) : r.right.value}`)
+            .join(' / ')}
+        </p>
+      )}
     </div>
   );
 }

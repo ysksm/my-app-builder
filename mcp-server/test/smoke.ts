@@ -119,6 +119,26 @@ const orderCmds = JSON.parse(
 ) as { ok: boolean; created: { modelId: string } };
 if (!orderCmds.ok) fail('apply_commands(addModel) が失敗しました');
 
+// クロスフィールドルール: Product の price >= 0 を addRule で定義
+const pfull = JSON.parse(textOf(await client.callTool({ name: 'get_project', arguments: { projectId: pid } })));
+const product = pfull.doc.dataModel.models.find((m: { name: string }) => m.name === 'Product');
+const priceField = product.fields.find((f: { name: string }) => f.name === 'price');
+const ruleRes = await client.callTool({
+  name: 'apply_commands',
+  arguments: {
+    projectId: pid,
+    commands: [
+      { kind: 'addRule', modelId: product.id, left: priceField.id, op: 'gte', right: { kind: 'literal', value: 0 }, message: '価格は0以上にしてください' },
+    ],
+  },
+});
+if (ruleRes.isError) fail('apply_commands(addRule) が失敗しました');
+const productSrc = textOf(
+  await client.callTool({ name: 'generate_source', arguments: { projectId: pid, filePath: 'src/features/product/domain/product.ts' } }),
+);
+if (!productSrc.includes('input.price >= 0')) fail('ルールが validate に展開されていません');
+console.log('addRule → validate 展開 OK');
+
 // 不正コマンドは拒否される
 const bad = await client.callTool({ name: 'apply_commands', arguments: { projectId: pid, commands: [{ kind: 'dropEverything' }] } });
 if (!bad.isError) fail('不正コマンドが拒否されませんでした');

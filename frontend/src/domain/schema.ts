@@ -3,7 +3,7 @@ import { err, ok, type Result } from '@/shared/result';
 import type { ComponentNode } from './component-node';
 import { DesignTokens } from './design-tokens';
 import { DomainError } from './errors';
-import type { DialogId, FieldId, ModelId, NodeId, PageId, RelationId } from './ids';
+import type { DialogId, FieldId, ModelId, NodeId, PageId, RelationId, RuleId } from './ids';
 import type { ProjectDoc } from './project-doc';
 
 const idSchema = <T extends string>() =>
@@ -84,11 +84,26 @@ const fieldDefSchema = z.object({
   pattern: z.string().nullable(),
 });
 
+const ruleOperandSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('field'), fieldId: idSchema<FieldId>() }),
+  z.object({ kind: z.literal('literal'), value: z.union([z.string(), z.number(), z.boolean()]) }),
+]);
+
+const validationRuleSchema = z.object({
+  id: idSchema<RuleId>(),
+  left: idSchema<FieldId>(),
+  op: z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte']),
+  right: ruleOperandSchema,
+  message: z.string(),
+});
+
 const modelDefSchema = z.object({
   id: idSchema<ModelId>(),
   name: z.string().min(1),
   kind: z.enum(['aggregate', 'entity', 'valueObject']),
   fields: z.array(fieldDefSchema),
+  // rules 導入以前のドキュメントは空配列で補完
+  rules: z.array(validationRuleSchema).default(() => []),
   x: z.number(),
   y: z.number(),
 });
