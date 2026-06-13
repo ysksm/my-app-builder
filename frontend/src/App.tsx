@@ -3,7 +3,9 @@ import { loadOrCreateProject } from './application/load-or-create-project';
 import { container } from './di/container';
 import { EditorPage } from './presentation/editor/EditorPage';
 import { TopBar } from './presentation/editor/TopBar';
+import { DesignTokens } from './domain/design-tokens';
 import { ScreenBoard } from './presentation/board/ScreenBoard';
+import { DesignSystemView } from './presentation/design/DesignSystemView';
 import { DiagramsView } from './presentation/diagrams/DiagramsView';
 import { ModelDesigner } from './presentation/model/ModelDesigner';
 import { PreviewApp } from './presentation/preview/PreviewApp';
@@ -85,13 +87,24 @@ export function App() {
   }
   return (
     <div className="app">
+      <TokenVars />
       <TopBar />
       {viewMode === 'edit' && <EditorPage />}
       {viewMode === 'model' && <ModelDesigner />}
       {viewMode === 'board' && <ScreenBoard />}
       {viewMode === 'diagrams' && <DiagramsView />}
+      {viewMode === 'design' && <DesignSystemView />}
       {viewMode === 'preview' && <PreviewApp />}
       {viewMode === 'run' && <RunApp />}
     </div>
   );
+}
+
+/** プロジェクトのデザイントークンを CSS 変数として注入し、c-* スタイルに即時反映させる */
+function TokenVars() {
+  const tokens = useAppSelector((s) => s.editor.doc.tokens);
+  const css = `.app{${DesignTokens.entries(tokens)
+    .map(([name, value]) => `${name}:${value}`)
+    .join(';')}}`;
+  return <style>{css}</style>;
 }

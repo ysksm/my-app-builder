@@ -4,6 +4,7 @@ import type { EventBinding } from '@/domain/actions';
 import { componentDefs } from '@/domain/catalog/component-defs';
 import { DomainError } from '@/domain/errors';
 import { ComponentNode, type ComponentType, type PropValue } from '@/domain/component-node';
+import { DesignTokens } from '@/domain/design-tokens';
 import {
   DataModel,
   type DomainServiceDef,
@@ -88,7 +89,9 @@ export type Command =
   | Readonly<{ kind: 'defineCustomPart'; target: EditTarget; nodeId: NodeId; name: string }>
   | Readonly<{ kind: 'removeCustomPart'; partId: CustomPartId }>
   | Readonly<{ kind: 'renameCustomPart'; partId: CustomPartId; name: string }>
-  | Readonly<{ kind: 'insertCustomPart'; target: EditTarget; parentId: NodeId; index: number; partId: CustomPartId }>;
+  | Readonly<{ kind: 'insertCustomPart'; target: EditTarget; parentId: NodeId; index: number; partId: CustomPartId }>
+  // デザイントークン
+  | Readonly<{ kind: 'setToken'; group: keyof DesignTokens; key: string; value: string }>;
 
 export type CommandKind = Command['kind'];
 
@@ -295,6 +298,10 @@ export const applyCommand = (
       );
       return res.ok ? ok(outcome(res.value, { nodeId: clone.id })) : res;
     }
+
+    case 'setToken': {
+      return ok(outcome({ ...doc, tokens: DesignTokens.setToken(doc.tokens, cmd.group, cmd.key, cmd.value) }));
+    }
   }
 };
 
@@ -404,6 +411,7 @@ const commandSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('removeCustomPart'), partId: id }),
   z.object({ kind: z.literal('renameCustomPart'), partId: id, name: z.string() }),
   z.object({ kind: z.literal('insertCustomPart'), target: editTarget, parentId: id, index: z.number(), partId: id }),
+  z.object({ kind: z.literal('setToken'), group: z.enum(['color', 'spacing', 'radius', 'font']), key: z.string(), value: z.string() }),
 ]);
 
 /** 外部入力(JSON)→ 検証済み Command 配列。MCP の apply_commands が信頼境界で使う */

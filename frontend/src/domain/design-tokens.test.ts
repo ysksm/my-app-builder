@@ -13,6 +13,24 @@ describe('DesignTokens', () => {
   });
 });
 
+describe('DesignTokens.setToken', () => {
+  it('既存トークンの値を更新する($type は保持)', () => {
+    const tokens = DesignTokens.default();
+    const next = DesignTokens.setToken(tokens, 'color', 'primary', '#ff0000');
+    expect(next.color['primary']!.$value).toBe('#ff0000');
+    expect(next.color['primary']!.$type).toBe('color');
+    // 元は不変
+    expect(tokens.color['primary']!.$value).toBe('#4263eb');
+    // entries に反映
+    expect(DesignTokens.entries(next)).toContainEqual(['--color-primary', '#ff0000']);
+  });
+
+  it('存在しないキーは無視する', () => {
+    const tokens = DesignTokens.default();
+    expect(DesignTokens.setToken(tokens, 'color', 'nope', '#fff')).toBe(tokens);
+  });
+});
+
 describe('tokens の後方互換', () => {
   it('tokens を持たない旧ドキュメントはデフォルトテーマで補完される', () => {
     const doc = ProjectDoc.create();

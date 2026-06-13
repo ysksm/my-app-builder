@@ -75,4 +75,16 @@ export const DesignTokens = {
       ),
     );
   },
+
+  /** 既存トークンの値を更新する(存在しない group/key は無視) */
+  setToken(
+    tokens: DesignTokens,
+    group: keyof DesignTokens,
+    key: string,
+    value: string,
+  ): DesignTokens {
+    const current = tokens[group][key];
+    if (!current) return tokens;
+    return { ...tokens, [group]: { ...tokens[group], [key]: { ...current, $value: value } } };
+  },
 } as const;

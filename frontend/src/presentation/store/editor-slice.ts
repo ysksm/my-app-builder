@@ -13,6 +13,7 @@ import type {
   UsecaseDef,
   ValidationRule,
 } from '@/domain/data-model';
+import type { DesignTokens } from '@/domain/design-tokens';
 import type {
   CustomPartId,
   DialogId,
@@ -30,7 +31,7 @@ import { EditTarget, ProjectDoc } from '@/domain/project-doc';
 import type { Page } from '@/domain/page';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error';
-export type ViewMode = 'edit' | 'model' | 'board' | 'diagrams' | 'preview' | 'run';
+export type ViewMode = 'edit' | 'model' | 'board' | 'diagrams' | 'design' | 'preview' | 'run';
 
 export type EditorState = {
   projectId: ProjectId | null;
@@ -367,6 +368,13 @@ export const editorSlice = createSlice({
       if (created?.nodeId) state.selectedNodeId = asDraft(created.nodeId);
     },
 
+    tokenSet(
+      state,
+      action: PayloadAction<{ group: keyof DesignTokens; key: string; value: string }>,
+    ) {
+      run(state, { kind: 'setToken', ...action.payload });
+    },
+
     modelSelected(state, action: PayloadAction<ModelId | null>) {
       state.selectedModelId = action.payload;
     },
@@ -447,6 +455,7 @@ export const {
   customPartRemoved,
   customPartRenamed,
   customPartInserted,
+  tokenSet,
   modelSelected,
   undone,
   redone,
