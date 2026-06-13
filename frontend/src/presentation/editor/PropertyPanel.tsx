@@ -3,7 +3,7 @@ import { ComponentNode, type PropValue } from '@/domain/component-node';
 import { DialogId } from '@/domain/ids';
 import { ProjectDoc } from '@/domain/project-doc';
 import { componentDefs, propValueOf, type ComponentDef, type PropFieldDef } from '@/domain/catalog/component-defs';
-import { nodeEventsSet, nodePropsUpdated, nodeRemoved } from '../store/editor-slice';
+import { customPartDefined, nodeEventsSet, nodePropsUpdated, nodeRemoved } from '../store/editor-slice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 
 export function PropertyPanel() {
@@ -35,13 +35,26 @@ function SelectedNodePanel({ node, isRoot }: { node: ComponentNode; isRoot: bool
       ))}
       {def.supportsEvents && <EventEditor node={node} />}
       {!isRoot && (
-        <button
-          type="button"
-          className="btn danger"
-          onClick={() => dispatch(nodeRemoved({ nodeId: node.id }))}
-        >
-          このパーツを削除
-        </button>
+        <>
+          <button
+            type="button"
+            className="btn"
+            style={{ width: '100%', marginTop: 14 }}
+            onClick={() => {
+              const name = window.prompt('パーツ名を入力', def.label);
+              if (name !== null) dispatch(customPartDefined({ nodeId: node.id, name }));
+            }}
+          >
+            ＋ 選択をパーツ登録
+          </button>
+          <button
+            type="button"
+            className="btn danger"
+            onClick={() => dispatch(nodeRemoved({ nodeId: node.id }))}
+          >
+            このパーツを削除
+          </button>
+        </>
       )}
     </section>
   );

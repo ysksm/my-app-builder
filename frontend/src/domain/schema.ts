@@ -4,6 +4,7 @@ import type { ComponentNode } from './component-node';
 import { DesignTokens } from './design-tokens';
 import { DomainError } from './errors';
 import type {
+  CustomPartId,
   DialogId,
   FieldId,
   ModelId,
@@ -160,9 +161,12 @@ export const projectDocSchema = z.object({
     footer: componentNodeSchema.nullable(),
   }),
   dialogs: z.array(dialogSchema),
-  // tokens / dataModel 導入以前に保存されたドキュメントはデフォルト値で補完する
+  // tokens / dataModel / customParts 導入以前に保存されたドキュメントはデフォルト値で補完する
   tokens: designTokensSchema.default(() => DesignTokens.default()),
   dataModel: dataModelSchema.default(() => ({ models: [], relations: [] })),
+  customParts: z
+    .array(z.object({ id: idSchema<CustomPartId>(), name: z.string(), root: componentNodeSchema }))
+    .default(() => []),
 });
 
 /** 保存/読込境界での検証。永続化された JSON を信頼せず必ずここを通す */

@@ -30,6 +30,7 @@ export type RelationId = string & { readonly __brand: 'RelationId' };
 export type RuleId = string & { readonly __brand: 'RuleId' };
 export type ServiceId = string & { readonly __brand: 'ServiceId' };
 export type UsecaseId = string & { readonly __brand: 'UsecaseId' };
+export type CustomPartId = string & { readonly __brand: 'CustomPartId' };
 
 export const ModelId = {
   create: (): ModelId => newId() as ModelId,
@@ -59,4 +60,9 @@ export const ServiceId = {
 export const UsecaseId = {
   create: (): UsecaseId => newId() as UsecaseId,
   from: (value: string): UsecaseId => value as UsecaseId,
+} as const;
+
+export const CustomPartId = {
+  create: (): CustomPartId => newId() as CustomPartId,
+  from: (value: string): CustomPartId => value as CustomPartId,
 } as const;

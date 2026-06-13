@@ -50,6 +50,16 @@ export const ComponentNode = {
     return { id: NodeId.create(), type, props, events: [], children: [] };
   },
 
+  /** 深いコピー。すべてのノードに新しい ID を振る(複合パーツの登録・挿入で使う) */
+  clone(node: ComponentNode): ComponentNode {
+    return {
+      ...node,
+      id: NodeId.create(),
+      events: node.events.map((e) => ({ ...e })),
+      children: node.children.map(ComponentNode.clone),
+    };
+  },
+
   find(root: ComponentNode, id: NodeId): ComponentNode | null {
     if (root.id === id) return root;
     for (const child of root.children) {

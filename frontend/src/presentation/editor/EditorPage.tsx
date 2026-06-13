@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { NodeId } from '@/domain/ids';
+import { CustomPartId, NodeId } from '@/domain/ids';
 import {
+  customPartInserted,
   nodeInserted,
   nodeMoved,
   nodeRemoved,
@@ -32,6 +33,8 @@ export function EditorPage() {
         setDragging(false);
         if (payload.kind === 'new') {
           dispatch(nodeInserted({ parentId, index, type: payload.type }));
+        } else if (payload.kind === 'custom') {
+          dispatch(customPartInserted({ parentId, index, partId: CustomPartId.from(payload.partId) }));
         } else {
           dispatch(nodeMoved({ nodeId: NodeId.from(payload.nodeId), parentId, index }));
         }

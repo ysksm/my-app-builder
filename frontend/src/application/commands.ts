@@ -17,6 +17,7 @@ import {
   type ValidationRule,
 } from '@/domain/data-model';
 import type {
+  CustomPartId,
   DialogId,
   FieldId,
   ModelId,
@@ -82,7 +83,12 @@ export type Command =
   // ユースケース(application 層フロー)
   | Readonly<{ kind: 'addUsecase'; modelId: ModelId }>
   | Readonly<{ kind: 'updateUsecase'; modelId: ModelId; usecaseId: UsecaseId; patch: Partial<Omit<UsecaseDef, 'id'>> }>
-  | Readonly<{ kind: 'removeUsecase'; modelId: ModelId; usecaseId: UsecaseId }>;
+  | Readonly<{ kind: 'removeUsecase'; modelId: ModelId; usecaseId: UsecaseId }>
+  // ユーザー定義パーツ(複合パーツ)
+  | Readonly<{ kind: 'defineCustomPart'; target: EditTarget; nodeId: NodeId; name: string }>
+  | Readonly<{ kind: 'removeCustomPart'; partId: CustomPartId }>
+  | Readonly<{ kind: 'renameCustomPart'; partId: CustomPartId; name: string }>
+  | Readonly<{ kind: 'insertCustomPart'; target: EditTarget; parentId: NodeId; index: number; partId: CustomPartId }>;
 
 export type CommandKind = Command['kind'];
 
@@ -96,6 +102,7 @@ export type CreatedEntities = Readonly<{
   ruleId?: RuleId;
   serviceId?: ServiceId;
   usecaseId?: UsecaseId;
+  partId?: CustomPartId;
 }>;
 
 export type CommandOutcome = Readonly<{
@@ -262,6 +269,32 @@ export const applyCommand = (
       const res = DataModel.removeUsecase(doc.dataModel, cmd.modelId, cmd.usecaseId);
       return res.ok ? ok(outcome({ ...doc, dataModel: res.value })) : res;
     }
+
+    case 'defineCustomPart': {
+      const tree = ProjectDoc.getTree(doc, cmd.target);
+      if (!tree) return err(DomainError.notFound('edit target'));
+      const node = ComponentNode.find(tree, cmd.nodeId);
+      if (!node) return err(DomainError.notFound('node'));
+      const { doc: next, part } = ProjectDoc.addCustomPart(doc, cmd.name, node);
+      return ok(outcome(next, { partId: part.id }));
+    }
+    case 'removeCustomPart': {
+      const res = ProjectDoc.removeCustomPart(doc, cmd.partId);
+      return res.ok ? ok(outcome(res.value)) : res;
+    }
+    case 'renameCustomPart': {
+      const res = ProjectDoc.renameCustomPart(doc, cmd.partId, cmd.name);
+      return res.ok ? ok(outcome(res.value)) : res;
+    }
+    case 'insertCustomPart': {
+      const part = ProjectDoc.findCustomPart(doc, cmd.partId);
+      if (!part) return err(DomainError.notFound('custom part'));
+      const clone = ComponentNode.clone(part.root);
+      const res = applyTreeCommand(doc, cmd.target, (tree) =>
+        ComponentNode.insert(tree, cmd.parentId, cmd.index, clone),
+      );
+      return res.ok ? ok(outcome(res.value, { nodeId: clone.id })) : res;
+    }
   }
 };
 
@@ -367,6 +400,10 @@ const commandSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('addUsecase'), modelId: id }),
   z.object({ kind: z.literal('updateUsecase'), modelId: id, usecaseId: id, patch: usecasePatch }),
   z.object({ kind: z.literal('removeUsecase'), modelId: id, usecaseId: id }),
+  z.object({ kind: z.literal('defineCustomPart'), target: editTarget, nodeId: id, name: z.string() }),
+  z.object({ kind: z.literal('removeCustomPart'), partId: id }),
+  z.object({ kind: z.literal('renameCustomPart'), partId: id, name: z.string() }),
+  z.object({ kind: z.literal('insertCustomPart'), target: editTarget, parentId: id, index: z.number(), partId: id }),
 ]);
 
 /** 外部入力(JSON)→ 検証済み Command 配列。MCP の apply_commands が信頼境界で使う */

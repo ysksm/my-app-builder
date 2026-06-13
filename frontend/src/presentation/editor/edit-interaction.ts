@@ -6,7 +6,8 @@ export const DRAG_MIME = 'application/x-appforge';
 
 export type DragPayload =
   | Readonly<{ kind: 'new'; type: ComponentType }>
-  | Readonly<{ kind: 'move'; nodeId: string }>;
+  | Readonly<{ kind: 'move'; nodeId: string }>
+  | Readonly<{ kind: 'custom'; partId: string }>;
 
 export const DragPayload = {
   write(e: DragEvent, payload: DragPayload): void {

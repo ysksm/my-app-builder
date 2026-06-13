@@ -114,6 +114,46 @@ describe('applyCommands: コマンド列', () => {
   });
 });
 
+describe('applyCommand: ユーザー定義パーツ', () => {
+  it('defineCustomPart で選択木を登録し、insertCustomPart で別 ID のクローンを挿入する', () => {
+    let doc = ProjectDoc.create();
+    const root = doc.pages[0]!.root;
+    // ボタンを置いてからパーツ登録
+    const ins = applyCommand(doc, { kind: 'insertNode', target: homeTarget(doc), parentId: root.id, index: 0, type: 'button' });
+    if (!ins.ok) throw new Error();
+    doc = ins.value.doc;
+    const btnId = ins.value.created.nodeId!;
+
+    const def = applyCommand(doc, { kind: 'defineCustomPart', target: homeTarget(doc), nodeId: btnId, name: 'マイボタン' });
+    if (!def.ok) throw new Error();
+    doc = def.value.doc;
+    const partId = def.value.created.partId!;
+    expect(doc.customParts).toHaveLength(1);
+    expect(ProjectDoc.findCustomPart(doc, partId)!.name).toBe('マイボタン');
+
+    // 挿入: クローンが別 ID で入る
+    const tree = ProjectDoc.getTree(doc, homeTarget(doc))!;
+    const inserted = applyCommand(doc, { kind: 'insertCustomPart', target: homeTarget(doc), parentId: tree.id, index: 1, partId });
+    if (!inserted.ok) throw new Error();
+    const newRoot = ProjectDoc.getTree(inserted.value.doc, homeTarget(doc))!;
+    expect(newRoot.children).toHaveLength(2);
+    expect(inserted.value.created.nodeId).toBeDefined();
+    expect(inserted.value.created.nodeId).not.toBe(btnId); // クローンは別 ID
+  });
+
+  it('未知パーツの挿入は失敗する', () => {
+    const doc = ProjectDoc.create();
+    const res = applyCommand(doc, {
+      kind: 'insertCustomPart',
+      target: homeTarget(doc),
+      parentId: doc.pages[0]!.root.id,
+      index: 0,
+      partId: 'missing' as never,
+    });
+    expect(res.ok).toBe(false);
+  });
+});
+
 describe('parseCommands(外部入力の検証)', () => {
   it('妥当な JSON コマンド配列を受理する', () => {
     const res = parseCommands([

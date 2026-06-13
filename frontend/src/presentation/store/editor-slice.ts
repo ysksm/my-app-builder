@@ -14,6 +14,7 @@ import type {
   ValidationRule,
 } from '@/domain/data-model';
 import type {
+  CustomPartId,
   DialogId,
   FieldId,
   ModelId,
@@ -347,6 +348,25 @@ export const editorSlice = createSlice({
       run(state, { kind: 'removeUsecase', ...action.payload });
     },
 
+    // ---------- ユーザー定義パーツ ----------
+
+    customPartDefined(state, action: PayloadAction<{ nodeId: NodeId; name: string }>) {
+      run(state, { kind: 'defineCustomPart', target: currentTarget(state), ...action.payload });
+    },
+
+    customPartRemoved(state, action: PayloadAction<{ partId: CustomPartId }>) {
+      run(state, { kind: 'removeCustomPart', ...action.payload });
+    },
+
+    customPartRenamed(state, action: PayloadAction<{ partId: CustomPartId; name: string }>) {
+      run(state, { kind: 'renameCustomPart', ...action.payload });
+    },
+
+    customPartInserted(state, action: PayloadAction<{ parentId: NodeId; index: number; partId: CustomPartId }>) {
+      const created = run(state, { kind: 'insertCustomPart', target: currentTarget(state), ...action.payload });
+      if (created?.nodeId) state.selectedNodeId = asDraft(created.nodeId);
+    },
+
     modelSelected(state, action: PayloadAction<ModelId | null>) {
       state.selectedModelId = action.payload;
     },
@@ -423,6 +443,10 @@ export const {
   dmUsecaseAdded,
   dmUsecaseUpdated,
   dmUsecaseRemoved,
+  customPartDefined,
+  customPartRemoved,
+  customPartRenamed,
+  customPartInserted,
   modelSelected,
   undone,
   redone,

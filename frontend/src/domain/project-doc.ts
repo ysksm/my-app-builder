@@ -3,6 +3,7 @@ import { ComponentNode } from './component-node';
 import { DataModel } from './data-model';
 import { DesignTokens } from './design-tokens';
 import { DialogDef } from './dialog';
+import { CustomPartId } from './ids';
 import { DomainError } from './errors';
 import type { DialogId, PageId } from './ids';
 import { Page } from './page';
@@ -27,6 +28,13 @@ export const EditTarget = {
   },
 } as const;
 
+/** ユーザー定義の複合パーツ(FR-GUI-09)。root はコンポーネント木のテンプレート */
+export type CustomPartDef = Readonly<{
+  id: CustomPartId;
+  name: string;
+  root: ComponentNode;
+}>;
+
 export type ProjectDoc = Readonly<{
   schemaVersion: 1;
   pages: ReadonlyArray<Page>;
@@ -37,6 +45,7 @@ export type ProjectDoc = Readonly<{
   dialogs: ReadonlyArray<DialogDef>;
   tokens: DesignTokens;
   dataModel: DataModel;
+  customParts: ReadonlyArray<CustomPartDef>;
 }>;
 
 export const ProjectDoc = {
@@ -51,6 +60,7 @@ export const ProjectDoc = {
       dialogs: [],
       tokens: DesignTokens.default(),
       dataModel: DataModel.empty(),
+      customParts: [],
     };
   },
 
@@ -136,6 +146,37 @@ export const ProjectDoc = {
     return ok({
       ...doc,
       dialogs: doc.dialogs.map((d) => (d.id === dialogId ? { ...d, title } : d)),
+    });
+  },
+
+  findCustomPart(doc: ProjectDoc, partId: CustomPartId): CustomPartDef | null {
+    return doc.customParts.find((p) => p.id === partId) ?? null;
+  },
+
+  /** コンポーネント木をテンプレート(独立 ID)としてパーツ登録する */
+  addCustomPart(
+    doc: ProjectDoc,
+    name: string,
+    root: ComponentNode,
+  ): Readonly<{ doc: ProjectDoc; part: CustomPartDef }> {
+    const part: CustomPartDef = {
+      id: CustomPartId.create(),
+      name: name.trim() || `パーツ${doc.customParts.length + 1}`,
+      root: ComponentNode.clone(root),
+    };
+    return { doc: { ...doc, customParts: [...doc.customParts, part] }, part };
+  },
+
+  removeCustomPart(doc: ProjectDoc, partId: CustomPartId): Result<ProjectDoc, DomainError> {
+    if (!ProjectDoc.findCustomPart(doc, partId)) return err(DomainError.notFound('custom part'));
+    return ok({ ...doc, customParts: doc.customParts.filter((p) => p.id !== partId) });
+  },
+
+  renameCustomPart(doc: ProjectDoc, partId: CustomPartId, name: string): Result<ProjectDoc, DomainError> {
+    if (!ProjectDoc.findCustomPart(doc, partId)) return err(DomainError.notFound('custom part'));
+    return ok({
+      ...doc,
+      customParts: doc.customParts.map((p) => (p.id === partId ? { ...p, name } : p)),
     });
   },
 } as const;

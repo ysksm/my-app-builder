@@ -104,6 +104,9 @@ body {
 .palette-item:hover { border-color: var(--accent); }
 .palette-item:active { cursor: grabbing; }
 .palette-icon { color: var(--accent); width: 16px; text-align: center; }
+.palette-custom { display: flex; flex-direction: column; gap: 6px; }
+.palette-item.custom { justify-content: flex-start; border-color: var(--accent2); }
+.palette-custom-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- リスト行(ページ / ダイアログ / レイヤー) ---------- */
 .list-row, .layer-row {
