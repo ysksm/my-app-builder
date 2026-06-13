@@ -1,5 +1,6 @@
 mod build;
 mod handlers;
+mod realtime;
 mod store;
 
 use std::net::SocketAddr;

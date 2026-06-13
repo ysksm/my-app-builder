@@ -9,6 +9,7 @@ use serde::Deserialize;
 use std::path::PathBuf;
 
 use crate::build;
+use crate::realtime;
 use crate::store::{Store, StoreError};
 
 #[derive(Clone)]
@@ -40,6 +41,7 @@ pub fn router(state: AppState) -> Router {
             get(get_project).put(update_project).delete(delete_project),
         )
         .route("/api/projects/{id}/build", post(build::build_project))
+        .route("/api/channels/{id}/stream", get(realtime::channel_stream))
         .route("/preview/{id}", get(build::serve_preview_index))
         .route("/preview/{id}/", get(build::serve_preview_index))
         .route("/preview/{id}/{*path}", get(build::serve_preview_file))
