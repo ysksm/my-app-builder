@@ -81,6 +81,11 @@ body {
 .c-metric-label { font-size: 12px; color: var(--color-text-muted); display: flex; align-items: center; gap: 6px; }
 .c-metric-value { font-size: 30px; font-weight: 700; color: var(--color-primary); line-height: 1.1; }
 .c-metric-unit { font-size: 14px; font-weight: 500; color: var(--color-text-muted); margin-left: 4px; }
+/* しきい値アラート(FR-RT-04): 警告 / 危険で枠と値の色を変える */
+.c-metric.s-warn { border-color: var(--color-warn, #d98e00); box-shadow: 0 0 0 1px var(--color-warn, #d98e00); }
+.c-metric.s-warn .c-metric-value { color: var(--color-warn, #d98e00); }
+.c-metric.s-crit { border-color: var(--color-danger); box-shadow: 0 0 0 1px var(--color-danger); }
+.c-metric.s-crit .c-metric-value { color: var(--color-danger); }
 
 .c-table {
   border-collapse: collapse;

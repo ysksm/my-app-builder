@@ -76,6 +76,39 @@ describe('metric(数値カード)生成', () => {
     expect(page).not.toContain('unitId=');
   });
 
+  it('しきい値を設定すると Metric に warnAbove/critAbove が渡り、未設定のものは出力されない', () => {
+    const files = generateProject(docWithMetric({ warnAbove: 70, critAbove: 90 }), 'x');
+    const page = files.find((f) => f.path === 'src/pages/Page0.tsx')!.content;
+    expect(page).toContain('warnAbove={70}');
+    expect(page).toContain('critAbove={90}');
+    // 下限しきい値は未設定なので属性に出ない
+    expect(page).not.toContain('warnBelow=');
+    expect(page).not.toContain('critBelow=');
+  });
+
+  it('しきい値未設定なら閾値属性は一切出力されない', () => {
+    const page = generateProject(docWithMetric(), 'x').find((f) => f.path === 'src/pages/Page0.tsx')!.content;
+    expect(page).not.toContain('warnAbove=');
+    expect(page).not.toContain('critAbove=');
+  });
+
+  it('Metric は重大度判定 + アラートイベント発火 + 重大度クラスを生成する', () => {
+    const metricSrc = generateProject(docWithMetric({ warnAbove: 70 }), 'x').find(
+      (f) => f.path === 'src/shared/realtime/Metric.tsx',
+    )!.content;
+    expect(metricSrc).toContain('export function metricSeverity(');
+    expect(metricSrc).toContain(`new CustomEvent('appforge:alert'`);
+    expect(metricSrc).toContain(`'c-metric' + (severity !== 'normal'`);
+  });
+
+  it('app シェルが appforge:alert を購読してトースト化する', () => {
+    const toasts = generateProject(docWithMetric({ warnAbove: 70 }), 'x').find(
+      (f) => f.path === 'src/app/Toasts.tsx',
+    )!.content;
+    expect(toasts).toContain(`window.addEventListener('appforge:alert'`);
+    expect(toasts).toContain('toastShown(');
+  });
+
   it('metric が無ければ Metric は生成されない', () => {
     const paths = generateProject(ProjectDoc.create(), 'x').map((f) => f.path);
     expect(paths).not.toContain('src/shared/realtime/Metric.tsx');

@@ -192,6 +192,11 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
       { key: 'max', label: '最大値', input: 'number' },
       { key: 'interval', label: '更新間隔(ms)', input: 'number' },
       { key: 'decimals', label: '小数桁', input: 'number' },
+      // しきい値アラート(FR-RT-04)。空欄=無効。上限/下限それぞれに警告・危険を設定可能
+      { key: 'warnAbove', label: '警告(以上)', input: 'number' },
+      { key: 'critAbove', label: '危険(以上)', input: 'number' },
+      { key: 'warnBelow', label: '警告(以下)', input: 'number' },
+      { key: 'critBelow', label: '危険(以下)', input: 'number' },
     ],
   },
   header: {

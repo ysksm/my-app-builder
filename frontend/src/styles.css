@@ -230,6 +230,10 @@ body {
 .c-metric-live { font-size: 9px; color: var(--color-danger, #e03131); font-weight: 700; letter-spacing: .3px; }
 .c-metric-value { font-size: 30px; font-weight: 700; color: var(--color-primary, #4263eb); line-height: 1.1; }
 .c-metric-unit { font-size: 14px; font-weight: 500; color: var(--color-text-muted, #5b6480); margin-left: 4px; }
+.c-metric.s-warn { border-color: var(--color-warn, #d98e00); box-shadow: 0 0 0 1px var(--color-warn, #d98e00); }
+.c-metric.s-warn .c-metric-value { color: var(--color-warn, #d98e00); }
+.c-metric.s-crit { border-color: var(--color-danger, #e03131); box-shadow: 0 0 0 1px var(--color-danger, #e03131); }
+.c-metric.s-crit .c-metric-value { color: var(--color-danger, #e03131); }
 .c-table { border-collapse: collapse; width: 100%; font-size: 13px; background: var(--color-surface-card, #fff); border-radius: var(--radius-sm, 4px); }
 .c-table th, .c-table td { border: 1px solid var(--color-border, #dde2f0); padding: 7px 10px; text-align: left; }
 .c-table th { background: var(--color-surface, #eef1fa); color: var(--color-text-muted, #3c4566); }

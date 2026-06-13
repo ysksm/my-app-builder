@@ -226,11 +226,21 @@ const toastsTsx = (): string => {
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '${storeSpec}';
-import { toastDismissed } from '${sliceSpec}';
+import { toastShown, toastDismissed } from '${sliceSpec}';
 
 export function Toasts() {
   const toasts = useSelector((state: RootState) => state.ui.toasts);
   const dispatch = useDispatch();
+  // しきい値アラート(FR-RT-04)を購読してトースト表示。Metric 等が window へ発火する
+  useEffect(() => {
+    const onAlert = (e: Event) => {
+      const d = (e as CustomEvent).detail as { label: string; value: number; unit: string; severity: string };
+      const mark = d.severity === 'crit' ? '🔴' : '🟡';
+      dispatch(toastShown(mark + ' ' + d.label + ': ' + d.value.toFixed(1) + d.unit));
+    };
+    window.addEventListener('appforge:alert', onAlert);
+    return () => window.removeEventListener('appforge:alert', onAlert);
+  }, [dispatch]);
   return (
     <div className="toasts">
       {toasts.map((t) => (

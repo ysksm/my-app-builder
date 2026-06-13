@@ -170,6 +170,19 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
       ctx.needsMetric = true;
       const raw = String(p('source'));
       const source = raw === 'live' || raw === 'modbus' ? raw : 'mock';
+      // しきい値: 有限数のときだけ属性を出力(空欄=無効)
+      const finite = (v: unknown): number | null => {
+        if (typeof v === 'number' && Number.isFinite(v)) return v;
+        if (typeof v === 'string' && v.trim() !== '') {
+          const n = Number(v);
+          return Number.isFinite(n) ? n : null;
+        }
+        return null;
+      };
+      const threshold = (key: string, attr: string): string[] => {
+        const v = finite(p(key));
+        return v === null ? [] : [`${attr}={${v}}`];
+      };
       const attrs = [
         `label={${s(p('label'))}}`,
         `unit={${s(p('unit'))}}`,
@@ -188,6 +201,11 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
         `max={${num(p('max'))}}`,
         `interval={${num(p('interval'))}}`,
         `decimals={${num(p('decimals'))}}`,
+        // しきい値アラート(設定時のみ)
+        ...threshold('warnAbove', 'warnAbove'),
+        ...threshold('critAbove', 'critAbove'),
+        ...threshold('warnBelow', 'warnBelow'),
+        ...threshold('critBelow', 'critBelow'),
       ].join(' ');
       return [`${pad}<Metric ${attrs} />`];
     }

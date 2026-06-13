@@ -29,7 +29,9 @@ const usesMetric = (doc: ProjectDoc): boolean => {
 
 /** リアルタイム数値カード。mock(模擬データ)または live(WS データチャネル)で更新 */
 const metricComponentTsx = `// 自動生成 — AppForge: リアルタイム数値カード(DataChannel: mock / live / modbus)
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+export type Severity = 'normal' | 'warn' | 'crit';
 
 export type MetricProps = {
   label: string;
@@ -45,13 +47,49 @@ export type MetricProps = {
   unitId?: number;
   register?: number;
   scale?: number;
+  // しきい値アラート(FR-RT-04)。未指定=無効
+  warnAbove?: number;
+  critAbove?: number;
+  warnBelow?: number;
+  critBelow?: number;
 };
+
+const RANK: Record<Severity, number> = { normal: 0, warn: 1, crit: 2 };
+
+/** 値としきい値から重大度を判定(上限/下限の危険を優先) */
+export function metricSeverity(
+  v: number,
+  t: Pick<MetricProps, 'warnAbove' | 'critAbove' | 'warnBelow' | 'critBelow'>,
+): Severity {
+  if ((t.critAbove != null && v >= t.critAbove) || (t.critBelow != null && v <= t.critBelow)) return 'crit';
+  if ((t.warnAbove != null && v >= t.warnAbove) || (t.warnBelow != null && v <= t.warnBelow)) return 'warn';
+  return 'normal';
+}
+
+/** アプリイベント(FR-RT-04): app シェルがこれを購読してトースト等に橋渡しする */
+export type MetricAlert = { label: string; value: number; unit: string; severity: Severity };
 
 export function Metric({
   label, unit, min, max, interval, decimals, source, channel,
   host, unitId, register, scale,
+  warnAbove, critAbove, warnBelow, critBelow,
 }: MetricProps) {
   const [value, setValue] = useState<number | null>(null);
+  const prevRank = useRef(0);
+  const severity: Severity =
+    value === null ? 'normal' : metricSeverity(value, { warnAbove, critAbove, warnBelow, critBelow });
+
+  // 重大度が上昇したときだけイベント発火(同レベル継続では再発火しない)
+  useEffect(() => {
+    if (value === null) return;
+    const rank = RANK[severity];
+    if (rank > prevRank.current && rank > 0) {
+      const detail: MetricAlert = { label, value, unit, severity };
+      window.dispatchEvent(new CustomEvent('appforge:alert', { detail }));
+    }
+    prevRank.current = rank;
+  }, [severity, value, label, unit]);
+
   // mock 以外(live / modbus)は BE の WS データチャネルを購読する
   const streamed = source === 'live' || source === 'modbus';
   useEffect(() => {
@@ -92,8 +130,9 @@ export function Metric({
     return () => clearInterval(id);
   }, [min, max, interval, streamed, source, channel, host, unitId, register, scale]);
   const tag = source === 'modbus' ? ' ● MODBUS' : source === 'live' ? ' ● LIVE' : '';
+  const cls = 'c-metric' + (severity !== 'normal' ? ' s-' + severity : '');
   return (
-    <div className="c-metric">
+    <div className={cls}>
       <span className="c-metric-label">{label}{tag}</span>
       <span className="c-metric-value">
         {value === null ? '—' : value.toFixed(decimals)}

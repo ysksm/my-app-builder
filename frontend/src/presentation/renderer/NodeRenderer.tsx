@@ -149,8 +149,10 @@ function MetricView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
     mode === 'preview',
   );
   const tag = source === 'modbus' ? '● MODBUS' : source === 'live' ? '● LIVE' : '';
+  const severity = value === null ? 'normal' : metricSeverity(value, node, def);
+  const cls = 'c-metric' + (severity !== 'normal' ? ` s-${severity}` : '');
   return (
-    <div className="c-metric">
+    <div className={cls}>
       <span className="c-metric-label">
         {str(p('label'))}
         {streamed && <span className="c-metric-live">{tag}</span>}
@@ -161,6 +163,46 @@ function MetricView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
       </span>
     </div>
   );
+}
+
+export type MetricThresholds = Readonly<{
+  warnAbove: number | null;
+  critAbove: number | null;
+  warnBelow: number | null;
+  critBelow: number | null;
+}>;
+
+/**
+ * しきい値アラート(FR-RT-04)の重大度。null のしきい値は無効。
+ * 生成コードの metricSeverity と意味論を一致させること。
+ */
+export function severityOf(v: number, t: MetricThresholds): 'normal' | 'warn' | 'crit' {
+  if ((t.critAbove != null && v >= t.critAbove) || (t.critBelow != null && v <= t.critBelow)) return 'crit';
+  if ((t.warnAbove != null && v >= t.warnAbove) || (t.warnBelow != null && v <= t.warnBelow)) return 'warn';
+  return 'normal';
+}
+
+/** ノード props からしきい値を抽出(空欄/非数値は無効=null) */
+function metricSeverity(
+  v: number,
+  node: ComponentNode,
+  def: typeof componentDefs.metric,
+): 'normal' | 'warn' | 'crit' {
+  const t = (key: string): number | null => {
+    const raw = propOf(node, def, key);
+    if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
+    if (typeof raw === 'string' && raw.trim() !== '') {
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : null;
+    }
+    return null;
+  };
+  return severityOf(v, {
+    warnAbove: t('warnAbove'),
+    critAbove: t('critAbove'),
+    warnBelow: t('warnBelow'),
+    critBelow: t('critBelow'),
+  });
 }
 
 type MetricSource = Readonly<{
