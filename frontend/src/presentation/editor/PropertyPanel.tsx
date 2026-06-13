@@ -2,7 +2,7 @@ import type { Action, EventBinding } from '@/domain/actions';
 import { ComponentNode, type PropValue } from '@/domain/component-node';
 import { DialogId } from '@/domain/ids';
 import { ProjectDoc } from '@/domain/project-doc';
-import { componentDefs, propValueOf, type ComponentDef, type PropFieldDef } from '../catalog/component-defs';
+import { componentDefs, propValueOf, type ComponentDef, type PropFieldDef } from '@/domain/catalog/component-defs';
 import { nodeEventsSet, nodePropsUpdated, nodeRemoved } from '../store/editor-slice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 

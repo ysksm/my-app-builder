@@ -1,6 +1,6 @@
 import type { ComponentNode } from '@/domain/component-node';
 import { ProjectDoc } from '@/domain/project-doc';
-import { componentDefs } from '../catalog/component-defs';
+import { componentDefs } from '@/domain/catalog/component-defs';
 import { nodeSummaryLabel } from '../renderer/NodeRenderer';
 import { nodeRemoved, nodeSelected } from '../store/editor-slice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';

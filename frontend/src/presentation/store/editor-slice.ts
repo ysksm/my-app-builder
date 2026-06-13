@@ -1,11 +1,11 @@
 import { createSlice, current, type Draft, type PayloadAction } from '@reduxjs/toolkit';
+import { applyCommand, type Command, type CreatedEntities } from '@/application/commands';
 import type { EventBinding } from '@/domain/actions';
 import { ComponentNode, type ComponentType, type PropValue } from '@/domain/component-node';
-import { DataModel, type FieldDef, type ModelDef, type ModelKind, type RelationKind } from '@/domain/data-model';
+import type { FieldDef, ModelDef, ModelKind, RelationKind } from '@/domain/data-model';
 import type { DialogId, FieldId, ModelId, NodeId, PageId, ProjectId, RelationId } from '@/domain/ids';
 import { EditTarget, ProjectDoc } from '@/domain/project-doc';
 import type { Page } from '@/domain/page';
-import { componentDefs } from '../catalog/component-defs';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 export type ViewMode = 'edit' | 'model' | 'preview' | 'run';
@@ -75,10 +75,19 @@ const ensureValidTarget = (state: DraftState): void => {
   }
 };
 
-const currentTreeOf = (state: DraftState): ComponentNode | null => {
-  const snap = current(state);
-  return ProjectDoc.getTree(snap.doc, snap.editTarget);
+/**
+ * すべてのドキュメント変更はコマンド層(applyCommand)を経由する。
+ * GUI と MCP が同一実行点を通り、機能パリティを構造的に担保する(FR-MCP-00/01)。
+ * 成功時のみ履歴へ commit し、生成エンティティ ID を返す(選択更新は各 reducer の責務)。
+ */
+const run = (state: DraftState, cmd: Command): CreatedEntities | null => {
+  const result = applyCommand(current(state).doc, cmd);
+  if (!result.ok) return null;
+  commit(state, result.value.doc);
+  return result.value.created;
 };
+
+const currentTarget = (state: DraftState): EditTarget => current(state).editTarget;
 
 export const editorSlice = createSlice({
   name: 'editor',
@@ -110,63 +119,37 @@ export const editorSlice = createSlice({
       state,
       action: PayloadAction<{ parentId: NodeId; index: number; type: ComponentType }>,
     ) {
-      const tree = currentTreeOf(state);
-      if (!tree) return;
-      const def = componentDefs[action.payload.type];
-      const node = ComponentNode.create(action.payload.type, { ...def.defaultProps });
-      const result = ComponentNode.insert(tree, action.payload.parentId, action.payload.index, node);
-      if (!result.ok) return;
-      commit(state, ProjectDoc.setTree(current(state).doc, current(state).editTarget, result.value));
-      state.selectedNodeId = node.id;
+      const created = run(state, { kind: 'insertNode', target: currentTarget(state), ...action.payload });
+      if (created?.nodeId) state.selectedNodeId = asDraft(created.nodeId);
     },
 
     nodeMoved(
       state,
       action: PayloadAction<{ nodeId: NodeId; parentId: NodeId; index: number }>,
     ) {
-      const tree = currentTreeOf(state);
-      if (!tree) return;
-      const result = ComponentNode.move(
-        tree,
-        action.payload.nodeId,
-        action.payload.parentId,
-        action.payload.index,
-      );
-      if (!result.ok) return;
-      commit(state, ProjectDoc.setTree(current(state).doc, current(state).editTarget, result.value));
-      state.selectedNodeId = action.payload.nodeId;
+      const created = run(state, { kind: 'moveNode', target: currentTarget(state), ...action.payload });
+      if (created?.nodeId) state.selectedNodeId = asDraft(created.nodeId);
     },
 
     nodeRemoved(state, action: PayloadAction<{ nodeId: NodeId }>) {
-      const tree = currentTreeOf(state);
-      if (!tree) return;
-      const result = ComponentNode.remove(tree, action.payload.nodeId);
-      if (!result.ok) return;
-      commit(state, ProjectDoc.setTree(current(state).doc, current(state).editTarget, result.value));
-      // 削除ノード自身だけでなくその子孫が選択中のケースもあるため存在確認で解決する
-      ensureValidTarget(state);
+      if (run(state, { kind: 'removeNode', target: currentTarget(state), ...action.payload })) {
+        // 削除ノード自身だけでなくその子孫が選択中のケースもあるため存在確認で解決する
+        ensureValidTarget(state);
+      }
     },
 
     nodePropsUpdated(
       state,
       action: PayloadAction<{ nodeId: NodeId; patch: Record<string, PropValue> }>,
     ) {
-      const tree = currentTreeOf(state);
-      if (!tree) return;
-      const result = ComponentNode.updateProps(tree, action.payload.nodeId, action.payload.patch);
-      if (!result.ok) return;
-      commit(state, ProjectDoc.setTree(current(state).doc, current(state).editTarget, result.value));
+      run(state, { kind: 'updateNodeProps', target: currentTarget(state), ...action.payload });
     },
 
     nodeEventsSet(
       state,
       action: PayloadAction<{ nodeId: NodeId; events: ReadonlyArray<EventBinding> }>,
     ) {
-      const tree = currentTreeOf(state);
-      if (!tree) return;
-      const result = ComponentNode.setEvents(tree, action.payload.nodeId, action.payload.events);
-      if (!result.ok) return;
-      commit(state, ProjectDoc.setTree(current(state).doc, current(state).editTarget, result.value));
+      run(state, { kind: 'setNodeEvents', target: currentTarget(state), ...action.payload });
     },
 
     nodeSelected(state, action: PayloadAction<NodeId | null>) {
@@ -180,21 +163,15 @@ export const editorSlice = createSlice({
     },
 
     pageAdded(state, action: PayloadAction<{ name: string; path: string }>) {
-      const { doc, page } = ProjectDoc.addPage(
-        current(state).doc,
-        action.payload.name,
-        action.payload.path,
-      );
-      commit(state, doc);
-      state.editTarget = asDraft(EditTarget.page(page.id));
-      state.selectedNodeId = null;
+      const created = run(state, { kind: 'addPage', ...action.payload });
+      if (created?.pageId) {
+        state.editTarget = asDraft(EditTarget.page(created.pageId));
+        state.selectedNodeId = null;
+      }
     },
 
     pageRemoved(state, action: PayloadAction<{ pageId: PageId }>) {
-      const result = ProjectDoc.removePage(current(state).doc, action.payload.pageId);
-      if (!result.ok) return;
-      commit(state, result.value);
-      ensureValidTarget(state);
+      if (run(state, { kind: 'removePage', ...action.payload })) ensureValidTarget(state);
     },
 
     pageUpdated(
@@ -204,76 +181,52 @@ export const editorSlice = createSlice({
         patch: Partial<Pick<Page, 'name' | 'path' | 'useHeader' | 'useFooter'>>;
       }>,
     ) {
-      const result = ProjectDoc.updatePage(
-        current(state).doc,
-        action.payload.pageId,
-        action.payload.patch,
-      );
-      if (!result.ok) return;
-      commit(state, result.value);
+      run(state, { kind: 'updatePage', ...action.payload });
     },
 
     dialogAdded(state, action: PayloadAction<{ title: string }>) {
-      const { doc, dialog } = ProjectDoc.addDialog(current(state).doc, action.payload.title);
-      commit(state, doc);
-      state.editTarget = asDraft(EditTarget.dialog(dialog.id));
-      state.selectedNodeId = null;
+      const created = run(state, { kind: 'addDialog', ...action.payload });
+      if (created?.dialogId) {
+        state.editTarget = asDraft(EditTarget.dialog(created.dialogId));
+        state.selectedNodeId = null;
+      }
     },
 
     dialogRemoved(state, action: PayloadAction<{ dialogId: DialogId }>) {
-      const result = ProjectDoc.removeDialog(current(state).doc, action.payload.dialogId);
-      if (!result.ok) return;
-      commit(state, result.value);
-      ensureValidTarget(state);
+      if (run(state, { kind: 'removeDialog', ...action.payload })) ensureValidTarget(state);
     },
 
     dialogRenamed(state, action: PayloadAction<{ dialogId: DialogId; title: string }>) {
-      const result = ProjectDoc.renameDialog(
-        current(state).doc,
-        action.payload.dialogId,
-        action.payload.title,
-      );
-      if (!result.ok) return;
-      commit(state, result.value);
+      run(state, { kind: 'renameDialog', ...action.payload });
     },
 
     // ---------- データモデル(DDD)操作 ----------
 
     dmModelAdded(state, action: PayloadAction<{ kind: ModelKind; x: number; y: number }>) {
-      const { dataModel, model } = DataModel.addModel(
-        current(state).doc.dataModel,
-        action.payload.kind,
-        action.payload.x,
-        action.payload.y,
-      );
-      commit(state, { ...current(state).doc, dataModel });
-      state.selectedModelId = model.id;
+      const created = run(state, {
+        kind: 'addModel',
+        modelKind: action.payload.kind,
+        x: action.payload.x,
+        y: action.payload.y,
+      });
+      if (created?.modelId) state.selectedModelId = asDraft(created.modelId);
     },
 
     dmModelUpdated(
       state,
       action: PayloadAction<{ modelId: ModelId; patch: Partial<Pick<ModelDef, 'name' | 'kind' | 'x' | 'y'>> }>,
     ) {
-      const result = DataModel.updateModel(
-        current(state).doc.dataModel,
-        action.payload.modelId,
-        action.payload.patch,
-      );
-      if (!result.ok) return;
-      commit(state, { ...current(state).doc, dataModel: result.value });
+      run(state, { kind: 'updateModel', ...action.payload });
     },
 
     dmModelRemoved(state, action: PayloadAction<{ modelId: ModelId }>) {
-      const result = DataModel.removeModel(current(state).doc.dataModel, action.payload.modelId);
-      if (!result.ok) return;
-      commit(state, { ...current(state).doc, dataModel: result.value });
-      if (state.selectedModelId === action.payload.modelId) state.selectedModelId = null;
+      if (run(state, { kind: 'removeModel', ...action.payload })) {
+        if (state.selectedModelId === action.payload.modelId) state.selectedModelId = null;
+      }
     },
 
     dmFieldAdded(state, action: PayloadAction<{ modelId: ModelId }>) {
-      const result = DataModel.addField(current(state).doc.dataModel, action.payload.modelId);
-      if (!result.ok) return;
-      commit(state, { ...current(state).doc, dataModel: result.value.dataModel });
+      run(state, { kind: 'addField', ...action.payload });
     },
 
     dmFieldUpdated(
@@ -284,47 +237,27 @@ export const editorSlice = createSlice({
         patch: Partial<Omit<FieldDef, 'id'>>;
       }>,
     ) {
-      const result = DataModel.updateField(
-        current(state).doc.dataModel,
-        action.payload.modelId,
-        action.payload.fieldId,
-        action.payload.patch,
-      );
-      if (!result.ok) return;
-      commit(state, { ...current(state).doc, dataModel: result.value });
+      run(state, { kind: 'updateField', ...action.payload });
     },
 
     dmFieldRemoved(state, action: PayloadAction<{ modelId: ModelId; fieldId: FieldId }>) {
-      const result = DataModel.removeField(
-        current(state).doc.dataModel,
-        action.payload.modelId,
-        action.payload.fieldId,
-      );
-      if (!result.ok) return;
-      commit(state, { ...current(state).doc, dataModel: result.value });
+      run(state, { kind: 'removeField', ...action.payload });
     },
 
     dmRelationAdded(
       state,
       action: PayloadAction<{ from: ModelId; to: ModelId; kind: RelationKind }>,
     ) {
-      const result = DataModel.addRelation(
-        current(state).doc.dataModel,
-        action.payload.from,
-        action.payload.to,
-        action.payload.kind,
-      );
-      if (!result.ok) return;
-      commit(state, { ...current(state).doc, dataModel: result.value.dataModel });
+      run(state, {
+        kind: 'addRelation',
+        from: action.payload.from,
+        to: action.payload.to,
+        relationKind: action.payload.kind,
+      });
     },
 
     dmRelationRemoved(state, action: PayloadAction<{ relationId: RelationId }>) {
-      const result = DataModel.removeRelation(
-        current(state).doc.dataModel,
-        action.payload.relationId,
-      );
-      if (!result.ok) return;
-      commit(state, { ...current(state).doc, dataModel: result.value });
+      run(state, { kind: 'removeRelation', ...action.payload });
     },
 
     modelSelected(state, action: PayloadAction<ModelId | null>) {

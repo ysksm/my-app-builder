@@ -9,7 +9,7 @@ import {
 import type { EventBinding, EventType } from '@/domain/actions';
 import type { ComponentNode, PropValue } from '@/domain/component-node';
 import type { NodeId } from '@/domain/ids';
-import { componentDefs, propValueOf, type ComponentDef } from '../catalog/component-defs';
+import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
 import { DragPayload, useEditInteraction } from '../editor/edit-interaction';
 
 export type RenderMode = 'edit' | 'preview';

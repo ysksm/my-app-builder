@@ -1,4 +1,4 @@
-import { paletteDefs } from '../catalog/component-defs';
+import { paletteDefs } from '@/domain/catalog/component-defs';
 import { DragPayload, useEditInteraction } from './edit-interaction';
 
 export function Palette() {

@@ -1,6 +1,6 @@
 import type { EventBinding } from '@/domain/actions';
 import type { ComponentNode } from '@/domain/component-node';
-import { componentDefs, propValueOf, type ComponentDef } from '@/presentation/catalog/component-defs';
+import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
 import type { NameTable } from './identifiers';
 import { paths, relativeImport } from './layout';
 
