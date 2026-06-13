@@ -78,7 +78,7 @@ body {
   padding: 14px 20px;
   min-width: 140px;
 }
-.c-metric-label { font-size: 12px; color: var(--color-text-muted); }
+.c-metric-label { font-size: 12px; color: var(--color-text-muted); display: flex; align-items: center; gap: 6px; }
 .c-metric-value { font-size: 30px; font-weight: 700; color: var(--color-primary); line-height: 1.1; }
 .c-metric-unit { font-size: 14px; font-weight: 500; color: var(--color-text-muted); margin-left: 4px; }
 

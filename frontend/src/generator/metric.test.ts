@@ -8,10 +8,12 @@ const unwrap = <T,>(r: { ok: true; value: T } | { ok: false; error: unknown }): 
   return r.value;
 };
 
-const docWithMetric = () => {
+const docWithMetric = (props: Record<string, string | number> = {}) => {
   let doc = ProjectDoc.create();
   const home = doc.pages[0]!;
-  const metric = ComponentNode.create('metric', { label: 'CPU', unit: '%', min: 0, max: 100, interval: 1000, decimals: 1 });
+  const metric = ComponentNode.create('metric', {
+    label: 'CPU', unit: '%', min: 0, max: 100, interval: 1000, decimals: 1, source: 'mock', channel: 'cpu', ...props,
+  });
   const root = unwrap(ComponentNode.insert(home.root, home.root.id, 0, metric));
   doc = ProjectDoc.setTree(doc, EditTarget.page(home.id), root);
   return doc;
@@ -27,10 +29,20 @@ describe('metric(数値カード)生成', () => {
     expect(metricSrc).toContain('export function Metric(');
     expect(metricSrc).toContain('setInterval');
     expect(metricSrc).toContain('Math.random()');
+    // live モード: WS データチャネルを購読
+    expect(metricSrc).toContain('new WebSocket(url)');
+    expect(metricSrc).toContain('/api/channels/');
 
     const page = files.find((f) => f.path === 'src/pages/Page0.tsx')!.content;
-    expect(page).toContain('<Metric label={"CPU"} unit={"%"} min={0} max={100} interval={1000} decimals={1} />');
+    expect(page).toContain('<Metric label={"CPU"} unit={"%"} source={"mock"} channel={"cpu"} min={0} max={100} interval={1000} decimals={1} />');
     expect(page).toContain(`import { Metric } from '../shared/realtime/Metric';`);
+  });
+
+  it('source=live を指定すると Metric に source={"live"} が渡る', () => {
+    const files = generateProject(docWithMetric({ source: 'live', channel: 'temp' }), 'x');
+    const page = files.find((f) => f.path === 'src/pages/Page0.tsx')!.content;
+    expect(page).toContain('source={"live"}');
+    expect(page).toContain('channel={"temp"}');
   });
 
   it('metric が無ければ Metric は生成されない', () => {

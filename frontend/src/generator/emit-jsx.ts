@@ -168,9 +168,12 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
       return [`${pad}<footer className="c-footer">{${s(p('text'))}}</footer>`];
     case 'metric': {
       ctx.needsMetric = true;
+      const source = String(p('source')) === 'live' ? 'live' : 'mock';
       const attrs = [
         `label={${s(p('label'))}}`,
         `unit={${s(p('unit'))}}`,
+        `source={${s(source)}}`,
+        `channel={${s(p('channel'))}}`,
         `min={${num(p('min'))}}`,
         `max={${num(p('max'))}}`,
         `interval={${num(p('interval'))}}`,

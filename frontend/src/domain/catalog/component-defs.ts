@@ -154,11 +154,30 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
     acceptsChildren: false,
     inPalette: true,
     supportsEvents: false,
-    // リアルタイムモニタリング: 模擬データジェネレータが [min,max] を interval ごとに更新
-    defaultProps: { label: 'CPU 使用率', unit: '%', min: 0, max: 100, interval: 1000, decimals: 0 },
+    // リアルタイムモニタリング: 模擬(mock)または BE の WS データチャネル(live)で更新
+    defaultProps: {
+      label: 'CPU 使用率',
+      unit: '%',
+      min: 0,
+      max: 100,
+      interval: 1000,
+      decimals: 0,
+      source: 'mock',
+      channel: 'cpu',
+    },
     propFields: [
       { key: 'label', label: 'ラベル', input: 'text' },
       { key: 'unit', label: '単位', input: 'text' },
+      {
+        key: 'source',
+        label: 'データ源',
+        input: 'select',
+        options: [
+          { value: 'mock', label: '模擬データ' },
+          { value: 'live', label: 'ライブ(WS)' },
+        ],
+      },
+      { key: 'channel', label: 'チャネル ID', input: 'text' },
       { key: 'min', label: '最小値', input: 'number' },
       { key: 'max', label: '最大値', input: 'number' },
       { key: 'interval', label: '更新間隔(ms)', input: 'number' },

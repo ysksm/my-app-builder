@@ -27,8 +27,8 @@ const usesMetric = (doc: ProjectDoc): boolean => {
   );
 };
 
-/** リアルタイム数値カード。模擬データジェネレータ(FR-RT-03)で [min,max] を interval ごとに更新 */
-const metricComponentTsx = `// 自動生成 — AppForge: リアルタイム数値カード(模擬データジェネレータ)
+/** リアルタイム数値カード。mock(模擬データ)または live(WS データチャネル)で更新 */
+const metricComponentTsx = `// 自動生成 — AppForge: リアルタイム数値カード(DataChannel: mock / live)
 import { useEffect, useState } from 'react';
 
 export type MetricProps = {
@@ -38,19 +38,41 @@ export type MetricProps = {
   max: number;
   interval: number;
   decimals: number;
+  source: 'mock' | 'live';
+  channel: string;
 };
 
-export function Metric({ label, unit, min, max, interval, decimals }: MetricProps) {
+export function Metric({ label, unit, min, max, interval, decimals, source, channel }: MetricProps) {
   const [value, setValue] = useState<number | null>(null);
+  const live = source === 'live';
   useEffect(() => {
+    if (live) {
+      // BE の WS ゲートウェイ /api/channels/{ch}/stream を購読(FR-RT-01)
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ch = channel || 'default';
+      const url =
+        proto + '//' + window.location.host + '/api/channels/' + encodeURIComponent(ch) +
+        '/stream?min=' + min + '&max=' + max + '&interval=' + interval;
+      const ws = new WebSocket(url);
+      ws.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data as string) as { value: number };
+          setValue(data.value);
+        } catch {
+          /* ignore */
+        }
+      };
+      return () => ws.close();
+    }
+    // 模擬データジェネレータ(FR-RT-03)
     const tick = () => setValue(min + Math.random() * (max - min));
     tick();
     const id = setInterval(tick, Math.max(200, interval));
     return () => clearInterval(id);
-  }, [min, max, interval]);
+  }, [min, max, interval, live, channel]);
   return (
     <div className="c-metric">
-      <span className="c-metric-label">{label}</span>
+      <span className="c-metric-label">{label}{live ? ' ● LIVE' : ''}</span>
       <span className="c-metric-value">
         {value === null ? '—' : value.toFixed(decimals)}
         <span className="c-metric-unit">{unit}</span>

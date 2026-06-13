@@ -15,7 +15,8 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': 'http://localhost:8787',
+      // ws:true で WebSocket(リアルタイムデータチャネル)もプロキシ
+      '/api': { target: 'http://localhost:8787', ws: true },
       '/preview': 'http://localhost:8787',
     },
   },

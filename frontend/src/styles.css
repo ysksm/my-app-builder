@@ -226,7 +226,8 @@ body {
   background: var(--color-surface-card, #fff); border: 1px solid var(--color-border, #c6cde4);
   border-radius: var(--radius-md, 8px); padding: 14px 20px; min-width: 140px;
 }
-.c-metric-label { font-size: 12px; color: var(--color-text-muted, #5b6480); }
+.c-metric-label { font-size: 12px; color: var(--color-text-muted, #5b6480); display: flex; align-items: center; gap: 6px; }
+.c-metric-live { font-size: 9px; color: var(--color-danger, #e03131); font-weight: 700; letter-spacing: .3px; }
 .c-metric-value { font-size: 30px; font-weight: 700; color: var(--color-primary, #4263eb); line-height: 1.1; }
 .c-metric-unit { font-size: 14px; font-weight: 500; color: var(--color-text-muted, #5b6480); margin-left: 4px; }
 .c-table { border-collapse: collapse; width: 100%; font-size: 13px; background: var(--color-surface-card, #fff); border-radius: var(--radius-sm, 4px); }
