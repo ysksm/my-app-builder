@@ -120,4 +120,8 @@ body {
   font-size: 13px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, .35);
 }
+
+.form-error { color: var(--color-danger); font-size: 13px; }
+.admin-links { list-style: none; display: flex; flex-direction: column; gap: var(--spacing-sm); }
+.admin-links a { color: var(--color-primary); font-size: 15px; }
 `;

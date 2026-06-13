@@ -1,4 +1,5 @@
 import type { ProjectDoc } from '@/domain/project-doc';
+import { crudRoutes } from './emit-crud';
 import { emitContainerWithRepositories } from './emit-domain';
 import { emitComponentFile } from './emit-jsx';
 import type { GeneratedFile } from './files';
@@ -281,6 +282,7 @@ export function DialogHost() {
 const appTsx = (doc: ProjectDoc, names: NameTable): string => {
   const hasHeader = doc.layout.header !== null;
   const hasFooter = doc.layout.footer !== null;
+  const crud = crudRoutes(doc.dataModel);
 
   const imports = [
     `import type { ReactNode } from 'react';`,
@@ -292,16 +294,22 @@ const appTsx = (doc: ProjectDoc, names: NameTable): string => {
     ...doc.pages.map(
       (p) => `import { ${names.pageComponent(p.id)} } from './pages/${names.pageComponent(p.id)}';`,
     ),
+    ...crud.map((r) => `import { ${r.componentName} } from '${r.importPath}';`),
   ].filter((x): x is string => x !== null);
 
-  const routes = doc.pages
-    .map((p) => {
+  const routes = [
+    ...doc.pages.map((p) => {
       const header = hasHeader && p.useHeader;
       const footer = hasFooter && p.useFooter;
       const element = `<PageLayout useHeader={${header}} useFooter={${footer}}><${names.pageComponent(p.id)} /></PageLayout>`;
       return `        <Route path=${JSON.stringify(p.path)} element={${element}} />`;
-    })
-    .join('\n');
+    }),
+    // CRUD 管理画面(FR-MDL-06)— #/admin から辿れる
+    ...crud.map(
+      (r) =>
+        `        <Route path=${JSON.stringify(r.path)} element={<PageLayout useHeader={${hasHeader}} useFooter={${hasFooter}}><${r.componentName} /></PageLayout>} />`,
+    ),
+  ].join('\n');
 
   return `// 自動生成 — AppForge
 ${imports.join('\n')}

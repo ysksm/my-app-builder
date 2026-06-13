@@ -1,5 +1,6 @@
 import type { ProjectDoc } from '@/domain/project-doc';
 import { emitTokensCss, emitAppCss } from './emit-css';
+import { emitCrudFiles } from './emit-crud';
 import { emitDomainFiles } from './emit-domain';
 import { emitComponentFile } from './emit-jsx';
 import { emitProjectShell } from './emit-project';
@@ -17,6 +18,7 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
   return [
     ...emitProjectShell(doc, projectName, names),
     ...emitDomainFiles(doc.dataModel),
+    ...emitCrudFiles(doc.dataModel),
     ...doc.pages.map((page, i) => ({
       path: `src/pages/Page${i}.tsx`,
       content: emitComponentFile({
