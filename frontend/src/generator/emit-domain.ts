@@ -1,6 +1,7 @@
 import type { DataModel, FieldDef, ModelDef, RelationDef } from '@/domain/data-model';
 import type { ModelId } from '@/domain/ids';
 import type { GeneratedFile } from './files';
+import { supportsApi } from './emit-api';
 import { toCamelCase, toKebabCase } from './identifiers';
 import {
   buildFeatureLayout,
@@ -430,38 +431,55 @@ export const emitDomainFiles = (dm: DataModel): GeneratedFile[] => {
   return files;
 };
 
-/** 集約がある場合の di/container.ts(emit-project から利用) */
+/** 集約がある場合の di/container.ts(emit-project から利用)。VITE_APP_MODE=api で API 実装、既定は mock */
 export const emitContainerWithRepositories = (dm: DataModel): string | null => {
   const aggregates = dm.models.filter((m) => m.kind === 'aggregate');
   if (aggregates.length === 0) return null;
   const ctx = buildCtx(dm);
+  const byId = new Map(dm.models.map((m) => [m.id, m] as const));
+
   const imports = aggregates
     .flatMap((m) => {
       const p = modelPaths(ctx.layout, m);
-      return [
+      const lines = [
         `import type { ${m.name}Repository } from '${relativeImport(paths.container, p.repository)}';`,
         `import { createInMemory${m.name}Repository } from '${relativeImport(paths.container, p.mock)}';`,
       ];
+      if (supportsApi(m, dm, byId)) {
+        lines.push(
+          `import { create${m.name}ApiRepository } from '${relativeImport(paths.container, p.apiRepository)}';`,
+        );
+      }
+      return lines;
     })
     .join('\n');
   const fields = aggregates
     .map((m) => `  ${toCamelCase(m.name)}Repository: ${m.name}Repository;`)
     .join('\n');
   const wiring = aggregates
-    .map((m) => `  ${toCamelCase(m.name)}Repository: createInMemory${m.name}Repository(),`)
+    .map((m) => {
+      const field = `${toCamelCase(m.name)}Repository`;
+      if (supportsApi(m, dm, byId)) {
+        return `  ${field}: useApi ? create${m.name}ApiRepository() : createInMemory${m.name}Repository(),`;
+      }
+      // 多フィールド VO 埋め込みのため API 未対応 → 常に mock
+      return `  ${field}: createInMemory${m.name}Repository(),`;
+    })
     .join('\n');
   return `// 自動生成 — AppForge: Composition Root(DIP)
-// M3a 時点では API 実装が未生成のため、mode に関わらず mock を注入する。
-// I/F 定義(M3b)から API クライアント実装を生成した時点で mode 分岐に切り替える。
+// VITE_APP_MODE=api のとき API 実装、それ以外(既定 / mock)は インメモリ mock を注入する。
+// BE が未生成のうちはプレビュー/テストとも mock で動作する。
 ${imports}
 
 export type Container = Readonly<{
 ${fields}
 }>;
 
-const mode: string = import.meta.env.VITE_APP_MODE ?? 'api';
+const mode: string = import.meta.env.VITE_APP_MODE ?? 'mock';
 
-export const isMockMode: boolean = mode === 'mock';
+export const isMockMode: boolean = mode !== 'api';
+
+const useApi = mode === 'api';
 
 export const container: Container = {
 ${wiring}

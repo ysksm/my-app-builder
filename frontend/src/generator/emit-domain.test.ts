@@ -107,10 +107,12 @@ describe('emitDomainFiles', () => {
     expect(get('src/features/customer/domain/customer.test.ts')).toContain('expect(result.ok).toBe(true)');
   });
 
-  it('container は集約の repository を mock 実装で配線する', () => {
+  it('container は集約の repository を配線する(API 対応集約は api/mock 切替)', () => {
     const container = emitContainerWithRepositories(dm);
     expect(container).toContain('customerRepository: CustomerRepository;');
-    expect(container).toContain('customerRepository: createInMemoryCustomerRepository(),');
+    expect(container).toContain(
+      'customerRepository: useApi ? createCustomerApiRepository() : createInMemoryCustomerRepository(),',
+    );
     expect(container).toContain(`from '../../features/customer/domain/repositories/customer-repository';`);
   });
 });

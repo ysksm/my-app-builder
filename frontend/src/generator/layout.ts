@@ -109,6 +109,7 @@ export const modelPaths = (layout: FeatureLayout, model: ModelDef) => {
     test: `${dir}/${file}.test.ts`,
     repository: `src/features/${layout.featureOf(model.id)}/domain/repositories/${file}-repository.ts`,
     mock: `src/features/${layout.featureOf(model.id)}/infrastructure/mock/in-memory-${file}-repository.ts`,
+    apiRepository: `src/features/${layout.featureOf(model.id)}/infrastructure/api/${file}-api-repository.ts`,
     usecases: `src/features/${layout.featureOf(model.id)}/application/${file}-usecases.ts`,
     context: `src/features/${layout.featureOf(model.id)}/presentation/${file}-context.ts`,
     adminPage: `src/features/${layout.featureOf(model.id)}/presentation/${model.name}AdminPage.tsx`,

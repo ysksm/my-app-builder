@@ -1,4 +1,5 @@
 import type { ProjectDoc } from '@/domain/project-doc';
+import { emitApiFiles } from './emit-api';
 import { emitTokensCss, emitAppCss } from './emit-css';
 import { emitCrudFiles } from './emit-crud';
 import { emitDomainFiles } from './emit-domain';
@@ -22,6 +23,7 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
   return [
     ...emitProjectShell(doc, projectName, names),
     ...emitDomainFiles(doc.dataModel),
+    ...emitApiFiles(doc.dataModel),
     ...emitCrudFiles(doc.dataModel),
     // TypeSpec アダプタによる I/F 定義の export(集約があるときのみ)。
     // interface/ は src 外なのでアプリのビルド対象にはならない設計ドキュメント兼コード生成元。
