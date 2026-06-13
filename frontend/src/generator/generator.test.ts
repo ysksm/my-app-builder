@@ -77,6 +77,30 @@ describe('generateProject', () => {
     expect(main).toContain(`import { store } from './store';`);
   });
 
+  it('スタイル emitter: 既定は css-variables、tailwind 選択で @theme + Tailwind 配線になる', () => {
+    const base = ProjectDoc.create();
+    // css-variables(既定)
+    const cssFiles = generateProject(base, 'x');
+    const cssTokens = cssFiles.find((f) => f.path === 'src/shared/styles/tokens.css')!.content;
+    expect(cssTokens).toContain(':root {');
+    expect(cssTokens).not.toContain('@import "tailwindcss"');
+    const cssPkg = cssFiles.find((f) => f.path === 'package.json')!.content;
+    expect(cssPkg).not.toContain('tailwindcss');
+
+    // tailwind
+    const twFiles = generateProject({ ...base, styleEmitter: 'tailwind' }, 'x');
+    const twTokens = twFiles.find((f) => f.path === 'src/shared/styles/tokens.css')!.content;
+    expect(twTokens).toContain('@import "tailwindcss";');
+    expect(twTokens).toContain('@theme {');
+    expect(twTokens).toContain('--color-primary: #4263eb;');
+    const twPkg = twFiles.find((f) => f.path === 'package.json')!.content;
+    expect(twPkg).toContain('@tailwindcss/vite');
+    expect(twPkg).toContain('"tailwindcss"');
+    const twVite = twFiles.find((f) => f.path === 'vite.config.ts')!.content;
+    expect(twVite).toContain(`import tailwindcss from '@tailwindcss/vite';`);
+    expect(twVite).toContain('tailwindcss(),');
+  });
+
   it('カスタムスタイルはユーザー所有(overwrite=false)で生成し main から読み込む', () => {
     const { doc } = buildFixture();
     const files = generateProject(doc, 'x');

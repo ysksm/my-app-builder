@@ -1,8 +1,24 @@
 import { DesignTokens } from '@/domain/design-tokens';
+import type { StyleEmitter } from '@/domain/project-doc';
 
-/** css-variables emitter: DTCG トークン → CSS カスタムプロパティ(FR-DS-05 のデフォルト emitter) */
-export const emitTokensCss = (tokens: DesignTokens): string => {
+/**
+ * トークン CSS の生成。スタイル emitter で出力形式を切り替える(FR-DS-05):
+ * - css-variables(既定): `:root { --color-primary: ... }`(依存ゼロ)
+ * - tailwind: Tailwind v4 の `@theme`(CSS-first 設定)。同じトークン名が CSS 変数兼
+ *   ユーティリティ(bg-primary 等)の元になる。中立トークンを単一ソースに Tailwind と連携。
+ */
+export const emitTokensCss = (
+  tokens: DesignTokens,
+  emitter: StyleEmitter = 'css-variables',
+): string => {
   const lines = DesignTokens.entries(tokens).map(([name, value]) => `  ${name}: ${value};`);
+  if (emitter === 'tailwind') {
+    return (
+      `/* 自動生成: デザイントークン(tailwind emitter) */\n` +
+      `@import "tailwindcss";\n\n` +
+      `@theme {\n${lines.join('\n')}\n}\n`
+    );
+  }
   return `/* 自動生成: デザイントークン(css-variables emitter) */\n:root {\n${lines.join('\n')}\n}\n`;
 };
 

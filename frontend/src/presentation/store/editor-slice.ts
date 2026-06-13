@@ -14,6 +14,7 @@ import type {
   ValidationRule,
 } from '@/domain/data-model';
 import type { DesignTokens } from '@/domain/design-tokens';
+import type { StyleEmitter } from '@/domain/project-doc';
 import type {
   CustomPartId,
   DialogId,
@@ -375,6 +376,10 @@ export const editorSlice = createSlice({
       run(state, { kind: 'setToken', ...action.payload });
     },
 
+    styleEmitterSet(state, action: PayloadAction<StyleEmitter>) {
+      run(state, { kind: 'setStyleEmitter', emitter: action.payload });
+    },
+
     modelSelected(state, action: PayloadAction<ModelId | null>) {
       state.selectedModelId = action.payload;
     },
@@ -456,6 +461,7 @@ export const {
   customPartRenamed,
   customPartInserted,
   tokenSet,
+  styleEmitterSet,
   modelSelected,
   undone,
   redone,

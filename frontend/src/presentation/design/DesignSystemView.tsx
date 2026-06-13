@@ -1,6 +1,6 @@
 import type { DesignTokens, TokenGroup } from '@/domain/design-tokens';
 import { ComponentNode } from '@/domain/component-node';
-import { tokenSet } from '../store/editor-slice';
+import { styleEmitterSet, tokenSet } from '../store/editor-slice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { NodeBody } from '../renderer/NodeRenderer';
 
@@ -17,14 +17,39 @@ const GROUPS: ReadonlyArray<{ group: keyof DesignTokens; label: string }> = [
 ];
 
 export function DesignSystemView() {
+  const dispatch = useAppDispatch();
   const tokens = useAppSelector((s) => s.editor.doc.tokens);
+  const emitter = useAppSelector((s) => s.editor.doc.styleEmitter);
 
   return (
     <div className="design-root">
       <div className="design-editor">
-        <h2 className="design-h2">デザイントークン</h2>
+        <h2 className="design-h2">スタイル emitter</h2>
         <p className="muted design-note">
-          編集はキャンバス・プレビュー・生成コードに反映されます(css-variables / tailwind emitter の単一ソース)。
+          中立トークンからどの形式で出力するか。Tailwind 非依存(既定)だが連携も選べます(FR-DS-05)。
+        </p>
+        <div className="emitter-toggle">
+          <button
+            type="button"
+            className={emitter === 'css-variables' ? 'on' : ''}
+            onClick={() => dispatch(styleEmitterSet('css-variables'))}
+          >
+            CSS 変数(依存ゼロ)
+          </button>
+          <button
+            type="button"
+            className={emitter === 'tailwind' ? 'on' : ''}
+            onClick={() => dispatch(styleEmitterSet('tailwind'))}
+          >
+            Tailwind v4(@theme)
+          </button>
+        </div>
+
+        <h2 className="design-h2" style={{ marginTop: 18 }}>
+          デザイントークン
+        </h2>
+        <p className="muted design-note">
+          編集はキャンバス・プレビュー・生成コードに反映されます(選択した emitter の単一ソース)。
         </p>
         {GROUPS.map(({ group, label }) => (
           <TokenGroupEditor key={group} group={group} label={label} tokens={tokens[group]} />

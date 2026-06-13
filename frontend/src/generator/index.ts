@@ -52,7 +52,7 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
         filePath: paths.dialog(i),
       }),
     })),
-    { path: paths.tokensCss, content: emitTokensCss(doc.tokens) },
+    { path: paths.tokensCss, content: emitTokensCss(doc.tokens, doc.styleEmitter) },
     { path: paths.appCss, content: emitAppCss() },
     // カスタムコード保護(FR-GEN-05)の第1消費者: ユーザー編集可・再生成で保持
     {

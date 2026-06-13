@@ -30,7 +30,7 @@ import type {
   UsecaseId,
 } from '@/domain/ids';
 import type { Page } from '@/domain/page';
-import { ProjectDoc, type EditTarget } from '@/domain/project-doc';
+import { ProjectDoc, type EditTarget, type StyleEmitter } from '@/domain/project-doc';
 
 /**
  * コマンド層(requirements.md §9 FR-MCP-00 / §7.4 デモ再生の基盤)。
@@ -91,7 +91,8 @@ export type Command =
   | Readonly<{ kind: 'renameCustomPart'; partId: CustomPartId; name: string }>
   | Readonly<{ kind: 'insertCustomPart'; target: EditTarget; parentId: NodeId; index: number; partId: CustomPartId }>
   // デザイントークン
-  | Readonly<{ kind: 'setToken'; group: keyof DesignTokens; key: string; value: string }>;
+  | Readonly<{ kind: 'setToken'; group: keyof DesignTokens; key: string; value: string }>
+  | Readonly<{ kind: 'setStyleEmitter'; emitter: StyleEmitter }>;
 
 export type CommandKind = Command['kind'];
 
@@ -302,6 +303,9 @@ export const applyCommand = (
     case 'setToken': {
       return ok(outcome({ ...doc, tokens: DesignTokens.setToken(doc.tokens, cmd.group, cmd.key, cmd.value) }));
     }
+    case 'setStyleEmitter': {
+      return ok(outcome({ ...doc, styleEmitter: cmd.emitter }));
+    }
   }
 };
 
@@ -412,6 +416,7 @@ const commandSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('renameCustomPart'), partId: id, name: z.string() }),
   z.object({ kind: z.literal('insertCustomPart'), target: editTarget, parentId: id, index: z.number(), partId: id }),
   z.object({ kind: z.literal('setToken'), group: z.enum(['color', 'spacing', 'radius', 'font']), key: z.string(), value: z.string() }),
+  z.object({ kind: z.literal('setStyleEmitter'), emitter: z.enum(['css-variables', 'tailwind']) }),
 ]);
 
 /** 外部入力(JSON)→ 検証済み Command 配列。MCP の apply_commands が信頼境界で使う */

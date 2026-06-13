@@ -167,6 +167,7 @@ export const projectDocSchema = z.object({
   customParts: z
     .array(z.object({ id: idSchema<CustomPartId>(), name: z.string(), root: componentNodeSchema }))
     .default(() => []),
+  styleEmitter: z.enum(['css-variables', 'tailwind']).default('css-variables'),
 });
 
 /** 保存/読込境界での検証。永続化された JSON を信頼せず必ずここを通す */

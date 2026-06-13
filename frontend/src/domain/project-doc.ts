@@ -35,6 +35,9 @@ export type CustomPartDef = Readonly<{
   root: ComponentNode;
 }>;
 
+/** スタイル emitter の選択(FR-DS-05)。中立トークンからどの形式を生成するか */
+export type StyleEmitter = 'css-variables' | 'tailwind';
+
 export type ProjectDoc = Readonly<{
   schemaVersion: 1;
   pages: ReadonlyArray<Page>;
@@ -46,6 +49,7 @@ export type ProjectDoc = Readonly<{
   tokens: DesignTokens;
   dataModel: DataModel;
   customParts: ReadonlyArray<CustomPartDef>;
+  styleEmitter: StyleEmitter;
 }>;
 
 export const ProjectDoc = {
@@ -61,6 +65,7 @@ export const ProjectDoc = {
       tokens: DesignTokens.default(),
       dataModel: DataModel.empty(),
       customParts: [],
+      styleEmitter: 'css-variables',
     };
   },
 

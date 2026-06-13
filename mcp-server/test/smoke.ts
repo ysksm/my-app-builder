@@ -222,5 +222,14 @@ const pbuild = JSON.parse(textOf(await client.callTool({ name: 'build_and_previe
 if (!pbuild.ok) fail(`編集後プロジェクトのビルド失敗:\n${pbuild.log}`);
 console.log('build_and_preview(編集後): OK');
 
+// Tailwind emitter に切替 → @theme 生成 → ビルド成功(Tailwind v4 + vite plugin)
+await client.callTool({ name: 'apply_commands', arguments: { projectId: pid, commands: [{ kind: 'setStyleEmitter', emitter: 'tailwind' }] } });
+const tw = textOf(await client.callTool({ name: 'generate_source', arguments: { projectId: pid, filePath: 'src/shared/styles/tokens.css' } }));
+if (!tw.includes('@import "tailwindcss"') || !tw.includes('@theme')) fail('tailwind emitter の tokens.css が不正です');
+console.log('setStyleEmitter(tailwind)→ @theme 生成 OK');
+const twBuild = JSON.parse(textOf(await client.callTool({ name: 'build_and_preview', arguments: { projectId: pid } })));
+if (!twBuild.ok) fail(`Tailwind emitter のビルド失敗:\n${twBuild.log.slice(-2000)}`);
+console.log('build_and_preview(tailwind emitter): OK');
+
 await client.close();
 console.log('SMOKE TEST: ALL OK');

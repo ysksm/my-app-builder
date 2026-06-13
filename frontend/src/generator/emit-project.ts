@@ -27,11 +27,13 @@ const VERSIONS = {
   typesReact: '^19.2.17',
   typesReactDom: '^19.2.3',
   vitest: '^4.1.8',
+  tailwind: '^4.3.1',
+  tailwindVite: '^4.3.1',
 } as const;
 
 const file = (path: string, content: string): GeneratedFile => ({ path, content });
 
-const packageJson = (projectName: string): string =>
+const packageJson = (projectName: string, tailwind: boolean): string =>
   `${JSON.stringify(
     {
       name: toPackageName(projectName),
@@ -57,6 +59,9 @@ const packageJson = (projectName: string): string =>
         '@types/react-dom': VERSIONS.typesReactDom,
         '@vitejs/plugin-react': VERSIONS.pluginReact,
         'babel-plugin-react-compiler': VERSIONS.reactCompiler,
+        ...(tailwind
+          ? { '@tailwindcss/vite': VERSIONS.tailwindVite, tailwindcss: VERSIONS.tailwind }
+          : {}),
         typescript: VERSIONS.typescript,
         vite: VERSIONS.vite,
         vitest: VERSIONS.vitest,
@@ -66,15 +71,15 @@ const packageJson = (projectName: string): string =>
     2,
   )}\n`;
 
-const viteConfig = `// 自動生成 — AppForge
+const viteConfig = (tailwind: boolean): string => `// 自動生成 — AppForge
 import { defineConfig } from 'vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
-import babel from '@rolldown/plugin-babel';
+import babel from '@rolldown/plugin-babel';${tailwind ? `\nimport tailwindcss from '@tailwindcss/vite';` : ''}
 
 export default defineConfig({
   // /preview/{id}/ のようなサブパス配信でも動くよう相対パスにする
   base: './',
-  plugins: [
+  plugins: [${tailwind ? '\n    tailwindcss(),' : ''}
     // React Compiler(自動メモ化)。手書きの useMemo/useCallback は出力しない方針
     babel({ presets: [reactCompilerPreset()] }),
     react(),
@@ -385,9 +390,10 @@ export const emitProjectShell = (
   projectName: string,
   names: NameTable,
 ): GeneratedFile[] => {
+  const tailwind = doc.styleEmitter === 'tailwind';
   const files: GeneratedFile[] = [
-    file('package.json', packageJson(projectName)),
-    file('vite.config.ts', viteConfig),
+    file('package.json', packageJson(projectName, tailwind)),
+    file('vite.config.ts', viteConfig(tailwind)),
     file('tsconfig.json', tsconfig),
     file('index.html', indexHtml(projectName)),
     file(paths.mainTsx, mainTsx()),
