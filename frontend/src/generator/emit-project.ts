@@ -1,4 +1,5 @@
 import type { ProjectDoc } from '@/domain/project-doc';
+import { emitContainerWithRepositories } from './emit-domain';
 import { emitComponentFile } from './emit-jsx';
 import type { GeneratedFile } from './files';
 import { toPackageName, type NameTable } from './identifiers';
@@ -17,6 +18,7 @@ const VERSIONS = {
   reactCompiler: '^1.0.0',
   typesReact: '^19.2.17',
   typesReactDom: '^19.2.3',
+  vitest: '^4.1.8',
 } as const;
 
 const file = (path: string, content: string): GeneratedFile => ({ path, content });
@@ -32,6 +34,7 @@ const packageJson = (projectName: string): string =>
         dev: 'vite',
         build: 'tsc --noEmit && vite build',
         preview: 'vite preview',
+        test: 'vitest run',
       },
       dependencies: {
         '@reduxjs/toolkit': VERSIONS.reduxToolkit,
@@ -48,6 +51,7 @@ const packageJson = (projectName: string): string =>
         'babel-plugin-react-compiler': VERSIONS.reactCompiler,
         typescript: VERSIONS.typescript,
         vite: VERSIONS.vite,
+        vitest: VERSIONS.vitest,
       },
     },
     null,
@@ -342,7 +346,7 @@ export const emitProjectShell = (
     file('src/shared/result.ts', resultTs),
     file('src/app/ui-slice.ts', uiSliceTs),
     file('src/app/store.ts', storeTs),
-    file('src/di/container.ts', containerTs),
+    file('src/di/container.ts', emitContainerWithRepositories(doc.dataModel) ?? containerTs),
     file('src/components/Toasts.tsx', toastsTsx),
     file('src/components/DialogHost.tsx', dialogHostTsx(doc, names)),
   ];

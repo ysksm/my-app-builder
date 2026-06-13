@@ -23,3 +23,22 @@ export const DialogId = {
   create: (): DialogId => newId() as DialogId,
   from: (value: string): DialogId => value as DialogId,
 } as const;
+
+export type ModelId = string & { readonly __brand: 'ModelId' };
+export type FieldId = string & { readonly __brand: 'FieldId' };
+export type RelationId = string & { readonly __brand: 'RelationId' };
+
+export const ModelId = {
+  create: (): ModelId => newId() as ModelId,
+  from: (value: string): ModelId => value as ModelId,
+} as const;
+
+export const FieldId = {
+  create: (): FieldId => newId() as FieldId,
+  from: (value: string): FieldId => value as FieldId,
+} as const;
+
+export const RelationId = {
+  create: (): RelationId => newId() as RelationId,
+  from: (value: string): RelationId => value as RelationId,
+} as const;

@@ -1,5 +1,6 @@
 import type { ProjectDoc } from '@/domain/project-doc';
 import { emitTokensCss, emitAppCss } from './emit-css';
+import { emitDomainFiles } from './emit-domain';
 import { emitComponentFile } from './emit-jsx';
 import { emitProjectShell } from './emit-project';
 import type { GeneratedFile } from './files';
@@ -15,6 +16,7 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
   const names = buildNameTable(doc);
   return [
     ...emitProjectShell(doc, projectName, names),
+    ...emitDomainFiles(doc.dataModel),
     ...doc.pages.map((page, i) => ({
       path: `src/pages/Page${i}.tsx`,
       content: emitComponentFile({

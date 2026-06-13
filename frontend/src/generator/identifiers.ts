@@ -26,6 +26,14 @@ export const buildNameTable = (doc: ProjectDoc): NameTable => {
   };
 };
 
+/** PascalCase → kebab-case(ファイル名用) */
+export const toKebabCase = (pascal: string): string =>
+  pascal.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+
+/** 先頭を小文字に(camelCase 化) */
+export const toCamelCase = (pascal: string): string =>
+  pascal ? pascal[0]!.toLowerCase() + pascal.slice(1) : pascal;
+
 /** npm パッケージ名として安全な名前に変換する */
 export const toPackageName = (name: string): string => {
   const ascii = name

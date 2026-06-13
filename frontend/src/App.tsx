@@ -3,6 +3,7 @@ import { loadOrCreateProject } from './application/load-or-create-project';
 import { container } from './di/container';
 import { EditorPage } from './presentation/editor/EditorPage';
 import { TopBar } from './presentation/editor/TopBar';
+import { ModelDesigner } from './presentation/model/ModelDesigner';
 import { PreviewApp } from './presentation/preview/PreviewApp';
 import { RunApp } from './presentation/run/RunApp';
 import {
@@ -84,6 +85,7 @@ export function App() {
     <div className="app">
       <TopBar />
       {viewMode === 'edit' && <EditorPage />}
+      {viewMode === 'model' && <ModelDesigner />}
       {viewMode === 'preview' && <PreviewApp />}
       {viewMode === 'run' && <RunApp />}
     </div>

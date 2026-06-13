@@ -1,13 +1,14 @@
 import { createSlice, current, type Draft, type PayloadAction } from '@reduxjs/toolkit';
 import type { EventBinding } from '@/domain/actions';
 import { ComponentNode, type ComponentType, type PropValue } from '@/domain/component-node';
-import type { DialogId, NodeId, PageId, ProjectId } from '@/domain/ids';
+import { DataModel, type FieldDef, type ModelDef, type ModelKind, type RelationKind } from '@/domain/data-model';
+import type { DialogId, FieldId, ModelId, NodeId, PageId, ProjectId, RelationId } from '@/domain/ids';
 import { EditTarget, ProjectDoc } from '@/domain/project-doc';
 import type { Page } from '@/domain/page';
 import { componentDefs } from '../catalog/component-defs';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error';
-export type ViewMode = 'edit' | 'preview' | 'run';
+export type ViewMode = 'edit' | 'model' | 'preview' | 'run';
 
 export type EditorState = {
   projectId: ProjectId | null;
@@ -15,6 +16,7 @@ export type EditorState = {
   doc: ProjectDoc;
   editTarget: EditTarget;
   selectedNodeId: NodeId | null;
+  selectedModelId: ModelId | null;
   viewMode: ViewMode;
   past: ProjectDoc[];
   future: ProjectDoc[];
@@ -34,6 +36,7 @@ const createInitialState = (): EditorState => {
     doc,
     editTarget: EditTarget.page(doc.pages[0]!.id),
     selectedNodeId: null,
+    selectedModelId: null,
     viewMode: 'edit',
     past: [],
     future: [],
@@ -234,6 +237,100 @@ export const editorSlice = createSlice({
       commit(state, result.value);
     },
 
+    // ---------- データモデル(DDD)操作 ----------
+
+    dmModelAdded(state, action: PayloadAction<{ kind: ModelKind; x: number; y: number }>) {
+      const { dataModel, model } = DataModel.addModel(
+        current(state).doc.dataModel,
+        action.payload.kind,
+        action.payload.x,
+        action.payload.y,
+      );
+      commit(state, { ...current(state).doc, dataModel });
+      state.selectedModelId = model.id;
+    },
+
+    dmModelUpdated(
+      state,
+      action: PayloadAction<{ modelId: ModelId; patch: Partial<Pick<ModelDef, 'name' | 'kind' | 'x' | 'y'>> }>,
+    ) {
+      const result = DataModel.updateModel(
+        current(state).doc.dataModel,
+        action.payload.modelId,
+        action.payload.patch,
+      );
+      if (!result.ok) return;
+      commit(state, { ...current(state).doc, dataModel: result.value });
+    },
+
+    dmModelRemoved(state, action: PayloadAction<{ modelId: ModelId }>) {
+      const result = DataModel.removeModel(current(state).doc.dataModel, action.payload.modelId);
+      if (!result.ok) return;
+      commit(state, { ...current(state).doc, dataModel: result.value });
+      if (state.selectedModelId === action.payload.modelId) state.selectedModelId = null;
+    },
+
+    dmFieldAdded(state, action: PayloadAction<{ modelId: ModelId }>) {
+      const result = DataModel.addField(current(state).doc.dataModel, action.payload.modelId);
+      if (!result.ok) return;
+      commit(state, { ...current(state).doc, dataModel: result.value.dataModel });
+    },
+
+    dmFieldUpdated(
+      state,
+      action: PayloadAction<{
+        modelId: ModelId;
+        fieldId: FieldId;
+        patch: Partial<Omit<FieldDef, 'id'>>;
+      }>,
+    ) {
+      const result = DataModel.updateField(
+        current(state).doc.dataModel,
+        action.payload.modelId,
+        action.payload.fieldId,
+        action.payload.patch,
+      );
+      if (!result.ok) return;
+      commit(state, { ...current(state).doc, dataModel: result.value });
+    },
+
+    dmFieldRemoved(state, action: PayloadAction<{ modelId: ModelId; fieldId: FieldId }>) {
+      const result = DataModel.removeField(
+        current(state).doc.dataModel,
+        action.payload.modelId,
+        action.payload.fieldId,
+      );
+      if (!result.ok) return;
+      commit(state, { ...current(state).doc, dataModel: result.value });
+    },
+
+    dmRelationAdded(
+      state,
+      action: PayloadAction<{ from: ModelId; to: ModelId; kind: RelationKind }>,
+    ) {
+      const result = DataModel.addRelation(
+        current(state).doc.dataModel,
+        action.payload.from,
+        action.payload.to,
+        action.payload.kind,
+      );
+      if (!result.ok) return;
+      commit(state, { ...current(state).doc, dataModel: result.value.dataModel });
+    },
+
+    dmRelationRemoved(state, action: PayloadAction<{ relationId: RelationId }>) {
+      const result = DataModel.removeRelation(
+        current(state).doc.dataModel,
+        action.payload.relationId,
+      );
+      if (!result.ok) return;
+      commit(state, { ...current(state).doc, dataModel: result.value });
+    },
+
+    modelSelected(state, action: PayloadAction<ModelId | null>) {
+      state.selectedModelId = action.payload;
+    },
+
     undone(state) {
       const prev = state.past.pop();
       if (!prev) return;
@@ -289,6 +386,15 @@ export const {
   dialogAdded,
   dialogRemoved,
   dialogRenamed,
+  dmModelAdded,
+  dmModelUpdated,
+  dmModelRemoved,
+  dmFieldAdded,
+  dmFieldUpdated,
+  dmFieldRemoved,
+  dmRelationAdded,
+  dmRelationRemoved,
+  modelSelected,
   undone,
   redone,
   viewModeChanged,

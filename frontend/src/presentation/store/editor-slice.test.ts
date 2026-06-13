@@ -4,6 +4,11 @@ import { NodeId } from '@/domain/ids';
 import { createAppStore } from './store';
 import {
   dialogAdded,
+  dmFieldAdded,
+  dmFieldUpdated,
+  dmModelAdded,
+  dmModelRemoved,
+  dmRelationAdded,
   editTargetChanged,
   nodeInserted,
   nodeMoved,
@@ -113,6 +118,33 @@ describe('editorSlice ページ / ダイアログ / 編集対象', () => {
     store.dispatch(editTargetChanged(EditTarget.header));
     expect(state().editTarget.kind).toBe('header');
     expect(tree().type).toBe('header');
+  });
+
+  it('データモデルの追加・編集・リレーション・Undo が機能する', () => {
+    const { store, state } = setup();
+    store.dispatch(dmModelAdded({ kind: 'aggregate', x: 0, y: 0 }));
+    store.dispatch(dmModelAdded({ kind: 'entity', x: 240, y: 0 }));
+    const [agg, ent] = state().doc.dataModel.models;
+    expect(state().selectedModelId).toBe(ent!.id);
+
+    store.dispatch(dmFieldAdded({ modelId: agg!.id }));
+    const field = state().doc.dataModel.models[0]!.fields[0]!;
+    store.dispatch(
+      dmFieldUpdated({ modelId: agg!.id, fieldId: field.id, patch: { name: 'Title', max: 80 } }),
+    );
+    const updated = state().doc.dataModel.models[0]!.fields[0]!;
+    expect(updated.name).toBe('title');
+    expect(updated.max).toBe(80);
+
+    store.dispatch(dmRelationAdded({ from: agg!.id, to: ent!.id, kind: 'hasMany' }));
+    expect(state().doc.dataModel.relations).toHaveLength(1);
+
+    store.dispatch(undone());
+    expect(state().doc.dataModel.relations).toHaveLength(0);
+
+    store.dispatch(dmModelRemoved({ modelId: ent!.id }));
+    expect(state().doc.dataModel.models).toHaveLength(1);
+    expect(state().selectedModelId).toBeNull();
   });
 
   it('ダイアログを追加すると編集対象になる', () => {

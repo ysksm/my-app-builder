@@ -1,5 +1,6 @@
 import { err, ok, type Result } from '@/shared/result';
 import { ComponentNode } from './component-node';
+import { DataModel } from './data-model';
 import { DesignTokens } from './design-tokens';
 import { DialogDef } from './dialog';
 import { DomainError } from './errors';
@@ -35,6 +36,7 @@ export type ProjectDoc = Readonly<{
   }>;
   dialogs: ReadonlyArray<DialogDef>;
   tokens: DesignTokens;
+  dataModel: DataModel;
 }>;
 
 export const ProjectDoc = {
@@ -48,6 +50,7 @@ export const ProjectDoc = {
       },
       dialogs: [],
       tokens: DesignTokens.default(),
+      dataModel: DataModel.empty(),
     };
   },
 

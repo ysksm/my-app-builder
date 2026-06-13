@@ -3,7 +3,7 @@ import { err, ok, type Result } from '@/shared/result';
 import type { ComponentNode } from './component-node';
 import { DesignTokens } from './design-tokens';
 import { DomainError } from './errors';
-import type { DialogId, NodeId, PageId } from './ids';
+import type { DialogId, FieldId, ModelId, NodeId, PageId, RelationId } from './ids';
 import type { ProjectDoc } from './project-doc';
 
 const idSchema = <T extends string>() =>
@@ -74,6 +74,38 @@ const designTokensSchema = z.object({
   font: tokenGroupSchema,
 });
 
+const fieldDefSchema = z.object({
+  id: idSchema<FieldId>(),
+  name: z.string().min(1),
+  type: z.enum(['string', 'number', 'boolean', 'date']),
+  required: z.boolean(),
+  min: z.number().nullable(),
+  max: z.number().nullable(),
+  pattern: z.string().nullable(),
+});
+
+const modelDefSchema = z.object({
+  id: idSchema<ModelId>(),
+  name: z.string().min(1),
+  kind: z.enum(['aggregate', 'entity', 'valueObject']),
+  fields: z.array(fieldDefSchema),
+  x: z.number(),
+  y: z.number(),
+});
+
+const relationDefSchema = z.object({
+  id: idSchema<RelationId>(),
+  from: idSchema<ModelId>(),
+  to: idSchema<ModelId>(),
+  kind: z.enum(['hasOne', 'hasMany']),
+  name: z.string().min(1),
+});
+
+const dataModelSchema = z.object({
+  models: z.array(modelDefSchema),
+  relations: z.array(relationDefSchema),
+});
+
 export const projectDocSchema = z.object({
   schemaVersion: z.literal(1),
   pages: z.array(pageSchema).min(1),
@@ -82,8 +114,9 @@ export const projectDocSchema = z.object({
     footer: componentNodeSchema.nullable(),
   }),
   dialogs: z.array(dialogSchema),
-  // tokens 導入(M2)以前に保存されたドキュメントはデフォルトテーマで補完する
+  // tokens / dataModel 導入以前に保存されたドキュメントはデフォルト値で補完する
   tokens: designTokensSchema.default(() => DesignTokens.default()),
+  dataModel: dataModelSchema.default(() => ({ models: [], relations: [] })),
 });
 
 /** 保存/読込境界での検証。永続化された JSON を信頼せず必ずここを通す */
