@@ -4,6 +4,7 @@ import { NodeId } from '@/domain/ids';
 import { createAppStore } from './store';
 import {
   dialogAdded,
+  docLoaded,
   dmFieldAdded,
   dmFieldUpdated,
   dmModelAdded,
@@ -17,8 +18,11 @@ import {
   pageAdded,
   pageRemoved,
   redone,
+  saveStarted,
+  saveSucceeded,
   undone,
 } from './editor-slice';
+import { ProjectId } from '@/domain/ids';
 
 const setup = () => {
   const store = createAppStore();
@@ -153,5 +157,26 @@ describe('editorSlice ページ / ダイアログ / 編集対象', () => {
     expect(state().doc.dialogs).toHaveLength(1);
     expect(state().editTarget.kind).toBe('dialog');
     expect(tree().type).toBe('container');
+  });
+
+  it('外部同期点 syncedAt を docLoaded / saveSucceeded で記録する(FR-MCP-02)', () => {
+    const { store, state } = setup();
+    store.dispatch(
+      docLoaded({ projectId: ProjectId.from('p1'), name: 'X', doc: ProjectDoc.create(), updatedAt: 1000 }),
+    );
+    expect(state().syncedAt).toBe(1000);
+    expect(state().dirty).toBe(false);
+
+    // 編集 → dirty、syncedAt は据え置き(まだ保存していない)
+    store.dispatch(pageAdded({ name: 'A', path: '/a' }));
+    expect(state().dirty).toBe(true);
+    expect(state().syncedAt).toBe(1000);
+
+    // 自分の保存後はサーバ時刻を同期点として更新(外部更新の誤検知を防ぐ)
+    const rev = state().revision;
+    store.dispatch(saveStarted());
+    store.dispatch(saveSucceeded({ revision: rev, updatedAt: 2000 }));
+    expect(state().syncedAt).toBe(2000);
+    expect(state().dirty).toBe(false);
   });
 });

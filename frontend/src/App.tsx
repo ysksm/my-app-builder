@@ -35,11 +35,58 @@ function useAutosave(): void {
     const timer = setTimeout(() => {
       dispatch(saveStarted());
       void container.projectRepository.save(projectId, projectName, doc).then((result) => {
-        dispatch(result.ok ? saveSucceeded({ revision }) : saveFailed());
+        dispatch(
+          result.ok ? saveSucceeded({ revision, updatedAt: result.value.updatedAt }) : saveFailed(),
+        );
       });
     }, 1000);
     return () => clearTimeout(timer);
   }, [dispatch, projectId, projectName, doc, dirty, revision]);
+}
+
+/**
+ * 外部更新の検知と再読込(MCP Phase 2 / FR-MCP-02)。MCP エージェント等が同じ
+ * プロジェクトを編集すると updatedAt が進む。ビルダーがアイドル(未編集・非保存中)の
+ * ときだけ安全に再読込する(ローカル編集を失わない)。戻り値は再読込を通知するフラグ。
+ */
+function useExternalSync(active: boolean): boolean {
+  const dispatch = useAppDispatch();
+  const projectId = useAppSelector((s) => s.editor.projectId);
+  const syncedAt = useAppSelector((s) => s.editor.syncedAt);
+  const dirty = useAppSelector((s) => s.editor.dirty);
+  const saveState = useAppSelector((s) => s.editor.saveState);
+  const [reloaded, setReloaded] = useState(false);
+
+  useEffect(() => {
+    if (!active || !projectId) return;
+    // 自分の編集・保存中は比較しない(自分の保存による updatedAt 変化と区別できないため)
+    if (dirty || saveState === 'saving') return;
+    let cancelled = false;
+    const id = setInterval(() => {
+      void container.projectRepository.get(projectId).then((result) => {
+        if (cancelled || !result.ok) return;
+        if (result.value.updatedAt !== syncedAt) {
+          // アイドル中の差分は外部更新。ローカル編集はないので安全に再読込
+          dispatch(
+            docLoaded({
+              projectId: result.value.id,
+              name: result.value.name,
+              doc: result.value.doc,
+              updatedAt: result.value.updatedAt,
+            }),
+          );
+          setReloaded(true);
+          setTimeout(() => setReloaded(false), 4000);
+        }
+      });
+    }, 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [active, projectId, syncedAt, dirty, saveState, dispatch]);
+
+  return reloaded;
 }
 
 type BootState =
@@ -53,6 +100,7 @@ export function App() {
   const viewMode = useAppSelector((s) => s.editor.viewMode);
   const channels = useAppSelector((s) => s.editor.doc.channels);
   useAutosave();
+  const externallyReloaded = useExternalSync(boot.phase === 'ready');
 
   useEffect(() => {
     let cancelled = false;
@@ -64,6 +112,7 @@ export function App() {
             projectId: result.value.id,
             name: result.value.name,
             doc: result.value.doc,
+            updatedAt: result.value.updatedAt,
           }),
         );
         setBoot({ phase: 'ready' });
@@ -94,6 +143,9 @@ export function App() {
       <div className="app">
         <TokenVars />
         <TopBar />
+        {externallyReloaded && (
+          <div className="sync-notice">🔄 外部の変更(MCP 等)を読み込みました</div>
+        )}
         {viewMode === 'edit' && <EditorPage />}
         {viewMode === 'model' && <ModelDesigner />}
         {viewMode === 'board' && <ScreenBoard />}

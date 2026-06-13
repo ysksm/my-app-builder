@@ -50,6 +50,8 @@ export type EditorState = {
   revision: number;
   dirty: boolean;
   saveState: SaveState;
+  /** 最後に同期した(読込/保存した)サーバ側 updatedAt。外部更新検知に使う(FR-MCP-02) */
+  syncedAt: number;
 };
 
 const HISTORY_LIMIT = 100;
@@ -69,6 +71,7 @@ const createInitialState = (): EditorState => {
     revision: 0,
     dirty: false,
     saveState: 'idle',
+    syncedAt: 0,
   };
 };
 
@@ -121,7 +124,7 @@ export const editorSlice = createSlice({
   reducers: {
     docLoaded(
       state,
-      action: PayloadAction<{ projectId: ProjectId; name: string; doc: ProjectDoc }>,
+      action: PayloadAction<{ projectId: ProjectId; name: string; doc: ProjectDoc; updatedAt?: number }>,
     ) {
       state.projectId = action.payload.projectId;
       state.projectName = action.payload.name;
@@ -133,6 +136,7 @@ export const editorSlice = createSlice({
       state.revision = 0;
       state.dirty = false;
       state.saveState = 'idle';
+      state.syncedAt = action.payload.updatedAt ?? 0;
     },
 
     projectRenamed(state, action: PayloadAction<string>) {
@@ -433,9 +437,11 @@ export const editorSlice = createSlice({
       state.saveState = 'saving';
     },
 
-    saveSucceeded(state, action: PayloadAction<{ revision: number }>) {
+    saveSucceeded(state, action: PayloadAction<{ revision: number; updatedAt?: number }>) {
       state.saveState = 'saved';
       if (state.revision === action.payload.revision) state.dirty = false;
+      // 自分の保存後のサーバ時刻を同期点として記録(外部更新の誤検知を防ぐ)
+      if (action.payload.updatedAt != null) state.syncedAt = action.payload.updatedAt;
     },
 
     saveFailed(state) {
