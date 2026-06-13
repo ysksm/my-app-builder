@@ -87,6 +87,8 @@ export const paths = {
   repositoryError: `${SHARED}/repository-error.ts`,
   tokensCss: `${SHARED}/styles/tokens.css`,
   appCss: `${SHARED}/styles/app.css`,
+  // ユーザー所有(再生成で保持される)カスタムスタイル
+  overridesCss: `src/custom/overrides.css`,
 
   // pages(横断 UI)
   appHeader: `${PAGES}/AppHeader.tsx`,

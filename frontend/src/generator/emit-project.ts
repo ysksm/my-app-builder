@@ -122,6 +122,7 @@ const mainTsx = (): string => {
   const storeSpec = relativeImport(paths.mainTsx, paths.store);
   const tokensSpec = relativeImport(paths.mainTsx, paths.tokensCss);
   const appCssSpec = relativeImport(paths.mainTsx, paths.appCss);
+  const overridesSpec = relativeImport(paths.mainTsx, paths.overridesCss);
   return `// 自動生成 — AppForge
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -130,6 +131,8 @@ import { App } from '${appSpec}';
 import { store } from '${storeSpec}';
 import '${tokensSpec}';
 import '${appCssSpec}';
+// ユーザー編集可・再生成で保持されるカスタムスタイル(app.css の後に適用)
+import '${overridesSpec}';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

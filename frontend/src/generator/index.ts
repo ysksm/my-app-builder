@@ -52,5 +52,13 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
     })),
     { path: paths.tokensCss, content: emitTokensCss(doc.tokens) },
     { path: paths.appCss, content: emitAppCss() },
+    // カスタムコード保護(FR-GEN-05)の第1消費者: ユーザー編集可・再生成で保持
+    {
+      path: paths.overridesCss,
+      overwrite: false,
+      content:
+        '/* AppForge: カスタムスタイル。このファイルは再生成で上書きされません。 */\n' +
+        '/* app.css の後に読み込まれるため、トークン変数を使った上書きをここに書けます。 */\n',
+    },
   ];
 };

@@ -77,6 +77,18 @@ describe('generateProject', () => {
     expect(main).toContain(`import { store } from './store';`);
   });
 
+  it('カスタムスタイルはユーザー所有(overwrite=false)で生成し main から読み込む', () => {
+    const { doc } = buildFixture();
+    const files = generateProject(doc, 'x');
+    const overrides = files.find((f) => f.path === 'src/custom/overrides.css')!;
+    expect(overrides.overwrite).toBe(false);
+    const main = files.find((f) => f.path === 'src/app/main.tsx')!.content;
+    // app.css の後に読み込まれる(上書き用)
+    expect(main.indexOf(`'../shared/styles/app.css'`)).toBeLessThan(main.indexOf(`'../custom/overrides.css'`));
+    // 他の生成ファイルは overwrite 未指定(=毎回上書き)
+    expect(files.find((f) => f.path === 'src/app/App.tsx')!.overwrite).toBeUndefined();
+  });
+
   it('App.tsx に全ページのルートが生成される', () => {
     const { doc } = buildFixture();
     const app = generateProject(doc, 'x').find((f) => f.path === 'src/app/App.tsx')!.content;
