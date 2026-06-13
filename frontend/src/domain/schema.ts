@@ -188,6 +188,9 @@ export const projectDocSchema = z.object({
     .default(() => []),
   styleEmitter: z.enum(['css-variables', 'tailwind']).default('css-variables'),
   channels: z.array(dataChannelSchema).default(() => []),
+  boardPositions: z
+    .record(z.string(), z.object({ x: z.number(), y: z.number() }))
+    .default(() => ({})),
 });
 
 /** 保存/読込境界での検証。永続化された JSON を信頼せず必ずここを通す */

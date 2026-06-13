@@ -2,12 +2,13 @@ import { useMemo, useRef, useState } from 'react';
 import { collectScreenFlow, type ScreenNode } from '@/application/screen-flow';
 import { ProjectDoc } from '@/domain/project-doc';
 import { NodeBody } from '../renderer/NodeRenderer';
-import { useAppSelector } from '../store/hooks';
+import { boardPositionSet } from '../store/editor-slice';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 
 /**
  * スクリーンボード(FR-PAGE-06): 全画面を Figma 的にミニチュア一覧表示し、
- * 画面遷移(navigate / openDialog)を矢印で接続する。位置はドラッグで調整できる。
- * (位置のプロジェクト保存は次段。現状は自動レイアウト + ローカルドラッグ)
+ * 画面遷移(navigate / openDialog)を矢印で接続する。位置はドラッグで調整でき、
+ * ドロップ時に doc.boardPositions へ保存される(自動レイアウトは未保存画面のフォールバック)。
  */
 
 const CARD_W = 280;
@@ -25,11 +26,16 @@ const autoLayout = (index: number): Pos => ({
 });
 
 export function ScreenBoard() {
+  const dispatch = useAppDispatch();
   const doc = useAppSelector((s) => s.editor.doc);
   const flow = useMemo(() => collectScreenFlow(doc), [doc]);
-  const [positions, setPositions] = useState<Record<string, Pos>>({});
+  // ドラッグ中の一時位置(離した時に doc へコミット)。それ以外は保存済み位置 or 自動レイアウト
+  const [dragging, setDragging] = useState<{ id: string; pos: Pos } | null>(null);
 
-  const posOf = (id: string, index: number): Pos => positions[id] ?? autoLayout(index);
+  const posOf = (id: string, index: number): Pos => {
+    if (dragging?.id === id) return dragging.pos;
+    return doc.boardPositions[id] ?? autoLayout(index);
+  };
   const indexOf = new Map(flow.screens.map((s, i) => [s.id, i] as const));
 
   const anchor = (id: string, side: 'out' | 'in'): Pos => {
@@ -73,7 +79,11 @@ export function ScreenBoard() {
             screen={screen}
             doc={doc}
             pos={posOf(screen.id, i)}
-            onMove={(p) => setPositions((prev) => ({ ...prev, [screen.id]: p }))}
+            onDrag={(p) => setDragging({ id: screen.id, pos: p })}
+            onCommit={(p) => {
+              setDragging(null);
+              dispatch(boardPositionSet({ screenId: screen.id, x: p.x, y: p.y }));
+            }}
           />
         ))}
         {flow.screens.length === 0 && <p className="muted board-empty">画面がありません</p>}
@@ -86,14 +96,16 @@ function ScreenCard({
   screen,
   doc,
   pos,
-  onMove,
+  onDrag,
+  onCommit,
 }: {
   screen: ScreenNode;
   doc: ProjectDoc;
   pos: Pos;
-  onMove: (p: Pos) => void;
+  onDrag: (p: Pos) => void;
+  onCommit: (p: Pos) => void;
 }) {
-  const drag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+  const drag = useRef<{ sx: number; sy: number; ox: number; oy: number; last: Pos } | null>(null);
   const page = screen.kind === 'page' ? ProjectDoc.findPage(doc, screen.id as never) : null;
   const dialog = screen.kind === 'dialog' ? ProjectDoc.findDialog(doc, screen.id as never) : null;
 
@@ -103,16 +115,19 @@ function ScreenCard({
         className="board-card-head"
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId);
-          drag.current = { sx: e.clientX, sy: e.clientY, ox: pos.x, oy: pos.y };
+          drag.current = { sx: e.clientX, sy: e.clientY, ox: pos.x, oy: pos.y, last: pos };
         }}
         onPointerMove={(e) => {
           if (!drag.current) return;
-          onMove({
+          const next = {
             x: Math.max(0, drag.current.ox + e.clientX - drag.current.sx),
             y: Math.max(0, drag.current.oy + e.clientY - drag.current.sy),
-          });
+          };
+          drag.current.last = next;
+          onDrag(next);
         }}
         onPointerUp={() => {
+          if (drag.current) onCommit(drag.current.last);
           drag.current = null;
         }}
       >

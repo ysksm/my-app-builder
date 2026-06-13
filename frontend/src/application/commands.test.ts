@@ -154,11 +154,21 @@ describe('applyCommand: ユーザー定義パーツ', () => {
   });
 });
 
+describe('applyCommand: スクリーンボード配置(FR-PAGE-06)', () => {
+  it('setBoardPosition は画面座標を保存する', () => {
+    const doc = ProjectDoc.create();
+    const res = applyCommand(doc, { kind: 'setBoardPosition', screenId: 'p1', x: 120, y: 80 });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.value.doc.boardPositions['p1']).toEqual({ x: 120, y: 80 });
+  });
+});
+
 describe('parseCommands(外部入力の検証)', () => {
   it('妥当な JSON コマンド配列を受理する', () => {
     const res = parseCommands([
       { kind: 'addModel', modelKind: 'aggregate', x: 0, y: 0 },
       { kind: 'addPage', name: 'A', path: '/a' },
+      { kind: 'setBoardPosition', screenId: 'p1', x: 1, y: 2 },
     ]);
     expect(res.ok).toBe(true);
   });

@@ -397,6 +397,10 @@ export const editorSlice = createSlice({
       run(state, { kind: 'removeChannel', channelId: action.payload });
     },
 
+    boardPositionSet(state, action: PayloadAction<{ screenId: string; x: number; y: number }>) {
+      run(state, { kind: 'setBoardPosition', ...action.payload });
+    },
+
     modelSelected(state, action: PayloadAction<ModelId | null>) {
       state.selectedModelId = action.payload;
     },
@@ -482,6 +486,7 @@ export const {
   channelAdded,
   channelUpdated,
   channelRemoved,
+  boardPositionSet,
   modelSelected,
   undone,
   redone,

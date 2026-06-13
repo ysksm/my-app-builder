@@ -53,6 +53,8 @@ export type ProjectDoc = Readonly<{
   styleEmitter: StyleEmitter;
   /** データチャネル登録簿(FR-RT-01)。モニタリング部品が参照する */
   channels: ReadonlyArray<DataChannelDef>;
+  /** スクリーンボード上の画面カード位置(FR-PAGE-06)。画面 ID → 座標 */
+  boardPositions: Readonly<Record<string, Readonly<{ x: number; y: number }>>>;
 }>;
 
 export const ProjectDoc = {
@@ -70,6 +72,7 @@ export const ProjectDoc = {
       customParts: [],
       styleEmitter: 'css-variables',
       channels: [],
+      boardPositions: {},
     };
   },
 
@@ -217,5 +220,10 @@ export const ProjectDoc = {
   removeChannel(doc: ProjectDoc, channelId: ChannelId): Result<ProjectDoc, DomainError> {
     if (!ProjectDoc.findChannel(doc, channelId)) return err(DomainError.notFound('channel'));
     return ok({ ...doc, channels: doc.channels.filter((c) => c.id !== channelId) });
+  },
+
+  /** スクリーンボードの画面カード位置を保存する(FR-PAGE-06) */
+  setBoardPosition(doc: ProjectDoc, screenId: string, x: number, y: number): ProjectDoc {
+    return { ...doc, boardPositions: { ...doc.boardPositions, [screenId]: { x, y } } };
   },
 } as const;

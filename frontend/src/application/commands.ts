@@ -98,7 +98,9 @@ export type Command =
   // データチャネル(FR-RT-01)
   | Readonly<{ kind: 'addChannel'; name?: string; patch?: Partial<Omit<DataChannelDef, 'id'>> }>
   | Readonly<{ kind: 'updateChannel'; channelId: ChannelId; patch: Partial<Omit<DataChannelDef, 'id'>> }>
-  | Readonly<{ kind: 'removeChannel'; channelId: ChannelId }>;
+  | Readonly<{ kind: 'removeChannel'; channelId: ChannelId }>
+  // スクリーンボード配置(FR-PAGE-06)
+  | Readonly<{ kind: 'setBoardPosition'; screenId: string; x: number; y: number }>;
 
 export type CommandKind = Command['kind'];
 
@@ -325,6 +327,9 @@ export const applyCommand = (
       const res = ProjectDoc.removeChannel(doc, cmd.channelId);
       return res.ok ? ok(outcome(res.value)) : res;
     }
+    case 'setBoardPosition': {
+      return ok(outcome(ProjectDoc.setBoardPosition(doc, cmd.screenId, cmd.x, cmd.y)));
+    }
   }
 };
 
@@ -453,6 +458,7 @@ const commandSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('addChannel'), name: z.string().optional(), patch: channelPatch.optional() }),
   z.object({ kind: z.literal('updateChannel'), channelId: id, patch: channelPatch }),
   z.object({ kind: z.literal('removeChannel'), channelId: id }),
+  z.object({ kind: z.literal('setBoardPosition'), screenId: z.string(), x: z.number(), y: z.number() }),
 ]);
 
 /** 外部入力(JSON)→ 検証済み Command 配列。MCP の apply_commands が信頼境界で使う */

@@ -13,6 +13,33 @@ describe('ProjectDoc.create', () => {
   });
 });
 
+describe('ProjectDoc.setBoardPosition(FR-PAGE-06)', () => {
+  it('画面 ID ごとに座標を保存・更新する', () => {
+    const base = ProjectDoc.create();
+    expect(base.boardPositions).toEqual({});
+    const d1 = ProjectDoc.setBoardPosition(base, 'page-a', 100, 200);
+    expect(d1.boardPositions['page-a']).toEqual({ x: 100, y: 200 });
+    const d2 = ProjectDoc.setBoardPosition(d1, 'page-a', 50, 60);
+    expect(d2.boardPositions['page-a']).toEqual({ x: 50, y: 60 });
+    // 他画面は保持される(イミュータブル更新)
+    const d3 = ProjectDoc.setBoardPosition(d2, 'dialog-b', 10, 20);
+    expect(d3.boardPositions['page-a']).toEqual({ x: 50, y: 60 });
+    expect(d3.boardPositions['dialog-b']).toEqual({ x: 10, y: 20 });
+  });
+
+  it('boardPositions 未保存の旧ドキュメントは空オブジェクトで補完される', () => {
+    const legacy = {
+      schemaVersion: 1,
+      pages: [{ id: 'p1', name: 'ホーム', path: '/', root: ComponentNode.create('container'), useHeader: true, useFooter: true }],
+      layout: { header: null, footer: null },
+      dialogs: [],
+    };
+    const parsed = parseProjectDoc(legacy);
+    if (!parsed.ok) throw new Error('parse');
+    expect(parsed.value.boardPositions).toEqual({});
+  });
+});
+
 describe('ProjectDoc.getTree / setTree', () => {
   it('編集対象ごとに木を取得・差し替えできる', () => {
     let doc = ProjectDoc.create();
