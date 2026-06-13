@@ -247,6 +247,24 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
       ...thresholdFields,
     ],
   },
+  chart: {
+    type: 'chart',
+    label: 'チャート',
+    icon: '📈',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    // 直近 capacity サンプルをスパークラインで時系列表示(FR-RT-03)
+    defaultProps: { label: 'トレンド', unit: '%', decimals: 1, capacity: 40, ...channelDefaults },
+    propFields: [
+      { key: 'label', label: 'ラベル', input: 'text' },
+      { key: 'unit', label: '単位', input: 'text' },
+      ...channelFields,
+      { key: 'decimals', label: '小数桁', input: 'number' },
+      { key: 'capacity', label: '保持サンプル数', input: 'number' },
+      ...thresholdFields,
+    ],
+  },
   header: {
     type: 'header',
     label: 'ヘッダー',

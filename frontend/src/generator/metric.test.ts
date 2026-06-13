@@ -20,7 +20,7 @@ const docWithMetric = (props: Record<string, string | number> = {}) => {
 };
 
 /** 任意のリアルタイム部品(metric/gauge/lamp)を複数ぶら下げたドキュメント */
-const docWithParts = (...parts: Array<{ type: 'metric' | 'gauge' | 'lamp'; props?: Record<string, string | number> }>) => {
+const docWithParts = (...parts: Array<{ type: 'metric' | 'gauge' | 'lamp' | 'chart'; props?: Record<string, string | number> }>) => {
   const doc = ProjectDoc.create();
   const home = doc.pages[0]!;
   let root = home.root;
@@ -179,5 +179,44 @@ describe('gauge / lamp(モニタリング部品)生成', () => {
     )!.content;
     expect(appCss).toContain('.c-gauge-fill');
     expect(appCss).toContain('.c-lamp-dot');
+  });
+});
+
+describe('chart(スパークライン + 時系列バッファ FR-RT-03)生成', () => {
+  it('chart は Chart コンポーネントと時系列フック useSeries を生成する', () => {
+    const files = generateProject(docWithParts({ type: 'chart', props: { capacity: 60 } }), 'x');
+    const runtime = files.find((f) => f.path === 'src/shared/realtime/runtime.tsx')!.content;
+    expect(runtime).toContain('export function Chart(');
+    expect(runtime).toContain('export function useSeries(');
+    // useChannel と useSeries は同じ低レベル subscribe を共有する
+    expect(runtime).toContain('function subscribe(');
+    expect(runtime).toContain('<polyline');
+
+    const page = files.find((f) => f.path === 'src/pages/Page0.tsx')!.content;
+    expect(page).toContain('<Chart ');
+    expect(page).toContain('capacity={60}');
+    expect(page).toContain(`import { Chart } from '../shared/realtime/runtime';`);
+  });
+
+  it('capacity 未指定なら既定値が属性に出る', () => {
+    const page = generateProject(docWithParts({ type: 'chart' }), 'x').find(
+      (f) => f.path === 'src/pages/Page0.tsx',
+    )!.content;
+    expect(page).toContain('capacity={40}');
+  });
+
+  it('chart 用の CSS(スパークライン線)が app.css に含まれる', () => {
+    const appCss = generateProject(docWithParts({ type: 'chart' }), 'x').find(
+      (f) => f.path === 'src/shared/styles/app.css',
+    )!.content;
+    expect(appCss).toContain('.c-chart-line');
+  });
+
+  it('全モニタリング部品が混在しても import は1行に集約される', () => {
+    const page = generateProject(
+      docWithParts({ type: 'metric' }, { type: 'gauge' }, { type: 'lamp' }, { type: 'chart' }),
+      'x',
+    ).find((f) => f.path === 'src/pages/Page0.tsx')!.content;
+    expect(page).toContain(`import { Chart, Gauge, Lamp, Metric } from '../shared/realtime/runtime';`);
   });
 });

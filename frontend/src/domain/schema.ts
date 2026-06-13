@@ -35,6 +35,7 @@ const componentTypeSchema = z.enum([
   'metric',
   'gauge',
   'lamp',
+  'chart',
 ]);
 
 const actionSchema = z.discriminatedUnion('kind', [

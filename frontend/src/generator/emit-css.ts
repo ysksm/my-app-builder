@@ -115,6 +115,22 @@ body {
 .c-lamp-label { font-size: 13px; color: var(--color-text); }
 .c-lamp-value { font-size: 13px; font-weight: 600; color: var(--color-text-muted); margin-left: auto; }
 
+/* スパークラインチャート(時系列)。線色がしきい値で変わる */
+.c-chart {
+  display: flex; flex-direction: column; gap: 6px; align-self: stretch; min-width: 240px;
+  background: var(--color-surface-card); border: 1px solid var(--color-border);
+  border-radius: var(--radius-md); padding: 12px 16px;
+}
+.c-chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.c-chart-label { font-size: 12px; color: var(--color-text-muted); }
+.c-chart-value { font-size: 18px; font-weight: 700; color: var(--color-primary); }
+.c-chart-svg { width: 100%; height: 56px; display: block; }
+.c-chart-line { stroke: var(--color-primary); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.c-chart.s-warn .c-chart-line { stroke: var(--color-warn, #d98e00); }
+.c-chart.s-warn .c-chart-value { color: var(--color-warn, #d98e00); }
+.c-chart.s-crit .c-chart-line { stroke: var(--color-danger); }
+.c-chart.s-crit .c-chart-value { color: var(--color-danger); }
+
 .c-table {
   border-collapse: collapse;
   width: 100%;

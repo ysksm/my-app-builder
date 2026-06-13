@@ -17,7 +17,8 @@ export type ComponentType =
   | 'footer'
   | 'metric'
   | 'gauge'
-  | 'lamp';
+  | 'lamp'
+  | 'chart';
 
 export type ComponentNode = Readonly<{
   id: NodeId;

@@ -18,7 +18,7 @@ export type { GeneratedFile } from './files';
 /** ドキュメント内にリアルタイムモニタリング部品(metric / gauge / lamp)があるか */
 const usesMetric = (doc: ProjectDoc): boolean => {
   const isRealtime = (t: ComponentNode['type']): boolean =>
-    t === 'metric' || t === 'gauge' || t === 'lamp';
+    t === 'metric' || t === 'gauge' || t === 'lamp' || t === 'chart';
   const treeHas = (node: ComponentNode): boolean =>
     isRealtime(node.type) || node.children.some(treeHas);
   return (
@@ -66,48 +66,74 @@ export type ChannelConfig = {
   scale?: number;
 };
 
-/** データチャネル購読(FR-RT-01): mock=模擬ジェネレータ, live/modbus=BE WS ゲートウェイ */
+/** データチャネルの低レベル購読(FR-RT-01)。サンプルごとに onSample を呼び、解除関数を返す。
+ *  mock=模擬ジェネレータ, live/modbus=BE WS ゲートウェイ。useChannel / useSeries が共有する。 */
+function subscribe(cfg: ChannelConfig, onSample: (v: number) => void): () => void {
+  const { source, channel, min, max, interval, host, unitId, register, scale } = cfg;
+  if (source === 'live' || source === 'modbus') {
+    // BE の WS ゲートウェイ /api/channels/{ch}/stream を購読
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ch = channel || 'default';
+    const q = new URLSearchParams();
+    q.set('min', String(min));
+    q.set('max', String(max));
+    q.set('interval', String(interval));
+    if (source === 'modbus') {
+      // BE は kind=modbus で ModbusConnector を解決(FR-RT-02)
+      q.set('kind', 'modbus');
+      if (host) q.set('host', host);
+      if (unitId != null) q.set('unit', String(unitId));
+      if (register != null) q.set('register', String(register));
+      if (scale != null) q.set('scale', String(scale));
+    }
+    const url =
+      proto + '//' + window.location.host + '/api/channels/' + encodeURIComponent(ch) +
+      '/stream?' + q.toString();
+    const ws = new WebSocket(url);
+    ws.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data as string) as { value: number };
+        onSample(data.value);
+      } catch {
+        /* ignore */
+      }
+    };
+    return () => ws.close();
+  }
+  // 模擬データジェネレータ
+  const tick = () => onSample(min + Math.random() * (max - min));
+  tick();
+  const id = setInterval(tick, Math.max(200, interval));
+  return () => clearInterval(id);
+}
+
+/** 現在値を購読する */
 export function useChannel(cfg: ChannelConfig): number | null {
   const { source, channel, min, max, interval, host, unitId, register, scale } = cfg;
   const [value, setValue] = useState<number | null>(null);
-  useEffect(() => {
-    if (source === 'live' || source === 'modbus') {
-      // BE の WS ゲートウェイ /api/channels/{ch}/stream を購読
-      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ch = channel || 'default';
-      const q = new URLSearchParams();
-      q.set('min', String(min));
-      q.set('max', String(max));
-      q.set('interval', String(interval));
-      if (source === 'modbus') {
-        // BE は kind=modbus で ModbusConnector を解決(FR-RT-02)
-        q.set('kind', 'modbus');
-        if (host) q.set('host', host);
-        if (unitId != null) q.set('unit', String(unitId));
-        if (register != null) q.set('register', String(register));
-        if (scale != null) q.set('scale', String(scale));
-      }
-      const url =
-        proto + '//' + window.location.host + '/api/channels/' + encodeURIComponent(ch) +
-        '/stream?' + q.toString();
-      const ws = new WebSocket(url);
-      ws.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data as string) as { value: number };
-          setValue(data.value);
-        } catch {
-          /* ignore */
-        }
-      };
-      return () => ws.close();
-    }
-    // 模擬データジェネレータ(FR-RT-03)
-    const tick = () => setValue(min + Math.random() * (max - min));
-    tick();
-    const id = setInterval(tick, Math.max(200, interval));
-    return () => clearInterval(id);
-  }, [source, channel, min, max, interval, host, unitId, register, scale]);
+  useEffect(
+    () => subscribe({ source, channel, min, max, interval, host, unitId, register, scale }, setValue),
+    [source, channel, min, max, interval, host, unitId, register, scale],
+  );
   return value;
+}
+
+/** 直近 capacity サンプルの時系列バッファを購読する(FR-RT-03)。チャート部品が使う。 */
+export function useSeries(cfg: ChannelConfig, capacity: number): number[] {
+  const { source, channel, min, max, interval, host, unitId, register, scale } = cfg;
+  const cap = Math.max(2, capacity);
+  const [series, setSeries] = useState<number[]>([]);
+  useEffect(
+    () =>
+      subscribe({ source, channel, min, max, interval, host, unitId, register, scale }, (v) =>
+        setSeries((prev) => {
+          const next = prev.concat(v);
+          return next.length > cap ? next.slice(next.length - cap) : next;
+        }),
+      ),
+    [source, channel, min, max, interval, host, unitId, register, scale, cap],
+  );
+  return series;
 }
 
 /** アプリイベント(FR-RT-04): app シェルがこれを購読してトースト等に橋渡しする */
@@ -188,6 +214,38 @@ export function Lamp(props: RealtimeProps) {
       <span className="c-lamp-value">
         {value === null ? '—' : value.toFixed(decimals)}{unit}
       </span>
+    </div>
+  );
+}
+
+/** スパークライン折れ線チャート(FR-RT-03)。直近 capacity サンプルを時系列表示する */
+export function Chart(props: RealtimeProps & { capacity?: number }) {
+  const { label, unit = '', decimals = 1, min, max, capacity = 40 } = props;
+  const series = useSeries(props, capacity);
+  const value = series.length > 0 ? series[series.length - 1] : null;
+  const severity: Severity = value === null ? 'normal' : metricSeverity(value, props);
+  useAlert(label, unit, value, severity);
+  const W = 240;
+  const H = 56;
+  const points = series
+    .map((v, i) => {
+      const x = series.length <= 1 ? 0 : (i / (series.length - 1)) * W;
+      const r = max <= min ? 0 : Math.min(1, Math.max(0, (v - min) / (max - min)));
+      return x.toFixed(1) + ',' + (H - r * H).toFixed(1);
+    })
+    .join(' ');
+  const cls = 'c-chart' + (severity !== 'normal' ? ' s-' + severity : '');
+  return (
+    <div className={cls}>
+      <div className="c-chart-head">
+        <span className="c-chart-label">{label}{sourceTag(props.source)}</span>
+        <span className="c-chart-value">
+          {value === null ? '—' : value.toFixed(decimals)}{unit}
+        </span>
+      </div>
+      <svg className="c-chart-svg" viewBox={'0 0 ' + W + ' ' + H} preserveAspectRatio="none">
+        {series.length > 1 && <polyline className="c-chart-line" points={points} fill="none" />}
+      </svg>
     </div>
   );
 }

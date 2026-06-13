@@ -169,9 +169,17 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
       return [`${pad}<footer className="c-footer">{${s(p('text'))}}</footer>`];
     case 'metric':
     case 'gauge':
-    case 'lamp': {
-      // metric / gauge / lamp は同じデータチャネル属性を共有(コンポーネント名のみ異なる)
-      const tag = node.type === 'gauge' ? 'Gauge' : node.type === 'lamp' ? 'Lamp' : 'Metric';
+    case 'lamp':
+    case 'chart': {
+      // metric / gauge / lamp / chart は同じデータチャネル属性を共有(コンポーネント名のみ異なる)
+      const tag =
+        node.type === 'gauge'
+          ? 'Gauge'
+          : node.type === 'lamp'
+            ? 'Lamp'
+            : node.type === 'chart'
+              ? 'Chart'
+              : 'Metric';
       ctx.realtimeImports.add(tag);
       const raw = String(p('source'));
       const source = raw === 'live' || raw === 'modbus' ? raw : 'mock';
@@ -208,6 +216,8 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
         `max={${num(p('max'))}}`,
         `interval={${num(p('interval'))}}`,
         ...(showsValue ? [`decimals={${num(p('decimals'))}}`] : []),
+        // チャートのみ: 保持サンプル数
+        ...(node.type === 'chart' ? [`capacity={${num(p('capacity'))}}`] : []),
         // しきい値アラート(設定時のみ)
         ...threshold('warnAbove'),
         ...threshold('critAbove'),

@@ -125,6 +125,8 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
       return <GaugeView node={node} mode={mode} />;
     case 'lamp':
       return <LampView node={node} mode={mode} />;
+    case 'chart':
+      return <ChartView node={node} mode={mode} />;
   }
 }
 
@@ -211,6 +213,59 @@ function LampView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
       <span className="c-lamp-value">{value === null ? '—' : value.toFixed(0)}</span>
     </div>
   );
+}
+
+/** 直近 capacity サンプルを保持して [min,max] でスケールしたスパークラインを描く */
+function ChartView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
+  const def = componentDefs.chart;
+  const p = (key: string) => propOf(node, def, key);
+  const source = str(p('source'));
+  const capacity = Math.max(2, num(p('capacity')) || 40);
+  const series = useMetricSeries(channelOf(node, def), mode === 'preview', capacity);
+  const value = series.length > 0 ? series[series.length - 1]! : null;
+  const min = num(p('min'));
+  const max = num(p('max'));
+  const severity = value === null ? 'normal' : metricSeverity(value, node, def);
+  const W = 240;
+  const H = 56;
+  const points = series
+    .map((v, i) => {
+      const x = series.length <= 1 ? 0 : (i / (series.length - 1)) * W;
+      const r = max <= min ? 0 : Math.min(1, Math.max(0, (v - min) / (max - min)));
+      return `${x.toFixed(1)},${(H - r * H).toFixed(1)}`;
+    })
+    .join(' ');
+  const cls = 'c-chart' + (severity !== 'normal' ? ` s-${severity}` : '');
+  return (
+    <div className={cls}>
+      <div className="c-chart-head">
+        <span className="c-chart-label">
+          {str(p('label'))} {source !== 'mock' && sourceTag(source)}
+        </span>
+        <span className="c-chart-value">
+          {value === null ? '—' : value.toFixed(num(p('decimals')))}
+          {str(p('unit'))}
+        </span>
+      </div>
+      <svg className="c-chart-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+        {series.length > 1 && <polyline className="c-chart-line" points={points} fill="none" />}
+      </svg>
+    </div>
+  );
+}
+
+/** preview 中、現在値を直近 capacity 件のリングバッファに蓄積する(builder 用) */
+function useMetricSeries(src: MetricSource, active: boolean, capacity: number): number[] {
+  const value = useMetricValue(src, active);
+  const [series, setSeries] = useState<number[]>([]);
+  useEffect(() => {
+    if (value === null) return;
+    setSeries((prev) => {
+      const next = prev.concat(value);
+      return next.length > capacity ? next.slice(next.length - capacity) : next;
+    });
+  }, [value, capacity]);
+  return series;
 }
 
 export type MetricThresholds = Readonly<{
