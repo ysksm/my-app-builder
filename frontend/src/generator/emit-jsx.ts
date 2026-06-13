@@ -2,6 +2,7 @@ import type { EventBinding } from '@/domain/actions';
 import type { ComponentNode } from '@/domain/component-node';
 import { componentDefs, propValueOf, type ComponentDef } from '@/presentation/catalog/component-defs';
 import type { NameTable } from './identifiers';
+import { paths, relativeImport } from './layout';
 
 /**
  * ComponentNode 木 → React コンポーネントの TSX ソース。
@@ -172,8 +173,8 @@ export type ComponentFileOptions = Readonly<{
   originalName: string;
   root: ComponentNode;
   names: NameTable;
-  /** ファイル位置から src 直下への相対プレフィックス(例: 'src/pages/' なら '../') */
-  importPrefix: string;
+  /** このコンポーネントファイルの src 相対パス(ui-slice への import 解決に使う) */
+  filePath: string;
 }>;
 
 export const emitComponentFile = (opts: ComponentFileOptions): string => {
@@ -192,7 +193,7 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
   if (ctx.needsNavigate) imports.push(`import { useNavigate } from 'react-router';`);
   if (ctx.usedActions.size > 0) {
     const actions = [...ctx.usedActions].sort().join(', ');
-    imports.push(`import { ${actions} } from '${opts.importPrefix}app/ui-slice';`);
+    imports.push(`import { ${actions} } from '${relativeImport(opts.filePath, paths.uiSlice)}';`);
   }
 
   const hooks: string[] = [];

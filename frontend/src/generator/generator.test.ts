@@ -41,38 +41,56 @@ describe('generateProject', () => {
       'vite.config.ts',
       'tsconfig.json',
       'index.html',
-      'src/main.tsx',
-      'src/App.tsx',
+      'src/app/main.tsx',
+      'src/app/App.tsx',
       'src/app/store.ts',
       'src/app/ui-slice.ts',
-      'src/di/container.ts',
+      'src/app/di/container.ts',
+      'src/app/DialogHost.tsx',
+      'src/app/Toasts.tsx',
       'src/shared/result.ts',
-      'src/components/AppHeader.tsx',
-      'src/components/AppFooter.tsx',
-      'src/components/DialogHost.tsx',
-      'src/components/Toasts.tsx',
+      'src/shared/styles/tokens.css',
+      'src/shared/styles/app.css',
+      'src/pages/AppHeader.tsx',
+      'src/pages/AppFooter.tsx',
       'src/pages/Page0.tsx',
       'src/pages/Page1.tsx',
-      'src/dialogs/Dialog0.tsx',
-      'src/styles/tokens.css',
-      'src/styles/app.css',
+      'src/pages/Dialog0.tsx',
     ]) {
       expect(paths).toContain(expected);
     }
   });
 
+  it('index.html は app/main.tsx を読み込む', () => {
+    const { doc } = buildFixture();
+    const html = generateProject(doc, 'x').find((f) => f.path === 'index.html')!.content;
+    expect(html).toContain('src="/src/app/main.tsx"');
+  });
+
+  it('main.tsx は styles を正しい相対パスで import する(拡張子の二重付与なし)', () => {
+    const { doc } = buildFixture();
+    const main = generateProject(doc, 'x').find((f) => f.path === 'src/app/main.tsx')!.content;
+    expect(main).toContain(`import '../shared/styles/tokens.css';`);
+    expect(main).toContain(`import '../shared/styles/app.css';`);
+    expect(main).not.toContain('.css.css');
+    expect(main).toContain(`import { App } from './App';`);
+    expect(main).toContain(`import { store } from './store';`);
+  });
+
   it('App.tsx に全ページのルートが生成される', () => {
     const { doc } = buildFixture();
-    const app = generateProject(doc, 'x').find((f) => f.path === 'src/App.tsx')!.content;
+    const app = generateProject(doc, 'x').find((f) => f.path === 'src/app/App.tsx')!.content;
     expect(app).toContain('<Route path="/" element={<PageLayout useHeader={true} useFooter={true}><Page0 /></PageLayout>} />');
     expect(app).toContain('<Route path="/detail"');
     expect(app).toContain('HashRouter');
+    expect(app).toContain(`import { Page0 } from '../pages/Page0';`);
   });
 
   it('DialogHost にダイアログが登録される', () => {
     const { doc } = buildFixture();
-    const host = generateProject(doc, 'x').find((f) => f.path === 'src/components/DialogHost.tsx')!.content;
+    const host = generateProject(doc, 'x').find((f) => f.path === 'src/app/DialogHost.tsx')!.content;
     expect(host).toContain(`dialog0: { title: "確認", Body: Dialog0 }`);
+    expect(host).toContain(`import { Dialog0 } from '../pages/Dialog0';`);
   });
 });
 
@@ -85,7 +103,7 @@ describe('emitComponentFile(イベント→コード変換)', () => {
       originalName: 'ホーム',
       root: home.id ? ProjectDoc.findPage(doc, home.id)!.root : home.root,
       names,
-      importPrefix: '../',
+      filePath: 'src/pages/Page0.tsx',
     });
     expect(source).toContain(`dispatch(dialogOpened("dialog0"));`);
     expect(source).toContain(`navigate("/detail");`);
@@ -111,7 +129,7 @@ describe('emitComponentFile(イベント→コード変換)', () => {
       originalName: 'ホーム',
       root: withEvents.value,
       names: buildNameTable(doc),
-      importPrefix: '../',
+      filePath: 'src/pages/Page0.tsx',
     });
     expect(source).not.toContain('navigate(');
     expect(source).not.toContain('onClick=');
@@ -127,7 +145,7 @@ describe('emitComponentFile(イベント→コード変換)', () => {
       originalName: 'ホーム',
       root: inserted.value,
       names: buildNameTable(doc),
-      importPrefix: '../',
+      filePath: 'src/pages/Page0.tsx',
     });
     expect(source).toContain(`{${JSON.stringify('<b>{危険}</b> & "quote"')}}`);
   });

@@ -2,11 +2,19 @@ import type { DataModel, FieldDef, ModelDef, RelationDef } from '@/domain/data-m
 import type { ModelId } from '@/domain/ids';
 import type { GeneratedFile } from './files';
 import { toCamelCase, toKebabCase } from './identifiers';
+import {
+  buildFeatureLayout,
+  modelPaths,
+  paths,
+  relativeImport,
+  type FeatureLayout,
+} from './layout';
 
 /**
  * DDD モデル定義 → ドメイン層コード生成。
  * 規約(requirements.md §4.2): class 不使用 / brand 型 / companion object /
  * Readonly + 純粋関数 / Result<T, E> / 集約ごとに repository I/F + mock 実装。
+ * 配置は features × レイヤード構成(§6.2 / FR-GEN-08)に従い、import は layout で解決する。
  */
 
 const q = (value: string): string => JSON.stringify(value);
@@ -14,6 +22,7 @@ const q = (value: string): string => JSON.stringify(value);
 const tsTypeOf = (f: FieldDef): string => (f.type === 'date' ? 'string' : f.type);
 
 type Ctx = Readonly<{
+  layout: FeatureLayout;
   byId: ReadonlyMap<ModelId, ModelDef>;
   relationsFrom: (id: ModelId) => ReadonlyArray<RelationDef>;
 }>;
@@ -21,6 +30,7 @@ type Ctx = Readonly<{
 const buildCtx = (dm: DataModel): Ctx => {
   const byId = new Map(dm.models.map((m) => [m.id, m] as const));
   return {
+    layout: buildFeatureLayout(dm),
     byId,
     relationsFrom: (id) => dm.relations.filter((r) => r.from === id),
   };
@@ -34,17 +44,31 @@ const relationType = (r: RelationDef, ctx: Ctx): string => {
   return r.kind === 'hasMany' ? `ReadonlyArray<${base}>` : `${base} | null`;
 };
 
-const relationImports = (modelId: ModelId, ctx: Ctx, valueImports: boolean): string[] => {
+/** このモデルが参照する他モデルへの import 群(配置をまたいで相対パスを解決) */
+const relationImports = (model: ModelDef, ctx: Ctx, valueImports: boolean): string[] => {
+  const selfPath = modelPaths(ctx.layout, model).model;
   const targets = new Map<string, ModelDef>();
-  for (const r of ctx.relationsFrom(modelId)) {
+  for (const r of ctx.relationsFrom(model.id)) {
     const target = ctx.byId.get(r.to);
-    if (target && target.id !== modelId) targets.set(target.name, target);
+    if (target && target.id !== model.id) targets.set(target.name, target);
   }
   return [...targets.values()].map((t) => {
     const symbol = t.kind === 'valueObject' ? t.name : `${t.name}Id`;
     const useValue = valueImports && t.kind === 'valueObject';
-    return `import ${useValue ? '' : 'type '}{ ${symbol} } from './${toKebabCase(t.name)}';`;
+    const spec = relativeImport(selfPath, modelPaths(ctx.layout, t).model);
+    return `import ${useValue ? '' : 'type '}{ ${symbol} } from '${spec}';`;
   });
+};
+
+/** モデルファイル先頭の result / validation への import */
+const sharedImports = (selfPath: string, kind: 'value' | 'type'): string => {
+  const result = relativeImport(selfPath, paths.result);
+  const validation = relativeImport(selfPath, paths.validation);
+  const resultLine =
+    kind === 'value'
+      ? `import { err, ok, type Result } from '${result}';`
+      : `import { ok, type Result } from '${result}';`;
+  return `${resultLine}\nimport { ValidationError } from '${validation}';`;
 };
 
 /** フィールドの検証コード(必須・min/max・pattern)。access は `input.name` 等の式 */
@@ -95,6 +119,7 @@ const mergeExpr = (f: FieldDef): string =>
 /** 集約 / エンティティのソース */
 const emitEntity = (model: ModelDef, ctx: Ctx): string => {
   const name = model.name;
+  const selfPath = modelPaths(ctx.layout, model).model;
   const relations = ctx.relationsFrom(model.id);
   const validations = model.fields.flatMap((f) => fieldValidations(f, `input.${f.name}`));
 
@@ -113,9 +138,8 @@ const emitEntity = (model: ModelDef, ctx: Ctx): string => {
 
   const kindLabel = model.kind === 'aggregate' ? '集約' : 'エンティティ';
   return `// 自動生成 — AppForge ドメインモデル(${kindLabel}: ${name})
-import { err, ok, type Result } from '../../shared/result';
-import { ValidationError } from '../validation';
-${relationImports(model.id, ctx, false).join('\n')}
+${sharedImports(selfPath, 'value')}
+${relationImports(model, ctx, false).join('\n')}
 
 export type ${name}Id = string & { readonly __brand: '${name}Id' };
 
@@ -165,13 +189,13 @@ ${[...model.fields.map((f) => constructExpr(f).replace('input.', 'merged.')), ..
 };
 
 /** 値オブジェクト(単一フィールド)= branded primitive */
-const emitSingleFieldVo = (model: ModelDef, field: FieldDef): string => {
+const emitSingleFieldVo = (model: ModelDef, field: FieldDef, ctx: Ctx): string => {
   const name = model.name;
+  const selfPath = modelPaths(ctx.layout, model).model;
   const primitive = tsTypeOf(field);
   const validations = fieldValidations({ ...field, required: true }, 'value');
   return `// 自動生成 — AppForge ドメインモデル(値オブジェクト: ${name})
-import { err, ok, type Result } from '../../shared/result';
-import { ValidationError } from '../validation';
+${sharedImports(selfPath, 'value')}
 
 export type ${name} = ${primitive} & { readonly __brand: '${name}' };
 
@@ -191,6 +215,7 @@ ${validations.map((l) => l.replace(q(field.name), q('value'))).join('\n')}
 /** 値オブジェクト(複数フィールド)= Readonly オブジェクト + create/equals */
 const emitMultiFieldVo = (model: ModelDef, ctx: Ctx): string => {
   const name = model.name;
+  const selfPath = modelPaths(ctx.layout, model).model;
   const relations = ctx.relationsFrom(model.id);
   const validations = model.fields.flatMap((f) => fieldValidations(f, `input.${f.name}`));
 
@@ -213,9 +238,8 @@ const emitMultiFieldVo = (model: ModelDef, ctx: Ctx): string => {
   ];
 
   return `// 自動生成 — AppForge ドメインモデル(値オブジェクト: ${name})
-import { err, ok, type Result } from '../../shared/result';
-import { ValidationError } from '../validation';
-${relationImports(model.id, ctx, true).join('\n')}
+${sharedImports(selfPath, 'value')}
+${relationImports(model, ctx, true).join('\n')}
 
 export type ${name} = Readonly<{
 ${[...model.fields.map(fieldDecl), ...relations.map((r) => `  ${r.name}: ${relationType(r, ctx)};`)].join('\n')}
@@ -231,7 +255,7 @@ export const ${name} = {
 ${validations.join('\n')}
     if (errors.length > 0) return err(errors);
     return ok({
-${[...model.fields.map(constructExpr), ...relations.map((r) => (r.kind === 'hasMany' ? `    ${r.name}: input.${r.name} ?? [],` : `    ${r.name}: input.${r.name} ?? null,`))].join('\n')}
+${[...model.fields.map(constructExpr), ...relations.map((r) => (r.kind === 'hasMany' ? `      ${r.name}: input.${r.name} ?? [],` : `      ${r.name}: input.${r.name} ?? null,`))].join('\n')}
     });
   },
 
@@ -324,13 +348,16 @@ export const RepositoryError = {
 } as const;
 `;
 
-const emitRepositoryInterface = (model: ModelDef): string => {
+const emitRepositoryInterface = (model: ModelDef, ctx: Ctx): string => {
   const name = model.name;
-  const file = toKebabCase(name);
+  const p = modelPaths(ctx.layout, model);
+  const result = relativeImport(p.repository, paths.result);
+  const repoError = relativeImport(p.repository, paths.repositoryError);
+  const modelSpec = relativeImport(p.repository, p.model);
   return `// 自動生成 — AppForge repository I/F(domain 層 — 実装は infrastructure 層が提供: DIP)
-import type { Result } from '../../shared/result';
-import type { RepositoryError } from '../repository-error';
-import type { ${name}, ${name}Id } from '../models/${file}';
+import type { Result } from '${result}';
+import type { RepositoryError } from '${repoError}';
+import type { ${name}, ${name}Id } from '${modelSpec}';
 
 export type ${name}Repository = Readonly<{
   findById(id: ${name}Id): Promise<Result<${name}, RepositoryError>>;
@@ -341,14 +368,18 @@ export type ${name}Repository = Readonly<{
 `;
 };
 
-const emitMockRepository = (model: ModelDef): string => {
+const emitMockRepository = (model: ModelDef, ctx: Ctx): string => {
   const name = model.name;
-  const file = toKebabCase(name);
+  const p = modelPaths(ctx.layout, model);
+  const result = relativeImport(p.mock, paths.result);
+  const repoError = relativeImport(p.mock, paths.repositoryError);
+  const modelSpec = relativeImport(p.mock, p.model);
+  const repoSpec = relativeImport(p.mock, p.repository);
   return `// 自動生成 — AppForge インメモリ mock repository(VITE_APP_MODE=mock / テストで使用)
-import { err, ok } from '../../shared/result';
-import { RepositoryError } from '../../domain/repository-error';
-import type { ${name}, ${name}Id } from '../../domain/models/${file}';
-import type { ${name}Repository } from '../../domain/repositories/${file}-repository';
+import { err, ok } from '${result}';
+import { RepositoryError } from '${repoError}';
+import type { ${name}, ${name}Id } from '${modelSpec}';
+import type { ${name}Repository } from '${repoSpec}';
 
 export const createInMemory${name}Repository = (): ${name}Repository => {
   const items = new Map<${name}Id, ${name}>();
@@ -378,28 +409,22 @@ export const emitDomainFiles = (dm: DataModel): GeneratedFile[] => {
   if (dm.models.length === 0) return [];
   const ctx = buildCtx(dm);
   const files: GeneratedFile[] = [
-    { path: 'src/domain/validation.ts', content: validationTs },
-    { path: 'src/domain/repository-error.ts', content: repositoryErrorTs },
+    { path: paths.validation, content: validationTs },
+    { path: paths.repositoryError, content: repositoryErrorTs },
   ];
   for (const model of dm.models) {
-    const file = toKebabCase(model.name);
+    const p = modelPaths(ctx.layout, model);
     const source =
       model.kind === 'valueObject'
         ? model.fields.length === 1 && ctx.relationsFrom(model.id).length === 0
-          ? emitSingleFieldVo(model, model.fields[0]!)
+          ? emitSingleFieldVo(model, model.fields[0]!, ctx)
           : emitMultiFieldVo(model, ctx)
         : emitEntity(model, ctx);
-    files.push({ path: `src/domain/models/${file}.ts`, content: source });
-    files.push({ path: `src/domain/models/${file}.test.ts`, content: emitModelTest(model) });
+    files.push({ path: p.model, content: source });
+    files.push({ path: p.test, content: emitModelTest(model) });
     if (model.kind === 'aggregate') {
-      files.push({
-        path: `src/domain/repositories/${file}-repository.ts`,
-        content: emitRepositoryInterface(model),
-      });
-      files.push({
-        path: `src/infrastructure/mock/in-memory-${file}-repository.ts`,
-        content: emitMockRepository(model),
-      });
+      files.push({ path: p.repository, content: emitRepositoryInterface(model, ctx) });
+      files.push({ path: p.mock, content: emitMockRepository(model, ctx) });
     }
   }
   return files;
@@ -409,12 +434,13 @@ export const emitDomainFiles = (dm: DataModel): GeneratedFile[] => {
 export const emitContainerWithRepositories = (dm: DataModel): string | null => {
   const aggregates = dm.models.filter((m) => m.kind === 'aggregate');
   if (aggregates.length === 0) return null;
+  const ctx = buildCtx(dm);
   const imports = aggregates
     .flatMap((m) => {
-      const file = toKebabCase(m.name);
+      const p = modelPaths(ctx.layout, m);
       return [
-        `import type { ${m.name}Repository } from '../domain/repositories/${file}-repository';`,
-        `import { createInMemory${m.name}Repository } from '../infrastructure/mock/in-memory-${file}-repository';`,
+        `import type { ${m.name}Repository } from '${relativeImport(paths.container, p.repository)}';`,
+        `import { createInMemory${m.name}Repository } from '${relativeImport(paths.container, p.mock)}';`,
       ];
     })
     .join('\n');

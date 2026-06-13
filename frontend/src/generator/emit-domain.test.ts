@@ -59,32 +59,37 @@ describe('emitDomainFiles', () => {
   const files = emitDomainFiles(dm);
   const get = (path: string) => files.find((f) => f.path === path)?.content ?? '';
 
-  it('モデル・repository・mock・共通ファイルが揃う', () => {
+  it('features × レイヤード配置でモデル・repository・mock・共通ファイルが揃う', () => {
     const paths = files.map((f) => f.path);
-    expect(paths).toContain('src/domain/validation.ts');
-    expect(paths).toContain('src/domain/repository-error.ts');
-    expect(paths).toContain('src/domain/models/customer.ts');
-    expect(paths).toContain('src/domain/models/customer.test.ts');
-    expect(paths).toContain('src/domain/models/order.ts');
-    expect(paths).toContain('src/domain/models/email.ts');
-    expect(paths).toContain('src/domain/repositories/customer-repository.ts');
-    expect(paths).toContain('src/infrastructure/mock/in-memory-customer-repository.ts');
+    // 共通(shared)
+    expect(paths).toContain('src/shared/validation.ts');
+    expect(paths).toContain('src/shared/repository-error.ts');
+    // Order / Email は Customer のみが参照 → customer feature に属する
+    expect(paths).toContain('src/features/customer/domain/customer.ts');
+    expect(paths).toContain('src/features/customer/domain/customer.test.ts');
+    expect(paths).toContain('src/features/customer/domain/order.ts');
+    expect(paths).toContain('src/features/customer/domain/email.ts');
+    expect(paths).toContain('src/features/customer/domain/repositories/customer-repository.ts');
+    expect(paths).toContain('src/features/customer/infrastructure/mock/in-memory-customer-repository.ts');
     // エンティティ / VO には repository を作らない
-    expect(paths).not.toContain('src/domain/repositories/order-repository.ts');
+    expect(paths).not.toContain('src/features/customer/domain/repositories/order-repository.ts');
   });
 
   it('集約は brand ID + companion + Result 検証つき create/update を持つ', () => {
-    const src = get('src/domain/models/customer.ts');
+    const src = get('src/features/customer/domain/customer.ts');
     expect(src).toContain(`export type CustomerId = string & { readonly __brand: 'CustomerId' };`);
     expect(src).toContain('create(input: CustomerInput): Result<Customer, ReadonlyArray<ValidationError>>');
     expect(src).toContain('update(current: Customer, patch: Partial<CustomerInput>)');
     expect(src).toContain('input.name.length < 1');
     expect(src).toContain('input.age != null && (input.age > 120)');
     expect(src).not.toContain('class ');
+    // shared への相対 import が正しく解決される(domain → shared は 4 階層上)
+    expect(src).toContain(`from '../../../shared/result';`);
+    expect(src).toContain(`from '../../../shared/validation';`);
   });
 
   it('リレーションは ID 参照 / VO 埋め込みで型付けされる', () => {
-    const src = get('src/domain/models/customer.ts');
+    const src = get('src/features/customer/domain/customer.ts');
     expect(src).toContain('orders: ReadonlyArray<OrderId>;');
     expect(src).toContain('email: Email | null;');
     expect(src).toContain(`import type { OrderId } from './order';`);
@@ -92,20 +97,21 @@ describe('emitDomainFiles', () => {
   });
 
   it('単一フィールド VO は branded primitive になる', () => {
-    const src = get('src/domain/models/email.ts');
+    const src = get('src/features/customer/domain/email.ts');
     expect(src).toContain(`export type Email = string & { readonly __brand: 'Email' };`);
     expect(src).toContain('equals: (a: Email, b: Email): boolean => a === b');
   });
 
   it('pattern 制約付きモデルのテストは todo になる', () => {
-    expect(get('src/domain/models/email.test.ts')).toContain('it.todo');
-    expect(get('src/domain/models/customer.test.ts')).toContain("expect(result.ok).toBe(true)");
+    expect(get('src/features/customer/domain/email.test.ts')).toContain('it.todo');
+    expect(get('src/features/customer/domain/customer.test.ts')).toContain('expect(result.ok).toBe(true)');
   });
 
   it('container は集約の repository を mock 実装で配線する', () => {
     const container = emitContainerWithRepositories(dm);
     expect(container).toContain('customerRepository: CustomerRepository;');
     expect(container).toContain('customerRepository: createInMemoryCustomerRepository(),');
+    expect(container).toContain(`from '../../features/customer/domain/repositories/customer-repository';`);
   });
 });
 
@@ -113,12 +119,12 @@ describe('generateProject との統合', () => {
   it('dataModel があるとドメイン層ファイルが生成物に含まれる', () => {
     const doc = { ...ProjectDoc.create(), dataModel: buildModel() };
     const paths = generateProject(doc, 'x').map((f) => f.path);
-    expect(paths).toContain('src/domain/models/customer.ts');
-    expect(paths.filter((p) => p === 'src/di/container.ts')).toHaveLength(1);
+    expect(paths).toContain('src/features/customer/domain/customer.ts');
+    expect(paths.filter((p) => p === 'src/app/di/container.ts')).toHaveLength(1);
   });
 
   it('dataModel が空ならドメイン層は生成されない', () => {
     const paths = generateProject(ProjectDoc.create(), 'x').map((f) => f.path);
-    expect(paths.some((p) => p.startsWith('src/domain/models/'))).toBe(false);
+    expect(paths.some((p) => p.startsWith('src/features/'))).toBe(false);
   });
 });

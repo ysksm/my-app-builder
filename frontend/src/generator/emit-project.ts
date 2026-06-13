@@ -1,9 +1,16 @@
 import type { ProjectDoc } from '@/domain/project-doc';
-import { crudRoutes } from './emit-crud';
+import { crudProviders, crudRoutes } from './emit-crud';
 import { emitContainerWithRepositories } from './emit-domain';
 import { emitComponentFile } from './emit-jsx';
 import type { GeneratedFile } from './files';
 import { toPackageName, type NameTable } from './identifiers';
+import { paths, relativeImport } from './layout';
+
+/**
+ * プロジェクト雛形 + app/ + shared/ + pages/ の生成。
+ * フォルダ構成は features × レイヤード(requirements.md §6.2 / FR-GEN-08)。
+ * import は layout の relativeImport で解決し、パスを直書きしない。
+ */
 
 /** 生成アプリの依存バージョン(ビルダー自身の検証済みバージョンに揃える) */
 const VERSIONS = {
@@ -105,19 +112,24 @@ const indexHtml = (title: string): string => `<!DOCTYPE html>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/${paths.mainTsx}"></script>
   </body>
 </html>
 `;
 
-const mainTsx = `// 自動生成 — AppForge
+const mainTsx = (): string => {
+  const appSpec = relativeImport(paths.mainTsx, paths.appTsx);
+  const storeSpec = relativeImport(paths.mainTsx, paths.store);
+  const tokensSpec = relativeImport(paths.mainTsx, paths.tokensCss);
+  const appCssSpec = relativeImport(paths.mainTsx, paths.appCss);
+  return `// 自動生成 — AppForge
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Provider } from 'react-redux';
-import { App } from './App';
-import { store } from './app/store';
-import './styles/tokens.css';
-import './styles/app.css';
+import { App } from '${appSpec}';
+import { store } from '${storeSpec}';
+import '${tokensSpec}';
+import '${appCssSpec}';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -127,6 +139,7 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 `;
+};
 
 const resultTs = `// 自動生成 — AppForge
 export type Ok<T> = Readonly<{ ok: true; value: T }>;
@@ -186,8 +199,8 @@ export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
 `;
 
-const containerTs = `// 自動生成 — AppForge: Composition Root
-// M3 以降、I/F 定義から生成される repository 実装をここで注入する(DIP)。
+const emptyContainerTs = `// 自動生成 — AppForge: Composition Root
+// モデル(集約)を定義すると、その repository 実装がここに注入される(DIP)。
 // VITE_APP_MODE=mock のとき、全 repository をインメモリ mock に切り替える。
 export type Container = Readonly<Record<string, never>>;
 
@@ -198,11 +211,14 @@ export const isMockMode: boolean = mode === 'mock';
 export const container: Container = {};
 `;
 
-const toastsTsx = `// 自動生成 — AppForge
+const toastsTsx = (): string => {
+  const storeSpec = relativeImport(paths.toasts, paths.store);
+  const sliceSpec = relativeImport(paths.toasts, paths.uiSlice);
+  return `// 自動生成 — AppForge(グローバルオーバーレイ)
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import type { RootState } from '../app/store';
-import { toastDismissed } from '../app/ui-slice';
+import type { RootState } from '${storeSpec}';
+import { toastDismissed } from '${sliceSpec}';
 
 export function Toasts() {
   const toasts = useSelector((state: RootState) => state.ui.toasts);
@@ -224,6 +240,7 @@ function ToastView({ message, onDismiss }: { message: string; onDismiss: () => v
   return <div className="toast">{message}</div>;
 }
 `;
+};
 
 const dialogHostTsx = (doc: ProjectDoc, names: NameTable): string => {
   if (doc.dialogs.length === 0) {
@@ -233,8 +250,13 @@ export function DialogHost() {
 }
 `;
   }
+  const storeSpec = relativeImport(paths.dialogHost, paths.store);
+  const sliceSpec = relativeImport(paths.dialogHost, paths.uiSlice);
   const imports = doc.dialogs
-    .map((d) => `import { ${names.dialogComponent(d.id)} } from '../dialogs/${names.dialogComponent(d.id)}';`)
+    .map((d, i) => {
+      const spec = relativeImport(paths.dialogHost, paths.dialog(i));
+      return `import { ${names.dialogComponent(d.id)} } from '${spec}';`;
+    })
     .join('\n');
   const entries = doc.dialogs
     .map(
@@ -242,11 +264,11 @@ export function DialogHost() {
         `  ${names.dialogKey(d.id)}: { title: ${JSON.stringify(d.title)}, Body: ${names.dialogComponent(d.id)} },`,
     )
     .join('\n');
-  return `// 自動生成 — AppForge
+  return `// 自動生成 — AppForge(グローバルオーバーレイ)
 import type { ReactNode } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import type { RootState } from '../app/store';
-import { dialogClosed } from '../app/ui-slice';
+import type { RootState } from '${storeSpec}';
+import { dialogClosed } from '${sliceSpec}';
 ${imports}
 
 const dialogs: Record<string, { title: string; Body: () => ReactNode }> = {
@@ -283,18 +305,20 @@ const appTsx = (doc: ProjectDoc, names: NameTable): string => {
   const hasHeader = doc.layout.header !== null;
   const hasFooter = doc.layout.footer !== null;
   const crud = crudRoutes(doc.dataModel);
+  const providers = crudProviders(doc.dataModel);
+  const rel = (to: string) => relativeImport(paths.appTsx, to);
 
   const imports = [
     `import type { ReactNode } from 'react';`,
     `import { HashRouter, Route, Routes } from 'react-router';`,
-    hasHeader ? `import { AppHeader } from './components/AppHeader';` : null,
-    hasFooter ? `import { AppFooter } from './components/AppFooter';` : null,
-    `import { DialogHost } from './components/DialogHost';`,
-    `import { Toasts } from './components/Toasts';`,
-    ...doc.pages.map(
-      (p) => `import { ${names.pageComponent(p.id)} } from './pages/${names.pageComponent(p.id)}';`,
-    ),
-    ...crud.map((r) => `import { ${r.componentName} } from '${r.importPath}';`),
+    hasHeader ? `import { AppHeader } from '${rel(paths.appHeader)}';` : null,
+    hasFooter ? `import { AppFooter } from '${rel(paths.appFooter)}';` : null,
+    `import { DialogHost } from '${rel(paths.dialogHost)}';`,
+    `import { Toasts } from '${rel(paths.toasts)}';`,
+    providers.length > 0 ? `import { container } from '${rel(paths.container)}';` : null,
+    ...providers.map((p) => `import { ${p.contextName} } from '${rel(p.file)}';`),
+    ...doc.pages.map((p, i) => `import { ${names.pageComponent(p.id)} } from '${rel(paths.page(i))}';`),
+    ...crud.map((r) => `import { ${r.componentName} } from '${rel(r.file)}';`),
   ].filter((x): x is string => x !== null);
 
   const routes = [
@@ -310,6 +334,27 @@ const appTsx = (doc: ProjectDoc, names: NameTable): string => {
         `        <Route path=${JSON.stringify(r.path)} element={<PageLayout useHeader={${hasHeader}} useFooter={${hasFooter}}><${r.componentName} /></PageLayout>} />`,
     ),
   ].join('\n');
+
+  // 機能ごとの repository コンテキストへ container を注入(presentation の DIP)
+  const providerOpen = providers
+    .map((p) => `    <${p.contextName}.Provider value={container.${p.repoField}}>`)
+    .join('\n');
+  const providerClose = providers
+    .map((p) => `    </${p.contextName}.Provider>`)
+    .reverse()
+    .join('\n');
+
+  const routesTree = `      <HashRouter>
+        <Routes>
+${routes}
+          <Route path="*" element={<PageLayout useHeader={${hasHeader}} useFooter={${hasFooter}}><${names.pageComponent(doc.pages[0]!.id)} /></PageLayout>} />
+        </Routes>
+      </HashRouter>`;
+
+  const appBody =
+    providers.length > 0
+      ? `  return (\n${providerOpen}\n${routesTree}\n${providerClose}\n  );`
+      : `  return (\n${routesTree}\n  );`;
 
   return `// 自動生成 — AppForge
 ${imports.join('\n')}
@@ -327,14 +372,7 @@ ${hasFooter ? '      {useFooter && <AppFooter />}\n' : ''}      <DialogHost />
 }
 
 export function App() {
-  return (
-    <HashRouter>
-      <Routes>
-${routes}
-        <Route path="*" element={<PageLayout useHeader={${hasHeader}} useFooter={${hasFooter}}><${names.pageComponent(doc.pages[0]!.id)} /></PageLayout>} />
-      </Routes>
-    </HashRouter>
-  );
+${appBody}
 }
 `;
 };
@@ -349,26 +387,26 @@ export const emitProjectShell = (
     file('vite.config.ts', viteConfig),
     file('tsconfig.json', tsconfig),
     file('index.html', indexHtml(projectName)),
-    file('src/main.tsx', mainTsx),
-    file('src/App.tsx', appTsx(doc, names)),
-    file('src/shared/result.ts', resultTs),
-    file('src/app/ui-slice.ts', uiSliceTs),
-    file('src/app/store.ts', storeTs),
-    file('src/di/container.ts', emitContainerWithRepositories(doc.dataModel) ?? containerTs),
-    file('src/components/Toasts.tsx', toastsTsx),
-    file('src/components/DialogHost.tsx', dialogHostTsx(doc, names)),
+    file(paths.mainTsx, mainTsx()),
+    file(paths.appTsx, appTsx(doc, names)),
+    file(paths.result, resultTs),
+    file(paths.uiSlice, uiSliceTs),
+    file(paths.store, storeTs),
+    file(paths.container, emitContainerWithRepositories(doc.dataModel) ?? emptyContainerTs),
+    file(paths.toasts, toastsTsx()),
+    file(paths.dialogHost, dialogHostTsx(doc, names)),
   ];
 
   if (doc.layout.header) {
     files.push(
       file(
-        'src/components/AppHeader.tsx',
+        paths.appHeader,
         emitComponentFile({
           componentName: 'AppHeader',
           originalName: '共通ヘッダー',
           root: doc.layout.header,
           names,
-          importPrefix: '../',
+          filePath: paths.appHeader,
         }),
       ),
     );
@@ -376,13 +414,13 @@ export const emitProjectShell = (
   if (doc.layout.footer) {
     files.push(
       file(
-        'src/components/AppFooter.tsx',
+        paths.appFooter,
         emitComponentFile({
           componentName: 'AppFooter',
           originalName: '共通フッター',
           root: doc.layout.footer,
           names,
-          importPrefix: '../',
+          filePath: paths.appFooter,
         }),
       ),
     );

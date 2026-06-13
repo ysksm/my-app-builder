@@ -59,9 +59,9 @@ const gen = JSON.parse(textOf(await client.callTool({ name: 'generate_source', a
 console.log('generate_source files:', gen.length);
 if (gen.length < 10) fail('生成ファイルが少なすぎます');
 const app = textOf(
-  await client.callTool({ name: 'generate_source', arguments: { projectId: id, filePath: 'src/App.tsx' } }),
+  await client.callTool({ name: 'generate_source', arguments: { projectId: id, filePath: 'src/app/App.tsx' } }),
 );
-if (!app.includes('HashRouter')) fail('src/App.tsx の内容が不正です');
+if (!app.includes('HashRouter')) fail('src/app/App.tsx の内容が不正です');
 
 // export_source(安全性: 空でないディレクトリは拒否)
 const denied = await client.callTool({

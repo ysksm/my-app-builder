@@ -1,11 +1,13 @@
 import type { DataModel, FieldDef, ModelDef } from '@/domain/data-model';
 import type { GeneratedFile } from './files';
 import { toCamelCase, toKebabCase } from './identifiers';
+import { buildFeatureLayout, modelPaths, paths, relativeImport, type FeatureLayout } from './layout';
 
 /**
  * FR-MDL-06: 集約ごとに CRUD 管理画面の雛形を生成(モデルファースト → UI)。
- * application 層のユースケース(repository は引数注入 = DIP)を経由し、
- * /admin 配下のルートとして生成アプリに組み込まれる。
+ * features/{集約}/ の application(ユースケース)/ presentation(管理画面 + repository コンテキスト)へ配置。
+ * presentation は app/di/container を直接参照せず、機能ごとの React コンテキスト経由で repository を受け取る
+ * (feature → app の逆依存を作らない。container は App でコンテキストに注入する)。
  */
 
 const aggregatesOf = (dm: DataModel): ReadonlyArray<ModelDef> =>
@@ -13,16 +15,21 @@ const aggregatesOf = (dm: DataModel): ReadonlyArray<ModelDef> =>
 
 export const crudRouteOf = (model: ModelDef): string => `/admin/${toKebabCase(model.name)}`;
 
-const emitUsecases = (model: ModelDef): string => {
+const emitUsecases = (model: ModelDef, layout: FeatureLayout): string => {
   const name = model.name;
-  const file = toKebabCase(name);
+  const p = modelPaths(layout, model);
+  const result = relativeImport(p.usecases, paths.result);
+  const repoError = relativeImport(p.usecases, paths.repositoryError);
+  const validation = relativeImport(p.usecases, paths.validation);
+  const modelSpec = relativeImport(p.usecases, p.model);
+  const repoSpec = relativeImport(p.usecases, p.repository);
   return `// 自動生成 — AppForge アプリケーション層ユースケース(${name})
 // repository は引数注入(DIP)— テスト時は mock repository を渡す
-import type { Result } from '../../shared/result';
-import { ${name}, type ${name}Id, type ${name}Input } from '../../domain/models/${file}';
-import type { ${name}Repository } from '../../domain/repositories/${file}-repository';
-import type { RepositoryError } from '../../domain/repository-error';
-import type { ValidationError } from '../../domain/validation';
+import type { Result } from '${result}';
+import { ${name}, type ${name}Id, type ${name}Input } from '${modelSpec}';
+import type { ${name}Repository } from '${repoSpec}';
+import type { RepositoryError } from '${repoError}';
+import type { ValidationError } from '${validation}';
 
 export type Create${name}Error = ReadonlyArray<ValidationError> | RepositoryError;
 
@@ -43,6 +50,24 @@ export const remove${name} = (
   repository: ${name}Repository,
   id: ${name}Id,
 ): Promise<Result<void, RepositoryError>> => repository.remove(id);
+`;
+};
+
+const emitRepositoryContext = (model: ModelDef, layout: FeatureLayout): string => {
+  const name = model.name;
+  const p = modelPaths(layout, model);
+  const repoSpec = relativeImport(p.context, p.repository);
+  return `// 自動生成 — AppForge: ${name}Repository の DI コンテキスト(App で container から注入)
+import { createContext, useContext } from 'react';
+import type { ${name}Repository } from '${repoSpec}';
+
+export const ${name}RepositoryContext = createContext<${name}Repository | null>(null);
+
+export const use${name}Repository = (): ${name}Repository => {
+  const repository = useContext(${name}RepositoryContext);
+  if (!repository) throw new Error('${name}RepositoryContext provider が見つかりません');
+  return repository;
+};
 `;
 };
 
@@ -91,9 +116,12 @@ const formFieldJsx = (f: FieldDef): string => {
 const cellExpr = (f: FieldDef): string =>
   f.type === 'boolean' ? `{item.${f.name} ? '✓' : '—'}` : `{String(item.${f.name} ?? '—')}`;
 
-const emitAdminPage = (model: ModelDef, dm: DataModel): string => {
+const emitAdminPage = (model: ModelDef, dm: DataModel, layout: FeatureLayout): string => {
   const name = model.name;
-  const file = toKebabCase(name);
+  const p = modelPaths(layout, model);
+  const usecasesSpec = relativeImport(p.adminPage, p.usecases);
+  const contextSpec = relativeImport(p.adminPage, p.context);
+  const modelSpec = relativeImport(p.adminPage, p.model);
   const relations = dm.relations.filter((r) => r.from === model.id);
 
   const states = model.fields
@@ -134,12 +162,12 @@ import {
   create${name},
   list${name}s,
   remove${name},
-} from '../../application/usecases/${file}-usecases';
-import { container } from '../../di/container';
-import type { ${name} } from '../../domain/models/${file}';
+} from '${usecasesSpec}';
+import { use${name}Repository } from '${contextSpec}';
+import type { ${name} } from '${modelSpec}';
 
 export function ${name}AdminPage() {
-  const repository = container.${toCamelCase(name)}Repository;
+  const repository = use${name}Repository();
   const [items, setItems] = useState<ReadonlyArray<${name}>>([]);
   const [errorText, setErrorText] = useState<string | null>(null);
 ${states}
@@ -215,10 +243,7 @@ ${bodyCells}
 
 const emitAdminIndex = (aggregates: ReadonlyArray<ModelDef>): string => {
   const links = aggregates
-    .map(
-      (m) =>
-        `        <li><Link to="${crudRouteOf(m)}">${m.name} 管理</Link></li>`,
-    )
+    .map((m) => `        <li><Link to="${crudRouteOf(m)}">${m.name} 管理</Link></li>`)
     .join('\n');
   return `// 自動生成 — AppForge データ管理インデックス
 import { Link } from 'react-router';
@@ -236,37 +261,45 @@ ${links}
 `;
 };
 
-export type CrudRoute = Readonly<{ path: string; componentName: string; importPath: string }>;
+/** App.tsx のルーティングに追加する CRUD ルート(file は src 相対パス) */
+export type CrudRoute = Readonly<{ path: string; componentName: string; file: string }>;
 
-/** App.tsx のルーティングに追加する CRUD ルート一覧 */
 export const crudRoutes = (dm: DataModel): ReadonlyArray<CrudRoute> => {
   const aggregates = aggregatesOf(dm);
   if (aggregates.length === 0) return [];
+  const layout = buildFeatureLayout(dm);
   return [
-    { path: '/admin', componentName: 'AdminIndexPage', importPath: './pages/admin/AdminIndexPage' },
+    { path: '/admin', componentName: 'AdminIndexPage', file: paths.adminIndex },
     ...aggregates.map((m) => ({
       path: crudRouteOf(m),
       componentName: `${m.name}AdminPage`,
-      importPath: `./pages/admin/${m.name}AdminPage`,
+      file: modelPaths(layout, m).adminPage,
     })),
   ];
+};
+
+/** App.tsx で repository コンテキストへ container を注入するための情報 */
+export type CrudProvider = Readonly<{ contextName: string; file: string; repoField: string }>;
+
+export const crudProviders = (dm: DataModel): ReadonlyArray<CrudProvider> => {
+  const layout = buildFeatureLayout(dm);
+  return aggregatesOf(dm).map((m) => ({
+    contextName: `${m.name}RepositoryContext`,
+    file: modelPaths(layout, m).context,
+    repoField: `${toCamelCase(m.name)}Repository`,
+  }));
 };
 
 export const emitCrudFiles = (dm: DataModel): GeneratedFile[] => {
   const aggregates = aggregatesOf(dm);
   if (aggregates.length === 0) return [];
-  const files: GeneratedFile[] = [
-    { path: 'src/pages/admin/AdminIndexPage.tsx', content: emitAdminIndex(aggregates) },
-  ];
+  const layout = buildFeatureLayout(dm);
+  const files: GeneratedFile[] = [{ path: paths.adminIndex, content: emitAdminIndex(aggregates) }];
   for (const model of aggregates) {
-    files.push({
-      path: `src/application/usecases/${toKebabCase(model.name)}-usecases.ts`,
-      content: emitUsecases(model),
-    });
-    files.push({
-      path: `src/pages/admin/${model.name}AdminPage.tsx`,
-      content: emitAdminPage(model, dm),
-    });
+    const p = modelPaths(layout, model);
+    files.push({ path: p.usecases, content: emitUsecases(model, layout) });
+    files.push({ path: p.context, content: emitRepositoryContext(model, layout) });
+    files.push({ path: p.adminPage, content: emitAdminPage(model, dm, layout) });
   }
   return files;
 };
