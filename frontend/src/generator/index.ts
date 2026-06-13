@@ -4,8 +4,10 @@ import { emitCrudFiles } from './emit-crud';
 import { emitDomainFiles } from './emit-domain';
 import { emitComponentFile } from './emit-jsx';
 import { emitProjectShell } from './emit-project';
+import { emitTypeSpec } from './emit-typespec';
 import type { GeneratedFile } from './files';
 import { buildNameTable } from './identifiers';
+import { deriveInterfaceModel } from './interface-model';
 import { paths } from './layout';
 
 export type { GeneratedFile } from './files';
@@ -16,10 +18,16 @@ export type { GeneratedFile } from './files';
  */
 export const generateProject = (doc: ProjectDoc, projectName: string): GeneratedFile[] => {
   const names = buildNameTable(doc);
+  const ifModel = deriveInterfaceModel(doc.dataModel, `${projectName} API`);
   return [
     ...emitProjectShell(doc, projectName, names),
     ...emitDomainFiles(doc.dataModel),
     ...emitCrudFiles(doc.dataModel),
+    // TypeSpec アダプタによる I/F 定義の export(集約があるときのみ)。
+    // interface/ は src 外なのでアプリのビルド対象にはならない設計ドキュメント兼コード生成元。
+    ...(ifModel.operations.length > 0
+      ? [{ path: 'interface/main.tsp', content: emitTypeSpec(ifModel) }]
+      : []),
     ...doc.pages.map((page, i) => ({
       path: paths.page(i),
       content: emitComponentFile({

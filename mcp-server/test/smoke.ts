@@ -63,6 +63,16 @@ const app = textOf(
 );
 if (!app.includes('HashRouter')) fail('src/app/App.tsx の内容が不正です');
 
+// TypeSpec export(集約があれば interface/main.tsp が生成される)
+const hasAggregate = desc.dataModel.models.some((m: { kind: string }) => m.kind === 'aggregate');
+if (hasAggregate) {
+  const tsp = textOf(
+    await client.callTool({ name: 'generate_source', arguments: { projectId: id, filePath: 'interface/main.tsp' } }),
+  );
+  if (!tsp.includes('@typespec/http')) fail('interface/main.tsp の内容が不正です');
+  console.log('interface/main.tsp: TypeSpec export OK');
+}
+
 // export_source(安全性: 空でないディレクトリは拒否)
 const denied = await client.callTool({
   name: 'export_source',
