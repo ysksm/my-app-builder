@@ -5,6 +5,7 @@ import { emitTokensCss, emitAppCss } from './emit-css';
 import { emitCrudFiles } from './emit-crud';
 import { emitDomainFiles } from './emit-domain';
 import { emitComponentFile } from './emit-jsx';
+import { emitOpenApi } from './emit-openapi';
 import { emitProjectShell } from './emit-project';
 import { emitTypeSpec } from './emit-typespec';
 import { emitUsecaseFiles } from './emit-usecase';
@@ -266,8 +267,12 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
     ...emitUsecaseFiles(doc.dataModel),
     // TypeSpec アダプタによる I/F 定義の export(集約があるときのみ)。
     // interface/ は src 外なのでアプリのビルド対象にはならない設計ドキュメント兼コード生成元。
+    // I/F アダプタ(中立モデル → 各 IDL)。集約があるとき TypeSpec / OpenAPI を併出力。
     ...(ifModel.operations.length > 0
-      ? [{ path: 'interface/main.tsp', content: emitTypeSpec(ifModel) }]
+      ? [
+          { path: 'interface/main.tsp', content: emitTypeSpec(ifModel) },
+          { path: 'interface/openapi.json', content: emitOpenApi(ifModel) },
+        ]
       : []),
     ...doc.pages.map((page, i) => ({
       path: paths.page(i),

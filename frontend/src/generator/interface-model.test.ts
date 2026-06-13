@@ -3,6 +3,7 @@ import { DataModel, type ModelKind } from '@/domain/data-model';
 import type { ModelId } from '@/domain/ids';
 import { deriveInterfaceModel } from './interface-model';
 import { emitTypeSpec } from './emit-typespec';
+import { emitOpenApi } from './emit-openapi';
 
 const unwrap = <T,>(r: Readonly<{ ok: true; value: T }> | Readonly<{ ok: false; error: unknown }>): T => {
   if (!r.ok) throw new Error('fixture failed');
@@ -98,5 +99,71 @@ describe('emitTypeSpec', () => {
     expect(tsp).toContain('@route("/customers/{id}") @get getCustomer(@path id: string): Customer;');
     expect(tsp).toContain('@route("/customers") @post createCustomer(@body body: CustomerInput): Customer;');
     expect(tsp).toContain('@route("/customers/{id}") @delete deleteCustomer(@path id: string): void;');
+  });
+});
+
+describe('emitOpenApi(I/F アダプタ第2弾)', () => {
+  // 同じ中立モデルから OpenAPI を出力。パースして構造を検証する
+  const json = emitOpenApi(deriveInterfaceModel(buildModel(), 'マイアプリ API'));
+  const doc = JSON.parse(json) as {
+    openapi: string;
+    info: { title: string; version: string };
+    paths: Record<string, Record<string, { operationId: string; parameters?: unknown[]; requestBody?: unknown; responses: Record<string, unknown> }>>;
+    components: { schemas: Record<string, { type: string; properties: Record<string, unknown>; required?: string[] }> };
+  };
+
+  it('有効な JSON で OpenAPI 3.0.3 のメタ情報を持つ', () => {
+    expect(doc.openapi).toBe('3.0.3');
+    expect(doc.info).toEqual({ title: 'マイアプリ API', version: '1.0.0' });
+  });
+
+  it('パスごとにメソッドがまとまる(/customers は get+post、/customers/{id} は get+delete)', () => {
+    expect(Object.keys(doc.paths['/customers']!).sort()).toEqual(['get', 'post']);
+    expect(Object.keys(doc.paths['/customers/{id}']!).sort()).toEqual(['delete', 'get']);
+    expect(doc.paths['/customers']!.get!.operationId).toBe('listCustomers');
+  });
+
+  it('パスパラメータ・リクエストボディ・ステータスコードを正しく出す', () => {
+    const getOne = doc.paths['/customers/{id}']!.get!;
+    expect(getOne.parameters).toEqual([{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }]);
+    // 取得: 成功 200 + パスパラメータがあるので 404
+    expect(Object.keys(getOne.responses).sort()).toEqual(['200', '404']);
+
+    const create = doc.paths['/customers']!.post!;
+    expect(create.requestBody).toMatchObject({
+      required: true,
+      content: { 'application/json': { schema: { $ref: '#/components/schemas/CustomerInput' } } },
+    });
+    // 作成: 201 + ボディがあるので 400
+    expect(Object.keys(create.responses).sort()).toEqual(['201', '400']);
+
+    const del = doc.paths['/customers/{id}']!.delete!;
+    // 削除: 応答なし 204 + パスパラメータの 404
+    expect(Object.keys(del.responses).sort()).toEqual(['204', '404']);
+
+    // 一覧: パスパラメータもボディもないので成功のみ
+    expect(Object.keys(doc.paths['/customers']!.get!.responses)).toEqual(['200']);
+  });
+
+  it('list の応答は配列スキーマ($ref の items)になる', () => {
+    const list = doc.paths['/customers']!.get!;
+    expect(list.responses['200']).toMatchObject({
+      content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Customer' } } } },
+    });
+  });
+
+  it('DTO は components.schemas に出力され、required は非任意フィールドのみ', () => {
+    const customer = doc.components.schemas['Customer']!;
+    expect(customer.type).toBe('object');
+    expect(customer.properties['orders']).toEqual({ type: 'array', items: { type: 'string' } });
+    expect(customer.required).toContain('id');
+    expect(customer.required).toContain('name');
+    expect(customer.required ?? []).not.toContain('age'); // 任意フィールド
+    expect(doc.components.schemas['CustomerInput']).toBeDefined();
+  });
+
+  it('集約がなければ paths は空', () => {
+    const empty = JSON.parse(emitOpenApi(deriveInterfaceModel(DataModel.empty(), 'x'))) as { paths: object };
+    expect(Object.keys(empty.paths)).toHaveLength(0);
   });
 });
