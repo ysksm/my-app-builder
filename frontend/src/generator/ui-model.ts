@@ -55,6 +55,7 @@ const REALTIME_TAG: Partial<Record<ComponentNode['type'], string>> = {
   gauge: 'Gauge',
   lamp: 'Lamp',
   chart: 'Chart',
+  setpoint: 'Setpoint',
 };
 
 /** ComponentNode 木 → 中立 UI 要素ツリー */
@@ -143,8 +144,9 @@ export const toUiTree = (node: ComponentNode): UiElement => {
     case 'metric':
     case 'gauge':
     case 'lamp':
-    case 'chart': {
-      // モニタリング部品は framework のコンポーネント参照。有効 props をそのまま渡す
+    case 'chart':
+    case 'setpoint': {
+      // モニタリング/設定部品は framework のコンポーネント参照。有効 props をそのまま渡す
       const attrs: Record<string, UiAttrValue> = {};
       for (const [k, v] of Object.entries({ ...def.defaultProps, ...node.props })) attrs[k] = v;
       return make({ tag: REALTIME_TAG[node.type]!, component: true, attrs });

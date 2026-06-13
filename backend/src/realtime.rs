@@ -3,9 +3,11 @@ use axum::{
         ws::{Message, WebSocket, WebSocketUpgrade},
         Path, Query,
     },
+    http::StatusCode,
     response::Response,
+    Json,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -206,6 +208,72 @@ async fn stream_samples(mut socket: WebSocket, connector: Box<dyn Connector>) {
     }
 }
 
+// ---------- 書き込み(設定ツール用途、FR-RT-05)----------
+
+/// 機器への書き込み要求。write capability を持つコネクタ(Modbus 等)で実行する。
+#[derive(Deserialize)]
+pub struct WriteRequest {
+    pub value: f64,
+    /// "modbus" のとき Modbus 書き込み。その他はモック(ACK のみ)
+    pub kind: Option<String>,
+    pub host: Option<String>,
+    pub unit: Option<u8>,
+    pub register: Option<u16>,
+    pub scale: Option<f64>,
+}
+
+#[derive(Serialize)]
+pub struct WriteResult {
+    pub ok: bool,
+    /// 実際に機器へ書いた生レジスタ値(モックでは null)
+    pub written: Option<u16>,
+}
+
+/// 保持レジスタへ1ワード書き込む(scale 逆変換は呼び出し側で実施済み)
+async fn modbus_write(
+    addr: SocketAddr,
+    unit: u8,
+    register: u16,
+    value: u16,
+) -> Result<(), String> {
+    use tokio_modbus::prelude::{Slave, Writer};
+    let mut ctx = tokio_modbus::client::tcp::connect_slave(addr, Slave(unit))
+        .await
+        .map_err(|e| e.to_string())?;
+    ctx.write_single_register(register, value)
+        .await
+        .map_err(|e| e.to_string())? // I/O エラー
+        .map_err(|e| format!("modbus exception: {e:?}"))?; // 例外応答
+    Ok(())
+}
+
+/// 生レジスタ値へ変換(read の raw*scale の逆。0..=65535 にクランプ)
+fn to_register(value: f64, scale: f64) -> u16 {
+    let raw = if scale != 0.0 { value / scale } else { value };
+    raw.round().clamp(0.0, u16::MAX as f64) as u16
+}
+
+/// POST /api/channels/{id}/write — チャネルへ値を書き込む(設定ツール)
+pub async fn channel_write(
+    Path(_channel_id): Path<String>,
+    Json(req): Json<WriteRequest>,
+) -> Result<Json<WriteResult>, (StatusCode, String)> {
+    if req.kind.as_deref() == Some("modbus") {
+        let addr: SocketAddr = req
+            .host
+            .as_ref()
+            .and_then(|h| h.parse().ok())
+            .ok_or((StatusCode::BAD_REQUEST, "invalid or missing host".into()))?;
+        let reg = to_register(req.value, req.scale.unwrap_or(1.0));
+        modbus_write(addr, req.unit.unwrap_or(1), req.register.unwrap_or(0), reg)
+            .await
+            .map_err(|e| (StatusCode::BAD_GATEWAY, e))?;
+        return Ok(Json(WriteResult { ok: true, written: Some(reg) }));
+    }
+    // モックコネクタ: 書き込みは ACK のみ(実機器なし)
+    Ok(Json(WriteResult { ok: true, written: None }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -344,6 +412,90 @@ mod tests {
             }
         }
         assert!((got - 424.2).abs() < 0.001, "expected ~424.2, got {got}");
+    }
+
+    #[test]
+    fn to_register_applies_inverse_scale_and_clamps() {
+        // read は raw*scale なので write は value/scale
+        assert_eq!(to_register(42.0, 0.1), 420);
+        assert_eq!(to_register(50.0, 1.0), 50);
+        assert_eq!(to_register(-5.0, 1.0), 0); // 下限クランプ
+        assert_eq!(to_register(1_000_000.0, 1.0), u16::MAX); // 上限クランプ
+    }
+
+    #[tokio::test]
+    async fn mock_write_acks_without_register() {
+        let res = channel_write(
+            Path("cpu".into()),
+            Json(WriteRequest { value: 1.0, kind: None, host: None, unit: None, register: None, scale: None }),
+        )
+        .await
+        .unwrap();
+        assert!(res.ok);
+        assert_eq!(res.written, None); // モックは機器なし=ACK のみ
+    }
+
+    /// WriteSingleRegister を記録する in-process Modbus/TCP サーバ
+    #[derive(Clone)]
+    struct WriteCaptureService {
+        last: Arc<Mutex<Option<(u16, u16)>>>,
+    }
+
+    impl tokio_modbus::server::Service for WriteCaptureService {
+        type Request = tokio_modbus::prelude::Request<'static>;
+        type Response = tokio_modbus::prelude::Response;
+        type Exception = tokio_modbus::ExceptionCode;
+        type Future = std::future::Ready<Result<Self::Response, Self::Exception>>;
+
+        fn call(&self, req: Self::Request) -> Self::Future {
+            use tokio_modbus::prelude::{Request, Response};
+            let res = match req {
+                Request::WriteSingleRegister(addr, value) => {
+                    *self.last.lock().unwrap() = Some((addr, value));
+                    Ok(Response::WriteSingleRegister(addr, value))
+                }
+                _ => Err(tokio_modbus::ExceptionCode::IllegalFunction),
+            };
+            std::future::ready(res)
+        }
+    }
+
+    #[tokio::test]
+    async fn channel_write_writes_scaled_register_via_modbus() {
+        use tokio_modbus::server::tcp::{accept_tcp_connection, Server};
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let captured = Arc::new(Mutex::new(None));
+        let svc = WriteCaptureService { last: captured.clone() };
+        tokio::spawn(async move {
+            let server = Server::new(listener);
+            let new_service = move |_socket: SocketAddr| Ok(Some(svc.clone()));
+            let on_connected = move |stream, socket| {
+                let new_service = new_service.clone();
+                async move { accept_tcp_connection(stream, socket, new_service) }
+            };
+            let _ = server.serve(&on_connected, |_err| {}).await;
+        });
+
+        // value 42.0 / scale 0.1 = 420 をレジスタ 5 に書く
+        let res = channel_write(
+            Path("temp".into()),
+            Json(WriteRequest {
+                value: 42.0,
+                kind: Some("modbus".into()),
+                host: Some(addr.to_string()),
+                unit: Some(1),
+                register: Some(5),
+                scale: Some(0.1),
+            }),
+        )
+        .await
+        .unwrap();
+
+        assert!(res.ok);
+        assert_eq!(res.written, Some(420));
+        assert_eq!(*captured.lock().unwrap(), Some((5, 420)));
     }
 
     #[tokio::test]

@@ -184,19 +184,7 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
               ? 'Chart'
               : 'Metric';
       ctx.realtimeImports.add(tag);
-      // channelRef が登録簿のチャネルを指していればその設定を優先。なければ inline props
-      const ref = String(p('channelRef') ?? '');
-      const ch = ref ? ctx.channels.find((c) => c.id === ref) : undefined;
-      const rawSource = ch ? ch.source : String(p('source'));
-      const source = rawSource === 'live' || rawSource === 'modbus' ? rawSource : 'mock';
-      const channelKey = ch ? ch.key : String(p('channel'));
-      const cMin = ch ? ch.min : num(p('min'));
-      const cMax = ch ? ch.max : num(p('max'));
-      const cInterval = ch ? ch.interval : num(p('interval'));
-      const cHost = ch ? (ch.host ?? '') : String(p('host'));
-      const cUnit = ch ? (ch.unit ?? 1) : num(p('unit_id'));
-      const cRegister = ch ? (ch.register ?? 0) : num(p('register'));
-      const cScale = ch ? (ch.scale ?? 1) : num(p('scale'));
+      const rc = resolveChannelAttrs(node, ctx);
       // しきい値: 有限数のときだけ属性を出力(空欄=無効)
       const finite = (v: unknown): number | null => {
         if (typeof v === 'number' && Number.isFinite(v)) return v;
@@ -215,20 +203,12 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
       const attrs = [
         `label={${s(p('label'))}}`,
         ...(showsValue ? [`unit={${s(p('unit'))}}`] : []),
-        `source={${s(source)}}`,
-        `channel={${s(channelKey)}}`,
-        // Modbus/TCP のときだけ接続パラメータを渡す
-        ...(source === 'modbus'
-          ? [
-              `host={${s(cHost)}}`,
-              `unitId={${cUnit}}`,
-              `register={${cRegister}}`,
-              `scale={${cScale}}`,
-            ]
-          : []),
-        `min={${cMin}}`,
-        `max={${cMax}}`,
-        `interval={${cInterval}}`,
+        `source={${s(rc.source)}}`,
+        `channel={${s(rc.channelKey)}}`,
+        ...modbusAttrs(rc),
+        `min={${rc.min}}`,
+        `max={${rc.max}}`,
+        `interval={${rc.interval}}`,
         ...(showsValue ? [`decimals={${num(p('decimals'))}}`] : []),
         // チャートのみ: 保持サンプル数
         ...(node.type === 'chart' ? [`capacity={${num(p('capacity'))}}`] : []),
@@ -240,8 +220,63 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
       ].join(' ');
       return [`${pad}<${tag} ${attrs} />`];
     }
+    case 'setpoint': {
+      // 設定値の書き込み(FR-RT-05)。チャネルを書き込み先として解決する
+      ctx.realtimeImports.add('Setpoint');
+      const rc = resolveChannelAttrs(node, ctx);
+      const attrs = [
+        `label={${s(p('label'))}}`,
+        `unit={${s(p('unit'))}}`,
+        `value={${num(p('value'))}}`,
+        `source={${s(rc.source)}}`,
+        `channel={${s(rc.channelKey)}}`,
+        ...modbusAttrs(rc),
+        `writeLabel={${s(p('writeLabel'))}}`,
+        `confirmMessage={${s(p('confirmMessage'))}}`,
+      ].join(' ');
+      return [`${pad}<Setpoint ${attrs} />`];
+    }
   }
 };
+
+/** channelRef を登録簿で解決した実効データチャネル設定(なければ inline props) */
+type ResolvedChannel = {
+  source: string;
+  channelKey: string;
+  min: number;
+  max: number;
+  interval: number;
+  host: string;
+  unitId: number;
+  register: number;
+  scale: number;
+};
+
+const resolveChannelAttrs = (node: ComponentNode, ctx: EmitCtx): ResolvedChannel => {
+  const def = componentDefs[node.type];
+  const p = (key: string) => propOf(node, def, key);
+  const ref = String(p('channelRef') ?? '');
+  const ch = ref ? ctx.channels.find((c) => c.id === ref) : undefined;
+  const rawSource = ch ? ch.source : String(p('source'));
+  const source = rawSource === 'live' || rawSource === 'modbus' ? rawSource : 'mock';
+  return {
+    source,
+    channelKey: ch ? ch.key : String(p('channel')),
+    min: ch ? ch.min : num(p('min')),
+    max: ch ? ch.max : num(p('max')),
+    interval: ch ? ch.interval : num(p('interval')),
+    host: ch ? (ch.host ?? '') : String(p('host')),
+    unitId: ch ? (ch.unit ?? 1) : num(p('unit_id')),
+    register: ch ? (ch.register ?? 0) : num(p('register')),
+    scale: ch ? (ch.scale ?? 1) : num(p('scale')),
+  };
+};
+
+/** Modbus/TCP のときだけ接続パラメータ属性を返す */
+const modbusAttrs = (rc: ResolvedChannel): string[] =>
+  rc.source === 'modbus'
+    ? [`host={${s(rc.host)}}`, `unitId={${rc.unitId}}`, `register={${rc.register}}`, `scale={${rc.scale}}`]
+    : [];
 
 export type ComponentFileOptions = Readonly<{
   componentName: string;

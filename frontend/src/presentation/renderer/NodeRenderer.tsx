@@ -131,6 +131,8 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
       return <LampView node={node} mode={mode} />;
     case 'chart':
       return <ChartView node={node} mode={mode} />;
+    case 'setpoint':
+      return <SetpointView node={node} mode={mode} />;
   }
 }
 
@@ -302,6 +304,59 @@ function useMetricSeries(src: MetricSource, active: boolean, capacity: number): 
     });
   }, [value, capacity]);
   return series;
+}
+
+/** 設定値の書き込みコントロール(FR-RT-05)。preview では実際に BE へ書き込む */
+function SetpointView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
+  const def = componentDefs.setpoint;
+  const p = (key: string) => propOf(node, def, key);
+  const resolved = useResolvedChannel(node, def);
+  const [current, setCurrent] = useState<number>(num(p('value')));
+  const [status, setStatus] = useState<string>('');
+  const live = mode === 'preview';
+
+  const submit = async () => {
+    if (!window.confirm(str(p('confirmMessage')))) return;
+    setStatus('書き込み中…');
+    try {
+      const body: Record<string, unknown> = { value: current };
+      if (resolved.source === 'modbus') {
+        body.kind = 'modbus';
+        if (resolved.host) body.host = resolved.host;
+        body.unit = resolved.unitId;
+        body.register = resolved.register;
+        body.scale = resolved.scale;
+      }
+      const res = await fetch(`/api/channels/${encodeURIComponent(resolved.channel || 'default')}/write`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = (await res.json()) as { ok: boolean; written?: number | null };
+      setStatus(res.ok && data.ok ? `書き込み完了${data.written != null ? ` (reg=${data.written})` : ''}` : '書き込み失敗');
+    } catch {
+      setStatus('通信エラー');
+    }
+  };
+
+  return (
+    <div className="c-setpoint">
+      <span className="c-setpoint-label">{str(p('label'))}</span>
+      <div className="c-setpoint-row">
+        <input
+          className="c-setpoint-input"
+          type="number"
+          value={current}
+          onChange={(e) => setCurrent(Number(e.target.value))}
+        />
+        <span className="c-setpoint-unit">{str(p('unit'))}</span>
+        <button className="c-setpoint-btn" type="button" onClick={live ? submit : undefined}>
+          {str(p('writeLabel'))}
+        </button>
+      </div>
+      {status && <span className="c-setpoint-status">{status}</span>}
+    </div>
+  );
 }
 
 export type MetricThresholds = Readonly<{

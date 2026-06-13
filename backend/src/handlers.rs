@@ -42,6 +42,7 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/projects/{id}/build", post(build::build_project))
         .route("/api/channels/{id}/stream", get(realtime::channel_stream))
+        .route("/api/channels/{id}/write", post(realtime::channel_write))
         .route("/preview/{id}", get(build::serve_preview_index))
         .route("/preview/{id}/", get(build::serve_preview_index))
         .route("/preview/{id}/{*path}", get(build::serve_preview_file))

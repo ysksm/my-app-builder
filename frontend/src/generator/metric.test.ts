@@ -20,7 +20,7 @@ const docWithMetric = (props: Record<string, string | number> = {}) => {
 };
 
 /** 任意のリアルタイム部品(metric/gauge/lamp)を複数ぶら下げたドキュメント */
-const docWithParts = (...parts: Array<{ type: 'metric' | 'gauge' | 'lamp' | 'chart'; props?: Record<string, string | number> }>) => {
+const docWithParts = (...parts: Array<{ type: 'metric' | 'gauge' | 'lamp' | 'chart' | 'setpoint'; props?: Record<string, string | number> }>) => {
   const doc = ProjectDoc.create();
   const home = doc.pages[0]!;
   let root = home.root;
@@ -218,5 +218,52 @@ describe('chart(スパークライン + 時系列バッファ FR-RT-03)生成', 
       'x',
     ).find((f) => f.path === 'src/pages/Page0.tsx')!.content;
     expect(page).toContain(`import { Chart, Gauge, Lamp, Metric } from '../shared/realtime/runtime';`);
+  });
+});
+
+describe('setpoint(設定値の書き込み FR-RT-05)生成', () => {
+  it('Setpoint コンポーネントを生成し、確認 + write エンドポイントへ POST する', () => {
+    const files = generateProject(docWithParts({ type: 'setpoint' }), 'x');
+    const runtime = files.find((f) => f.path === 'src/shared/realtime/runtime.tsx')!.content;
+    expect(runtime).toContain('export function Setpoint(');
+    expect(runtime).toContain('window.confirm(confirmMessage)');
+    expect(runtime).toContain(`'/api/channels/' + encodeURIComponent(channel`);
+    expect(runtime).toContain(`method: 'POST'`);
+
+    const page = files.find((f) => f.path === 'src/pages/Page0.tsx')!.content;
+    expect(page).toContain('<Setpoint ');
+    expect(page).toContain(`import { Setpoint } from '../shared/realtime/runtime';`);
+  });
+
+  it('mock チャネルの setpoint は Modbus 属性を出さない', () => {
+    const page = generateProject(docWithParts({ type: 'setpoint', props: { source: 'mock' } }), 'x').find(
+      (f) => f.path === 'src/pages/Page0.tsx',
+    )!.content;
+    expect(page).toContain('<Setpoint ');
+    expect(page).not.toContain('host=');
+    expect(page).not.toContain('register=');
+  });
+
+  it('source=modbus の setpoint は書き込み先の Modbus パラメータを渡す', () => {
+    const page = generateProject(
+      docWithParts({
+        type: 'setpoint',
+        props: { source: 'modbus', channel: 'sp', host: '127.0.0.1:5502', unit_id: 2, register: 9, scale: 0.5 },
+      }),
+      'x',
+    ).find((f) => f.path === 'src/pages/Page0.tsx')!.content;
+    expect(page).toContain('source={"modbus"}');
+    expect(page).toContain('channel={"sp"}');
+    expect(page).toContain('host={"127.0.0.1:5502"}');
+    expect(page).toContain('unitId={2}');
+    expect(page).toContain('register={9}');
+    expect(page).toContain('scale={0.5}');
+  });
+
+  it('setpoint 用の CSS が app.css に含まれる', () => {
+    const appCss = generateProject(docWithParts({ type: 'setpoint' }), 'x').find(
+      (f) => f.path === 'src/shared/styles/app.css',
+    )!.content;
+    expect(appCss).toContain('.c-setpoint-btn');
   });
 });

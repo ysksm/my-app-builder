@@ -272,6 +272,23 @@ body {
 .c-chart.s-warn .c-chart-value { color: var(--color-warn, #d98e00); }
 .c-chart.s-crit .c-chart-line { stroke: var(--color-danger, #e03131); }
 .c-chart.s-crit .c-chart-value { color: var(--color-danger, #e03131); }
+.c-setpoint {
+  display: inline-flex; flex-direction: column; gap: 8px; align-self: flex-start; min-width: 220px;
+  background: var(--color-surface-card, #fff); border: 1px solid var(--color-border, #c6cde4);
+  border-radius: var(--radius-md, 8px); padding: 14px 18px;
+}
+.c-setpoint-label { font-size: 12px; color: var(--color-text-muted, #5b6480); }
+.c-setpoint-row { display: flex; align-items: center; gap: 8px; }
+.c-setpoint-input {
+  flex: 1; min-width: 0; border: 1px solid var(--color-border, #c6cde4); border-radius: var(--radius-sm, 4px);
+  padding: 8px 10px; font-size: 15px; background: var(--color-surface, #eef1f8); color: var(--color-text, #1f2430);
+}
+.c-setpoint-unit { font-size: 13px; color: var(--color-text-muted, #5b6480); }
+.c-setpoint-btn {
+  border: none; border-radius: var(--radius-md, 8px); padding: 8px 14px; font-size: 13px; cursor: pointer;
+  background: var(--color-primary, #4263eb); color: var(--color-primary-text, #fff);
+}
+.c-setpoint-status { font-size: 12px; color: var(--color-text-muted, #5b6480); }
 .c-table { border-collapse: collapse; width: 100%; font-size: 13px; background: var(--color-surface-card, #fff); border-radius: var(--radius-sm, 4px); }
 .c-table th, .c-table td { border: 1px solid var(--color-border, #dde2f0); padding: 7px 10px; text-align: left; }
 .c-table th { background: var(--color-surface, #eef1fa); color: var(--color-text-muted, #3c4566); }

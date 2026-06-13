@@ -269,6 +269,32 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
       ...thresholdFields,
     ],
   },
+  setpoint: {
+    type: 'setpoint',
+    label: '設定値の書き込み',
+    icon: '🎛️',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    // 設定ツール: フォーム値をチャネル経由で機器へ書き込む(確認ダイアログ付き、FR-RT-05)
+    defaultProps: {
+      label: '目標温度',
+      unit: '℃',
+      value: 25,
+      writeLabel: '書き込み',
+      confirmMessage: 'この値を機器へ書き込みます。よろしいですか?',
+      ...channelDefaults,
+      channel: 'setpoint',
+    },
+    propFields: [
+      { key: 'label', label: 'ラベル', input: 'text' },
+      { key: 'unit', label: '単位', input: 'text' },
+      { key: 'value', label: '初期値', input: 'number' },
+      ...channelFields,
+      { key: 'writeLabel', label: 'ボタン文言', input: 'text' },
+      { key: 'confirmMessage', label: '確認メッセージ', input: 'text' },
+    ],
+  },
   header: {
     type: 'header',
     label: 'ヘッダー',

@@ -18,7 +18,8 @@ export type ComponentType =
   | 'metric'
   | 'gauge'
   | 'lamp'
-  | 'chart';
+  | 'chart'
+  | 'setpoint';
 
 export type ComponentNode = Readonly<{
   id: NodeId;

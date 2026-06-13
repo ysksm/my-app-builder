@@ -131,6 +131,25 @@ body {
 .c-chart.s-crit .c-chart-line { stroke: var(--color-danger); }
 .c-chart.s-crit .c-chart-value { color: var(--color-danger); }
 
+/* 設定値の書き込みコントロール(設定ツール) */
+.c-setpoint {
+  display: inline-flex; flex-direction: column; gap: 8px; align-self: flex-start;
+  background: var(--color-surface-card); border: 1px solid var(--color-border);
+  border-radius: var(--radius-md); padding: 14px 18px; min-width: 220px;
+}
+.c-setpoint-label { font-size: 12px; color: var(--color-text-muted); }
+.c-setpoint-row { display: flex; align-items: center; gap: 8px; }
+.c-setpoint-input {
+  flex: 1; min-width: 0; border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: 8px 10px; font-size: 15px; background: var(--color-surface); color: var(--color-text);
+}
+.c-setpoint-unit { font-size: 13px; color: var(--color-text-muted); }
+.c-setpoint-btn {
+  border: none; border-radius: var(--radius-md); padding: 8px 14px; font-size: 13px;
+  cursor: pointer; background: var(--color-primary); color: var(--color-primary-text);
+}
+.c-setpoint-status { font-size: 12px; color: var(--color-text-muted); }
+
 .c-table {
   border-collapse: collapse;
   width: 100%;

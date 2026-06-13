@@ -19,7 +19,7 @@ export type { GeneratedFile } from './files';
 /** ドキュメント内にリアルタイムモニタリング部品(metric / gauge / lamp)があるか */
 const usesMetric = (doc: ProjectDoc): boolean => {
   const isRealtime = (t: ComponentNode['type']): boolean =>
-    t === 'metric' || t === 'gauge' || t === 'lamp' || t === 'chart';
+    t === 'metric' || t === 'gauge' || t === 'lamp' || t === 'chart' || t === 'setpoint';
   const treeHas = (node: ComponentNode): boolean =>
     isRealtime(node.type) || node.children.some(treeHas);
   return (
@@ -247,6 +247,66 @@ export function Chart(props: RealtimeProps & { capacity?: number }) {
       <svg className="c-chart-svg" viewBox={'0 0 ' + W + ' ' + H} preserveAspectRatio="none">
         {series.length > 1 && <polyline className="c-chart-line" points={points} fill="none" />}
       </svg>
+    </div>
+  );
+}
+
+export type SetpointProps = {
+  label: string;
+  unit: string;
+  value: number;
+  source: 'mock' | 'live' | 'modbus';
+  channel: string;
+  host?: string;
+  unitId?: number;
+  register?: number;
+  scale?: number;
+  writeLabel: string;
+  confirmMessage: string;
+};
+
+/** 設定値の書き込み(FR-RT-05)。確認の上 BE の write エンドポイント経由で機器へ書く */
+export function Setpoint(props: SetpointProps) {
+  const { label, unit, value, source, channel, host, unitId, register, scale, writeLabel, confirmMessage } = props;
+  const [current, setCurrent] = useState<number>(value);
+  const [status, setStatus] = useState<string>('');
+  const submit = async () => {
+    if (!window.confirm(confirmMessage)) return;
+    setStatus('書き込み中…');
+    try {
+      const body: Record<string, unknown> = { value: current };
+      if (source === 'modbus') {
+        body.kind = 'modbus';
+        if (host) body.host = host;
+        if (unitId != null) body.unit = unitId;
+        if (register != null) body.register = register;
+        if (scale != null) body.scale = scale;
+      }
+      const res = await fetch('/api/channels/' + encodeURIComponent(channel || 'default') + '/write', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = (await res.json()) as { ok: boolean; written?: number | null };
+      setStatus(res.ok && data.ok ? '書き込み完了' + (data.written != null ? ' (reg=' + data.written + ')' : '') : '書き込み失敗');
+    } catch {
+      setStatus('通信エラー');
+    }
+  };
+  return (
+    <div className="c-setpoint">
+      <span className="c-setpoint-label">{label}</span>
+      <div className="c-setpoint-row">
+        <input
+          className="c-setpoint-input"
+          type="number"
+          value={current}
+          onChange={(e) => setCurrent(Number(e.target.value))}
+        />
+        <span className="c-setpoint-unit">{unit}</span>
+        <button className="c-setpoint-btn" type="button" onClick={submit}>{writeLabel}</button>
+      </div>
+      {status && <span className="c-setpoint-status">{status}</span>}
     </div>
   );
 }
