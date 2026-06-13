@@ -64,11 +64,16 @@ export const emitVueElement = (el: UiElement, indent = 0): string[] => {
   ];
 };
 
-/** ComponentNode 木 → Vue 3 SFC(<script setup> + <template>) */
-export const emitVuePage = (root: ComponentNode, componentName: string): string => {
+/** ComponentNode 木 → Vue 3 SFC(<script setup> + <template>)。
+ *  importBase は UI 部品(Metric 等)の import 元ディレクトリ(既定 './realtime')。 */
+export const emitVuePage = (
+  root: ComponentNode,
+  componentName: string,
+  importBase = './realtime',
+): string => {
   const tree = toUiTree(root);
   const components = [...collectComponents(tree)].sort();
-  const imports = components.map((c) => `import ${c} from './realtime/${c}.vue';`).join('\n');
+  const imports = components.map((c) => `import ${c} from '${importBase}/${c}.vue';`).join('\n');
   const template = emitVueElement(tree, 1).join('\n');
 
   return `<!-- 自動生成 — AppForge: Vue 3 SFC(framework generator PoC / ${componentName}) -->
