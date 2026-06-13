@@ -61,21 +61,25 @@ const packageJson = (projectName: string): string =>
     2,
   )}\n`;
 
-const viteConfig = `// 自動生成 — AppForge(Remix / React Router 7)
+// vite の base と RR7 の basename を一致させる。プレビュー(サブパス配信)では
+// その配信パスを、ルート配備(エクスポート)では '/' を渡す。
+const viteConfig = (basename: string): string => `// 自動生成 — AppForge(Remix / React Router 7)
 import { reactRouter } from '@react-router/dev/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: './',
+  base: ${JSON.stringify(basename)},
   plugins: [reactRouter()],
 });
 `;
 
-const rrConfig = `import type { Config } from '@react-router/dev/config';
+const rrConfig = (basename: string): string => `import type { Config } from '@react-router/dev/config';
 
-// SPA モード(SSR なし)。静的ホスティング(BE の dist 配信)に載せられる
+// SPA モード(SSR なし)。静的ホスティング(BE の dist 配信)に載せられる。
+// basename はパスルーティングを配信サブパスに合わせるため(ルート配備時は '/')。
 export default {
   ssr: false,
+  basename: ${JSON.stringify(basename)},
 } satisfies Config;
 `;
 
@@ -286,12 +290,21 @@ const usesRealtime = (doc: ProjectDoc): boolean => {
   );
 };
 
-/** ProjectDoc → ビルド可能な Remix(RR7 SPA)アプリ一式 */
-export const generateRemixProject = (doc: ProjectDoc, projectName: string): GeneratedFile[] => {
+/**
+ * ProjectDoc → ビルド可能な Remix(RR7 SPA)アプリ一式。
+ * basename はパスルーティングを配信パスに合わせるため(プレビュー=サブパス /
+ * ルート配備・エクスポート=既定 '/')。末尾は正規化して与える。
+ */
+export const generateRemixProject = (
+  doc: ProjectDoc,
+  projectName: string,
+  basename = '/',
+): GeneratedFile[] => {
+  const base = basename.endsWith('/') ? basename : `${basename}/`;
   const files: GeneratedFile[] = [
     file('package.json', packageJson(projectName)),
-    file('vite.config.ts', viteConfig),
-    file('react-router.config.ts', rrConfig),
+    file('vite.config.ts', viteConfig(base)),
+    file('react-router.config.ts', rrConfig(base)),
     file('tsconfig.json', tsconfig),
     file('app/root.tsx', rootTsx(doc)),
     file('app/routes.ts', routesTs(doc)),

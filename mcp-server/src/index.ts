@@ -20,14 +20,20 @@ import { describeApp } from './describe.js';
 
 /** 生成フレームワークの選択(FR-GEN-07)。react=完全機能 / vue・svelte・remix=UI 層 PoC */
 const Framework = z.enum(['react', 'vue', 'svelte', 'remix']).optional();
-const genFiles = (doc: ProjectDoc, name: string, framework?: string): GeneratedFile[] => {
+/** remixBasename: Remix(パスルーティング)をサブパス配信に合わせる(プレビュー時のみ)。既定 '/' */
+const genFiles = (
+  doc: ProjectDoc,
+  name: string,
+  framework?: string,
+  remixBasename = '/',
+): GeneratedFile[] => {
   switch (framework) {
     case 'vue':
       return generateVueProject(doc, name);
     case 'svelte':
       return generateSvelteProject(doc, name);
     case 'remix':
-      return generateRemixProject(doc, name);
+      return generateRemixProject(doc, name, remixBasename);
     default:
       return generateProject(doc, name);
   }
@@ -109,7 +115,7 @@ server.registerTool(
   {
     title: 'ソース生成',
     description:
-      'ビルド可能なアプリのソース一式を生成する。framework=react(既定、完全機能)/ vue/svelte/remix(UI 層 PoC、remix はパスルーティングのためサブパスプレビュー非対応)。filePath 指定でそのファイルの内容、未指定でファイル一覧(path / bytes)を返す',
+      'ビルド可能なアプリのソース一式を生成する。framework=react(既定、完全機能)/ vue/svelte/remix(UI 層 PoC)。filePath 指定でそのファイルの内容、未指定でファイル一覧(path / bytes)を返す',
     inputSchema: {
       projectId: z.string(),
       filePath: z.string().optional().describe('例: src/App.tsx'),
@@ -137,9 +143,13 @@ server.registerTool(
   },
   async ({ projectId, framework }) => {
     const { project, doc } = await loadDoc(projectId);
-    // Vue は独立ワークスペースでビルド(React の生成物と混在させない)
+    // react 以外は独立ワークスペースでビルド(生成物を混在させない)
     const workspace = buildWorkspace(projectId, framework);
-    const result = await api.build(workspace, genFiles(doc, project.name, framework));
+    // Remix のプレビューは配信サブパスを basename に焼き込む
+    const result = await api.build(
+      workspace,
+      genFiles(doc, project.name, framework, `/preview/${workspace}/`),
+    );
     return text({
       ok: result.ok,
       previewUrl: result.ok ? api.previewUrl(workspace) : null,

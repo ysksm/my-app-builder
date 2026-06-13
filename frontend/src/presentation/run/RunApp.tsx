@@ -7,6 +7,7 @@ import {
   generateVueProject,
   type GeneratedFile,
 } from '@/generator';
+import type { ProjectDoc } from '@/domain/project-doc';
 import { toPackageName } from '@/generator/identifiers';
 import { useAppSelector } from '../store/hooks';
 
@@ -24,18 +25,23 @@ const FRAMEWORKS: ReadonlyArray<{ id: Framework; label: string }> = [
   { id: 'remix', label: 'Remix' },
 ];
 
-// Remix はパスルーティングのため、動的サブパス(/preview/{id}/)での
-// アプリ内プレビューに非対応(ルート '/' でデプロイすれば正しく動く)
-const PREVIEWABLE = new Set<Framework>(['react', 'vue', 'svelte']);
-
-const generateFor = (framework: Framework, doc: Parameters<typeof generateProject>[0], name: string): GeneratedFile[] => {
+/**
+ * フレームワーク別にソース生成。Remix(パスルーティング)はサブパス配信に合わせて
+ * basename を渡す(プレビュー時のみ)。それ以外(エクスポート)は既定 '/' でポータブル。
+ */
+const generateFor = (
+  framework: Framework,
+  doc: ProjectDoc,
+  name: string,
+  remixBasename?: string,
+): GeneratedFile[] => {
   switch (framework) {
     case 'vue':
       return generateVueProject(doc, name);
     case 'svelte':
       return generateSvelteProject(doc, name);
     case 'remix':
-      return generateRemixProject(doc, name);
+      return generateRemixProject(doc, name, remixBasename ?? '/');
     default:
       return generateProject(doc, name);
   }
@@ -62,7 +68,8 @@ export function RunApp() {
     if (!projectId) return;
     let cancelled = false;
     setState({ phase: 'building' });
-    const files = generateFor(framework, doc, projectName);
+    // Remix のプレビューは配信サブパスを basename に焼き込む(他フレームワークは無視)
+    const files = generateFor(framework, doc, projectName, `/preview/${buildId}/`);
     void fetch(`/api/projects/${buildId}/build`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -148,22 +155,13 @@ export function RunApp() {
       {(showLog || state.phase === 'error') && state.phase !== 'building' && (
         <pre className="run-log">{state.log}</pre>
       )}
-      {state.phase === 'ok' && PREVIEWABLE.has(framework) && (
+      {state.phase === 'ok' && (
         <iframe
           className="run-iframe"
           title="生成アプリ"
           sandbox="allow-scripts allow-same-origin"
           src={`/preview/${buildId}/?v=${nonce}&fw=${framework}`}
         />
-      )}
-      {state.phase === 'ok' && !PREVIEWABLE.has(framework) && (
-        <div className="run-notice">
-          <p>✅ {framework} アプリのビルドに成功しました。</p>
-          <p className="muted">
-            Remix はパスルーティングのため、この動的サブパス(/preview/…)でのアプリ内プレビューに非対応です。
-            「ソースを ZIP ダウンロード」してルート(/)で実行すると正しく動作します。
-          </p>
-        </div>
       )}
       {state.phase === 'building' && (
         <div className="boot">ソース生成 → npm install → tsc + vite build を実行中…</div>

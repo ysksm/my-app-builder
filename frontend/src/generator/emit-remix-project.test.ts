@@ -29,8 +29,10 @@ describe('generateRemixProject(Remix / RR7 framework generator FR-GEN-07)', () =
         'app/routes/page1.tsx',
       ]),
     );
-    // SPA モード設定
-    expect(find(files, 'react-router.config.ts')).toContain('ssr: false');
+    // SPA モード設定 + basename(既定 '/')
+    const rrConfig = find(files, 'react-router.config.ts');
+    expect(rrConfig).toContain('ssr: false');
+    expect(rrConfig).toContain('basename: "/"');
     // SPA ビルドは build/client → dist へ複製(BE 配信のため)
     const pkg = JSON.parse(find(files, 'package.json')) as { scripts: Record<string, string>; dependencies: Record<string, string> };
     expect(pkg.scripts.build).toContain('react-router build');
@@ -67,6 +69,12 @@ describe('generateRemixProject(Remix / RR7 framework generator FR-GEN-07)', () =
     expect(page).toContain(`import { Metric } from '../shared/realtime'`);
     expect(page).toContain('<Metric ');
     expect(page).toContain('min={0}');
+  });
+
+  it('basename を渡すと vite base / RR7 basename に焼き込む(サブパス配信用、末尾 / 正規化)', () => {
+    const files = generateRemixProject(ProjectDoc.create(), 'x', '/preview/abc-remix');
+    expect(find(files, 'react-router.config.ts')).toContain('basename: "/preview/abc-remix/"');
+    expect(find(files, 'vite.config.ts')).toContain('base: "/preview/abc-remix/"');
   });
 
   it('モニタリング部品を使うときだけ realtime.tsx を出力する', () => {
