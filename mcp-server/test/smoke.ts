@@ -42,12 +42,19 @@ for (const expected of [
   if (!names.includes(expected)) fail(`ツールがありません: ${expected}`);
 }
 
-// list_projects
+// list_projects(空なら Phase 0 用に1つ作成 + 集約を1つ追加)
 const list = await client.callTool({ name: 'list_projects', arguments: {} });
 const projects = JSON.parse(textOf(list)) as Array<{ id: string; name: string }>;
-if (projects.length === 0) fail('プロジェクトがありません(ビルダーで作成してから実行してください)');
-const id = projects[0]!.id;
-console.log(`project: ${projects[0]!.name} (${id})`);
+let id: string;
+if (projects.length === 0) {
+  const seed = JSON.parse(textOf(await client.callTool({ name: 'create_project', arguments: { name: 'Smoke Seed' } }))) as { id: string };
+  id = seed.id;
+  await client.callTool({ name: 'add_aggregate', arguments: { projectId: id, name: 'Customer', fields: [{ name: 'name', type: 'string' }] } });
+  console.log(`seeded project: ${id}`);
+} else {
+  id = projects[0]!.id;
+  console.log(`project: ${projects[0]!.name} (${id})`);
+}
 
 // describe_app
 const desc = JSON.parse(textOf(await client.callTool({ name: 'describe_app', arguments: { projectId: id } })));
@@ -161,6 +168,27 @@ if (!contractSrc.includes('CalcShippingService = (entity: Product, weight: numbe
   fail('ドメインサービス契約が正しく生成されていません');
 }
 console.log('addService → 契約生成 OK');
+
+// ユースケース: addUsecase → updateUsecase(name=placeProduct, save=true)
+const ucAdd = JSON.parse(
+  textOf(await client.callTool({ name: 'apply_commands', arguments: { projectId: pid, commands: [{ kind: 'addUsecase', modelId: product.id }] } })),
+) as { ok: boolean; created: { usecaseId: string } };
+if (!ucAdd.ok) fail('apply_commands(addUsecase) が失敗しました');
+const ucUpd = await client.callTool({
+  name: 'apply_commands',
+  arguments: {
+    projectId: pid,
+    commands: [{ kind: 'updateUsecase', modelId: product.id, usecaseId: ucAdd.created.usecaseId, patch: { name: 'placeProduct', save: true } }],
+  },
+});
+if (ucUpd.isError) fail('apply_commands(updateUsecase) が失敗しました');
+const ucSrc = textOf(
+  await client.callTool({ name: 'generate_source', arguments: { projectId: pid, filePath: 'src/features/product/application/place-product.ts' } }),
+);
+if (!ucSrc.includes('export const placeProduct = async (') || !ucSrc.includes('Product.create(input)')) {
+  fail('ユースケースが正しく生成されていません');
+}
+console.log('addUsecase → application 関数生成 OK');
 
 // 不正コマンドは拒否される
 const bad = await client.callTool({ name: 'apply_commands', arguments: { projectId: pid, commands: [{ kind: 'dropEverything' }] } });

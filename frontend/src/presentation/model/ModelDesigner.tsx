@@ -8,7 +8,7 @@ import {
   type RuleOp,
   type ServiceReturn,
 } from '@/domain/data-model';
-import type { FieldId, ModelId, RuleId, ServiceId } from '@/domain/ids';
+import type { FieldId, ModelId, RuleId, ServiceId, UsecaseId } from '@/domain/ids';
 import {
   dmFieldAdded,
   dmFieldRemoved,
@@ -24,6 +24,9 @@ import {
   dmServiceAdded,
   dmServiceRemoved,
   dmServiceUpdated,
+  dmUsecaseAdded,
+  dmUsecaseRemoved,
+  dmUsecaseUpdated,
   modelSelected,
 } from '../store/editor-slice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -275,6 +278,8 @@ function ModelCard({
 
       {model.kind === 'aggregate' && <ServicesSection model={model} />}
 
+      {model.kind === 'aggregate' && model.fields.length >= 1 && <UsecasesSection model={model} />}
+
       <div className="model-card-actions">
         <button
           type="button"
@@ -482,6 +487,82 @@ function ServicesSection({ model }: { model: ModelDef }) {
       {model.services.length > 0 && (
         <p className="rule-hint muted">契約を生成し、実装は *.impl.ts(再生成で保持)に手書きします</p>
       )}
+    </div>
+  );
+}
+
+/** ユースケース編集(名前 + 適用サービス + save)。application 層の読める関数に生成される */
+function UsecasesSection({ model }: { model: ModelDef }) {
+  const dispatch = useAppDispatch();
+  const eligible = model.services.filter((s) => s.returns === 'self' && s.params.length === 0);
+
+  return (
+    <div className="rules-section">
+      <div className="rules-head">ユースケース(フロー)</div>
+      {model.usecases.map((uc) => (
+        <div key={uc.id} className="usecase-block">
+          <div className="rule-row">
+            <input
+              key={uc.name}
+              type="text"
+              className="rule-message"
+              defaultValue={uc.name}
+              title="ユースケース名(camelCase)"
+              onBlur={(e) => {
+                if (e.target.value !== uc.name) {
+                  dispatch(dmUsecaseUpdated({ modelId: model.id, usecaseId: uc.id as UsecaseId, patch: { name: e.target.value } }));
+                }
+              }}
+            />
+            <label className="req" title="repository に保存する">
+              <input
+                type="checkbox"
+                checked={uc.save}
+                onChange={(e) => dispatch(dmUsecaseUpdated({ modelId: model.id, usecaseId: uc.id as UsecaseId, patch: { save: e.target.checked } }))}
+              />
+              save
+            </label>
+            <button
+              type="button"
+              className="icon-btn"
+              title="ユースケース削除"
+              onClick={() => dispatch(dmUsecaseRemoved({ modelId: model.id, usecaseId: uc.id as UsecaseId }))}
+            >
+              ✕
+            </button>
+          </div>
+          <p className="rule-hint muted">
+            create → {uc.serviceIds.map((sid) => eligible.find((s) => s.id === sid)?.name ?? '?').join(' → ')}
+            {uc.serviceIds.length > 0 ? ' → ' : ''}
+            {uc.save ? 'save' : 'return'}
+          </p>
+          {eligible.length > 0 && (
+            <div className="usecase-services">
+              {eligible.map((s) => {
+                const on = uc.serviceIds.includes(s.id);
+                return (
+                  <label key={s.id} className="req" title="self 返却・無引数サービスを適用">
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={(e) => {
+                        const next = e.target.checked
+                          ? [...uc.serviceIds, s.id]
+                          : uc.serviceIds.filter((x) => x !== s.id);
+                        dispatch(dmUsecaseUpdated({ modelId: model.id, usecaseId: uc.id as UsecaseId, patch: { serviceIds: next } }));
+                      }}
+                    />
+                    {s.name}
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ))}
+      <button type="button" className="btn rule-add" onClick={() => dispatch(dmUsecaseAdded({ modelId: model.id }))}>
+        + ユースケース
+      </button>
     </div>
   );
 }

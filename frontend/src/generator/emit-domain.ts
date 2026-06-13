@@ -312,7 +312,7 @@ ${[...model.fields.map(constructExpr), ...relations.map((r) => (r.kind === 'hasM
 };
 
 /** モデルのテスト雛形。pattern 制約があるとサンプル値を合成できないため todo にする */
-const emitModelTest = (model: ModelDef): string => {
+const emitModelTest = (model: ModelDef, isSingleFieldVo: boolean): string => {
   const name = model.name;
   const file = toKebabCase(name);
   const requiredFields = model.fields.filter((f) => f.required);
@@ -333,7 +333,8 @@ const emitModelTest = (model: ModelDef): string => {
     }
   };
 
-  const single = model.kind === 'valueObject' && model.fields.length === 1;
+  // branded primitive VO(単一フィールド・関連なし)だけが primitive 引数。それ以外はオブジェクト
+  const single = isSingleFieldVo;
   const sampleArg = single
     ? sampleOf(model.fields[0]!)
     : `{ ${requiredFields.map((f) => `${f.name}: ${sampleOf(f)}`).join(', ')} }`;
@@ -496,14 +497,17 @@ export const emitDomainFiles = (dm: DataModel): GeneratedFile[] => {
   ];
   for (const model of dm.models) {
     const p = modelPaths(ctx.layout, model);
-    const source =
-      model.kind === 'valueObject'
-        ? model.fields.length === 1 && ctx.relationsFrom(model.id).length === 0
-          ? emitSingleFieldVo(model, model.fields[0]!, ctx)
-          : emitMultiFieldVo(model, ctx)
+    const isSingleFieldVo =
+      model.kind === 'valueObject' &&
+      model.fields.length === 1 &&
+      ctx.relationsFrom(model.id).length === 0;
+    const source = isSingleFieldVo
+      ? emitSingleFieldVo(model, model.fields[0]!, ctx)
+      : model.kind === 'valueObject'
+        ? emitMultiFieldVo(model, ctx)
         : emitEntity(model, ctx);
     files.push({ path: p.model, content: source });
-    files.push({ path: p.test, content: emitModelTest(model) });
+    files.push({ path: p.test, content: emitModelTest(model, isSingleFieldVo) });
     if (model.kind === 'aggregate') {
       files.push({ path: p.repository, content: emitRepositoryInterface(model, ctx) });
       files.push({ path: p.mock, content: emitMockRepository(model, ctx) });

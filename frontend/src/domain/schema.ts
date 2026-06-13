@@ -12,6 +12,7 @@ import type {
   RelationId,
   RuleId,
   ServiceId,
+  UsecaseId,
 } from './ids';
 import type { ProjectDoc } from './project-doc';
 
@@ -118,14 +119,22 @@ const domainServiceSchema = z.object({
   returns: z.enum(['string', 'number', 'boolean', 'void', 'self']),
 });
 
+const usecaseSchema = z.object({
+  id: idSchema<UsecaseId>(),
+  name: z.string().min(1),
+  serviceIds: z.array(idSchema<ServiceId>()),
+  save: z.boolean(),
+});
+
 const modelDefSchema = z.object({
   id: idSchema<ModelId>(),
   name: z.string().min(1),
   kind: z.enum(['aggregate', 'entity', 'valueObject']),
   fields: z.array(fieldDefSchema),
-  // rules / services 導入以前のドキュメントは空配列で補完
+  // rules / services / usecases 導入以前のドキュメントは空配列で補完
   rules: z.array(validationRuleSchema).default(() => []),
   services: z.array(domainServiceSchema).default(() => []),
+  usecases: z.array(usecaseSchema).default(() => []),
   x: z.number(),
   y: z.number(),
 });

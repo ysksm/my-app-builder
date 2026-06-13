@@ -6,6 +6,7 @@ import { emitDomainFiles } from './emit-domain';
 import { emitComponentFile } from './emit-jsx';
 import { emitProjectShell } from './emit-project';
 import { emitTypeSpec } from './emit-typespec';
+import { emitUsecaseFiles } from './emit-usecase';
 import type { GeneratedFile } from './files';
 import { buildNameTable } from './identifiers';
 import { deriveInterfaceModel } from './interface-model';
@@ -25,6 +26,7 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
     ...emitDomainFiles(doc.dataModel),
     ...emitApiFiles(doc.dataModel),
     ...emitCrudFiles(doc.dataModel),
+    ...emitUsecaseFiles(doc.dataModel),
     // TypeSpec アダプタによる I/F 定義の export(集約があるときのみ)。
     // interface/ は src 外なのでアプリのビルド対象にはならない設計ドキュメント兼コード生成元。
     ...(ifModel.operations.length > 0

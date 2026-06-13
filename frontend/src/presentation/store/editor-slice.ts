@@ -10,6 +10,7 @@ import type {
   RelationKind,
   RuleOp,
   RuleOperand,
+  UsecaseDef,
   ValidationRule,
 } from '@/domain/data-model';
 import type {
@@ -22,6 +23,7 @@ import type {
   RelationId,
   RuleId,
   ServiceId,
+  UsecaseId,
 } from '@/domain/ids';
 import { EditTarget, ProjectDoc } from '@/domain/project-doc';
 import type { Page } from '@/domain/page';
@@ -326,6 +328,25 @@ export const editorSlice = createSlice({
       run(state, { kind: 'removeService', ...action.payload });
     },
 
+    dmUsecaseAdded(state, action: PayloadAction<{ modelId: ModelId }>) {
+      run(state, { kind: 'addUsecase', ...action.payload });
+    },
+
+    dmUsecaseUpdated(
+      state,
+      action: PayloadAction<{
+        modelId: ModelId;
+        usecaseId: UsecaseId;
+        patch: Partial<Omit<UsecaseDef, 'id'>>;
+      }>,
+    ) {
+      run(state, { kind: 'updateUsecase', ...action.payload });
+    },
+
+    dmUsecaseRemoved(state, action: PayloadAction<{ modelId: ModelId; usecaseId: UsecaseId }>) {
+      run(state, { kind: 'removeUsecase', ...action.payload });
+    },
+
     modelSelected(state, action: PayloadAction<ModelId | null>) {
       state.selectedModelId = action.payload;
     },
@@ -399,6 +420,9 @@ export const {
   dmServiceAdded,
   dmServiceUpdated,
   dmServiceRemoved,
+  dmUsecaseAdded,
+  dmUsecaseUpdated,
+  dmUsecaseRemoved,
   modelSelected,
   undone,
   redone,

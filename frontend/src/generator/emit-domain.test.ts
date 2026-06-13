@@ -102,6 +102,29 @@ describe('emitDomainFiles', () => {
     expect(src).toContain('equals: (a: Email, b: Email): boolean => a === b');
   });
 
+  it('関連を持つ VO(複数フィールド扱い)のテストはオブジェクト引数になる(回帰)', () => {
+    const unwrap = <T,>(r: { ok: true; value: T } | { ok: false; error: unknown }): T => {
+      if (!r.ok) throw new Error('fixture');
+      return r.value;
+    };
+    // 「1フィールド + 関連」の VO がオブジェクト引数 create を使うことを検証(string 引数だと型エラー)。
+    let d = DataModel.empty();
+    const agg = DataModel.addModel(d, 'aggregate', 0, 0);
+    d = unwrap(DataModel.updateModel(agg.dataModel, agg.model.id, { name: 'Owner' }));
+    const vo = DataModel.addModel(d, 'valueObject', 0, 0);
+    d = unwrap(DataModel.updateModel(vo.dataModel, vo.model.id, { name: 'Contact' }));
+    const ent = DataModel.addModel(d, 'entity', 0, 0);
+    d = unwrap(DataModel.updateModel(ent.dataModel, ent.model.id, { name: 'Phone' }));
+    const f = unwrap(DataModel.addField(d, vo.model.id));
+    d = unwrap(DataModel.updateField(f.dataModel, vo.model.id, f.field.id, { name: 'label' }));
+    // Contact(VO)→ Phone(entity)の関連 → Contact は多フィールド扱い
+    d = unwrap(DataModel.addRelation(d, vo.model.id, ent.model.id, 'hasOne')).dataModel;
+
+    const test = emitDomainFiles(d).find((x) => x.path === 'src/shared/domain/contact.test.ts')!.content;
+    expect(test).toContain('Contact.create({ label:');
+    expect(test).not.toContain("Contact.create('");
+  });
+
   it('pattern 制約付きモデルのテストは todo になる', () => {
     expect(get('src/features/customer/domain/email.test.ts')).toContain('it.todo');
     expect(get('src/features/customer/domain/customer.test.ts')).toContain('expect(result.ok).toBe(true)');

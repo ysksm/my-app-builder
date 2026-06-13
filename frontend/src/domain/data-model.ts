@@ -1,6 +1,6 @@
 import { err, ok, type Result } from '@/shared/result';
 import { DomainError } from './errors';
-import { FieldId, ModelId, RelationId, RuleId, ServiceId } from './ids';
+import { FieldId, ModelId, RelationId, RuleId, ServiceId, UsecaseId } from './ids';
 
 /**
  * DDD モデルデザイナーのドメイン。
@@ -62,6 +62,22 @@ export type DomainServiceDef = Readonly<{
   returns: ServiceReturn;
 }>;
 
+/**
+ * ユースケース(§4.3 FR-LOGIC-02)。アプリケーション層の操作をフローとして定義する。
+ * 第1スライスのフロー: `create(input)` →(serviceIds の self 返却・無引数サービスを順に適用)→
+ * (save が true なら repository.save)→ 結果を返す。読める application 関数として生成され、
+ * repository は引数注入(DIP)。
+ */
+export type UsecaseDef = Readonly<{
+  id: UsecaseId;
+  /** camelCase 識別子 */
+  name: string;
+  /** 適用するドメインサービス(self 返却・無引数のもの)を順に */
+  serviceIds: ReadonlyArray<ServiceId>;
+  /** repository.save するか */
+  save: boolean;
+}>;
+
 export type ModelDef = Readonly<{
   id: ModelId;
   /** PascalCase 識別子 */
@@ -70,6 +86,7 @@ export type ModelDef = Readonly<{
   fields: ReadonlyArray<FieldDef>;
   rules: ReadonlyArray<ValidationRule>;
   services: ReadonlyArray<DomainServiceDef>;
+  usecases: ReadonlyArray<UsecaseDef>;
   x: number;
   y: number;
 }>;
@@ -123,6 +140,7 @@ export const DataModel = {
       fields: [],
       rules: [],
       services: [],
+      usecases: [],
       x,
       y,
     };
@@ -348,7 +366,76 @@ export const DataModel = {
     return ok({
       ...dm,
       models: dm.models.map((m) =>
-        m.id === modelId ? { ...m, services: m.services.filter((s) => s.id !== serviceId) } : m,
+        m.id === modelId
+          ? {
+              ...m,
+              services: m.services.filter((s) => s.id !== serviceId),
+              // 削除サービスを使うユースケースの参照も外す
+              usecases: m.usecases.map((u) => ({
+                ...u,
+                serviceIds: u.serviceIds.filter((sid) => sid !== serviceId),
+              })),
+            }
+          : m,
+      ),
+    });
+  },
+
+  addUsecase(
+    dm: DataModel,
+    modelId: ModelId,
+  ): Result<Readonly<{ dataModel: DataModel; usecase: UsecaseDef }>, DomainError> {
+    const model = DataModel.findModel(dm, modelId);
+    if (!model) return err(DomainError.notFound('model'));
+    let n = model.usecases.length + 1;
+    while (model.usecases.some((u) => u.name === `usecase${n}`)) n += 1;
+    const usecase: UsecaseDef = { id: UsecaseId.create(), name: `usecase${n}`, serviceIds: [], save: true };
+    const dataModel = {
+      ...dm,
+      models: dm.models.map((m) =>
+        m.id === modelId ? { ...m, usecases: [...m.usecases, usecase] } : m,
+      ),
+    };
+    return ok({ dataModel, usecase });
+  },
+
+  updateUsecase(
+    dm: DataModel,
+    modelId: ModelId,
+    usecaseId: UsecaseId,
+    patch: Partial<Omit<UsecaseDef, 'id'>>,
+  ): Result<DataModel, DomainError> {
+    const model = DataModel.findModel(dm, modelId);
+    if (!model) return err(DomainError.notFound('model'));
+    const usecase = model.usecases.find((u) => u.id === usecaseId);
+    if (!usecase) return err(DomainError.notFound('usecase'));
+    const normalized = { ...patch };
+    if (patch.name !== undefined) {
+      const name = DataModel.sanitizeFieldName(patch.name);
+      if (!name) return err(DomainError.create('INVALID', 'usecase name must not be empty'));
+      if (model.usecases.some((u) => u.id !== usecaseId && u.name === name)) {
+        return err(DomainError.create('INVALID', `duplicate usecase name: ${name}`));
+      }
+      normalized.name = name;
+    }
+    return ok({
+      ...dm,
+      models: dm.models.map((m) =>
+        m.id === modelId
+          ? { ...m, usecases: m.usecases.map((u) => (u.id === usecaseId ? { ...u, ...normalized } : u)) }
+          : m,
+      ),
+    });
+  },
+
+  removeUsecase(dm: DataModel, modelId: ModelId, usecaseId: UsecaseId): Result<DataModel, DomainError> {
+    const model = DataModel.findModel(dm, modelId);
+    if (!model) return err(DomainError.notFound('model'));
+    if (!model.usecases.some((u) => u.id === usecaseId)) return err(DomainError.notFound('usecase'));
+    return ok({
+      ...dm,
+      models: dm.models.map((m) =>
+        m.id === modelId ? { ...m, usecases: m.usecases.filter((u) => u.id !== usecaseId) } : m,
       ),
     });
   },

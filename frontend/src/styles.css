@@ -361,6 +361,9 @@ body {
 .rule-row .rule-message { flex: 1; min-width: 40px; }
 .rule-add { font-size: 11px; padding: 3px 8px; }
 .rule-hint { font-size: 10px; margin-top: 2px; word-break: break-word; }
+.usecase-block { border: 1px solid var(--border); border-radius: 6px; padding: 5px 6px; margin-bottom: 5px; }
+.usecase-services { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+.usecase-services .req { font-size: 10px; }
 
 /* ---------- 実行モード ---------- */
 .run-root { flex: 1; display: flex; flex-direction: column; min-height: 0; }
