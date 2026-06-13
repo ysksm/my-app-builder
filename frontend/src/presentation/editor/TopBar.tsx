@@ -97,6 +97,13 @@ export function TopBar() {
           >
             ⚡ 実行
           </button>
+          <button
+            type="button"
+            className={viewMode === 'demo' ? 'on' : ''}
+            onClick={() => dispatch(viewModeChanged('demo'))}
+          >
+            🎬 デモ
+          </button>
         </div>
         <span className={`save-state ${saveState}`}>{saveLabel(saveState, dirty)}</span>
       </div>
