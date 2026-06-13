@@ -181,8 +181,11 @@ function useResolvedChannel(node: ComponentNode, def: ComponentDef): MetricSourc
   return channelOf(node, def, channels);
 }
 
-const sourceTag = (source: string): string =>
-  source === 'modbus' ? '● MODBUS' : source === 'live' ? '● LIVE' : '';
+const sourceTag = (source: string, connected: boolean): string => {
+  if (source !== 'live' && source !== 'modbus') return '';
+  const name = source === 'modbus' ? 'MODBUS' : 'LIVE';
+  return connected ? `● ${name}` : '○ 再接続中…';
+};
 
 /** リアルタイム数値カード。preview では模擬 / ライブ(WS)でライブ更新、edit では静的表示 */
 function MetricView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
@@ -190,14 +193,14 @@ function MetricView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
   const p = (key: string) => propOf(node, def, key);
   const resolved = useResolvedChannel(node, def);
   const source = resolved.source;
-  const value = useMetricValue(resolved, mode === 'preview');
+  const { value, connected } = useMetricValue(resolved, mode === 'preview');
   const severity = value === null ? 'normal' : metricSeverity(value, node, def);
   const cls = 'c-metric' + (severity !== 'normal' ? ` s-${severity}` : '');
   return (
     <div className={cls}>
       <span className="c-metric-label">
         {str(p('label'))}
-        {source !== 'mock' && <span className="c-metric-live">{sourceTag(source)}</span>}
+        {source !== 'mock' && <span className="c-metric-live">{sourceTag(source, connected)}</span>}
       </span>
       <span className="c-metric-value">
         {value === null ? '—' : value.toFixed(num(p('decimals')))}
@@ -213,7 +216,7 @@ function GaugeView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
   const p = (key: string) => propOf(node, def, key);
   const resolved = useResolvedChannel(node, def);
   const source = resolved.source;
-  const value = useMetricValue(resolved, mode === 'preview');
+  const { value, connected } = useMetricValue(resolved, mode === 'preview');
   const min = resolved.min;
   const max = resolved.max;
   const severity = value === null ? 'normal' : metricSeverity(value, node, def);
@@ -223,7 +226,7 @@ function GaugeView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
     <div className={cls}>
       <div className="c-gauge-head">
         <span className="c-gauge-label">
-          {str(p('label'))} {source !== 'mock' && sourceTag(source)}
+          {str(p('label'))} {source !== 'mock' && sourceTag(source, connected)}
         </span>
         <span className="c-gauge-value">
           {value === null ? '—' : value.toFixed(num(p('decimals')))}
@@ -241,7 +244,7 @@ function GaugeView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
 function LampView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
   const def = componentDefs.lamp;
   const p = (key: string) => propOf(node, def, key);
-  const value = useMetricValue(useResolvedChannel(node, def), mode === 'preview');
+  const { value } = useMetricValue(useResolvedChannel(node, def), mode === 'preview');
   const severity = value === null ? 'normal' : metricSeverity(value, node, def);
   return (
     <div className="c-lamp">
@@ -259,7 +262,7 @@ function ChartView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
   const resolved = useResolvedChannel(node, def);
   const source = resolved.source;
   const capacity = Math.max(2, num(p('capacity')) || 40);
-  const series = useMetricSeries(resolved, mode === 'preview', capacity);
+  const { series, connected } = useMetricSeries(resolved, mode === 'preview', capacity);
   const value = series.length > 0 ? series[series.length - 1]! : null;
   const min = resolved.min;
   const max = resolved.max;
@@ -278,7 +281,7 @@ function ChartView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
     <div className={cls}>
       <div className="c-chart-head">
         <span className="c-chart-label">
-          {str(p('label'))} {source !== 'mock' && sourceTag(source)}
+          {str(p('label'))} {source !== 'mock' && sourceTag(source, connected)}
         </span>
         <span className="c-chart-value">
           {value === null ? '—' : value.toFixed(num(p('decimals')))}
@@ -293,8 +296,12 @@ function ChartView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
 }
 
 /** preview 中、現在値を直近 capacity 件のリングバッファに蓄積する(builder 用) */
-function useMetricSeries(src: MetricSource, active: boolean, capacity: number): number[] {
-  const value = useMetricValue(src, active);
+function useMetricSeries(
+  src: MetricSource,
+  active: boolean,
+  capacity: number,
+): { series: number[]; connected: boolean } {
+  const { value, connected } = useMetricValue(src, active);
   const [series, setSeries] = useState<number[]>([]);
   useEffect(() => {
     if (value === null) return;
@@ -303,7 +310,7 @@ function useMetricSeries(src: MetricSource, active: boolean, capacity: number): 
       return next.length > capacity ? next.slice(next.length - capacity) : next;
     });
   }, [value, capacity]);
-  return series;
+  return { series, connected };
 }
 
 /** 設定値の書き込みコントロール(FR-RT-05)。preview では実際に BE へ書き込む */
@@ -417,19 +424,21 @@ type MetricSource = Readonly<{
  * - modbus: 同 WS を kind=modbus で購読し ModbusConnector を解決(FR-RT-02)
  * - mock: 模擬データジェネレータ(FR-RT-03)で [min,max] を interval ごとに生成
  */
-function useMetricValue(src: MetricSource, active: boolean): number | null {
+type ChannelState = Readonly<{ value: number | null; connected: boolean }>;
+
+function useMetricValue(src: MetricSource, active: boolean): ChannelState {
   const [value, setValue] = useState<number | null>(null);
+  const [connected, setConnected] = useState(false);
   const { min, max, interval, source, channel, host, unitId, register, scale } = src;
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      setConnected(false);
+      return;
+    }
     if (source === 'live' || source === 'modbus') {
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ch = channel || 'default';
-      const q = new URLSearchParams({
-        min: String(min),
-        max: String(max),
-        interval: String(interval),
-      });
+      const q = new URLSearchParams({ min: String(min), max: String(max), interval: String(interval) });
       if (source === 'modbus') {
         q.set('kind', 'modbus');
         if (host) q.set('host', host);
@@ -438,23 +447,53 @@ function useMetricValue(src: MetricSource, active: boolean): number | null {
         q.set('scale', String(scale));
       }
       const url = `${proto}//${window.location.host}/api/channels/${encodeURIComponent(ch)}/stream?${q.toString()}`;
-      const ws = new WebSocket(url);
-      ws.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data as string) as { value: number };
-          setValue(data.value);
-        } catch {
-          /* ignore malformed */
-        }
+      // 切断時は指数バックオフで自動再接続(FR-RT-06)
+      let closed = false;
+      let ws: WebSocket | null = null;
+      let retry = 0;
+      let timer = 0;
+      const open = () => {
+        ws = new WebSocket(url);
+        ws.onopen = () => {
+          retry = 0;
+          setConnected(true);
+        };
+        ws.onmessage = (e) => {
+          try {
+            setValue((JSON.parse(e.data as string) as { value: number }).value);
+          } catch {
+            /* ignore malformed */
+          }
+        };
+        ws.onclose = () => {
+          setConnected(false);
+          if (closed) return;
+          const delay = Math.min(5000, 500 * 2 ** retry);
+          retry += 1;
+          timer = window.setTimeout(open, delay);
+        };
+        ws.onerror = () => {
+          try {
+            ws?.close();
+          } catch {
+            /* ignore */
+          }
+        };
       };
-      return () => ws.close();
+      open();
+      return () => {
+        closed = true;
+        clearTimeout(timer);
+        if (ws) ws.close();
+      };
     }
+    setConnected(true);
     const tick = () => setValue(min + Math.random() * (max - min));
     tick();
     const id = setInterval(tick, Math.max(200, interval));
     return () => clearInterval(id);
   }, [min, max, interval, source, channel, host, unitId, register, scale, active]);
-  return value;
+  return { value, connected };
 }
 
 function ButtonView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {

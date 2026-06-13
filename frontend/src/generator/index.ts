@@ -67,12 +67,15 @@ export type ChannelConfig = {
   scale?: number;
 };
 
-/** データチャネルの低レベル購読(FR-RT-01)。サンプルごとに onSample を呼び、解除関数を返す。
- *  mock=模擬ジェネレータ, live/modbus=BE WS ゲートウェイ。useChannel / useSeries が共有する。 */
-function subscribe(cfg: ChannelConfig, onSample: (v: number) => void): () => void {
+/** データチャネルの低レベル購読(FR-RT-01/06)。サンプルごとに onSample、接続状態は onStatus。
+ *  WS は切断時に指数バックオフで自動再接続する(FR-RT-06)。解除関数を返す。 */
+function subscribe(
+  cfg: ChannelConfig,
+  onSample: (v: number) => void,
+  onStatus: (connected: boolean) => void,
+): () => void {
   const { source, channel, min, max, interval, host, unitId, register, scale } = cfg;
   if (source === 'live' || source === 'modbus') {
-    // BE の WS ゲートウェイ /api/channels/{ch}/stream を購読
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ch = channel || 'default';
     const q = new URLSearchParams();
@@ -80,7 +83,6 @@ function subscribe(cfg: ChannelConfig, onSample: (v: number) => void): () => voi
     q.set('max', String(max));
     q.set('interval', String(interval));
     if (source === 'modbus') {
-      // BE は kind=modbus で ModbusConnector を解決(FR-RT-02)
       q.set('kind', 'modbus');
       if (host) q.set('host', host);
       if (unitId != null) q.set('unit', String(unitId));
@@ -90,51 +92,101 @@ function subscribe(cfg: ChannelConfig, onSample: (v: number) => void): () => voi
     const url =
       proto + '//' + window.location.host + '/api/channels/' + encodeURIComponent(ch) +
       '/stream?' + q.toString();
-    const ws = new WebSocket(url);
-    ws.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data as string) as { value: number };
-        onSample(data.value);
-      } catch {
-        /* ignore */
-      }
+
+    let closed = false;
+    let ws: WebSocket | null = null;
+    let retry = 0;
+    let timer = 0;
+    const open = () => {
+      ws = new WebSocket(url);
+      ws.onopen = () => {
+        retry = 0;
+        onStatus(true);
+      };
+      ws.onmessage = (e) => {
+        try {
+          onSample((JSON.parse(e.data as string) as { value: number }).value);
+        } catch {
+          /* ignore */
+        }
+      };
+      ws.onclose = () => {
+        onStatus(false);
+        if (closed) return;
+        // 指数バックオフ(最大5秒)で再接続(FR-RT-06)
+        const delay = Math.min(5000, 500 * 2 ** retry);
+        retry += 1;
+        timer = window.setTimeout(open, delay);
+      };
+      ws.onerror = () => {
+        try {
+          ws?.close();
+        } catch {
+          /* ignore */
+        }
+      };
     };
-    return () => ws.close();
+    onStatus(false);
+    open();
+    return () => {
+      closed = true;
+      clearTimeout(timer);
+      if (ws) ws.close();
+    };
   }
-  // 模擬データジェネレータ
+  // 模擬データジェネレータ(常時「接続」扱い)
+  onStatus(true);
   const tick = () => onSample(min + Math.random() * (max - min));
   tick();
   const id = setInterval(tick, Math.max(200, interval));
   return () => clearInterval(id);
 }
 
-/** 現在値を購読する */
-export function useChannel(cfg: ChannelConfig): number | null {
+/** 現在値 + 接続状態を購読する */
+export function useChannelState(cfg: ChannelConfig): { value: number | null; connected: boolean } {
   const { source, channel, min, max, interval, host, unitId, register, scale } = cfg;
   const [value, setValue] = useState<number | null>(null);
+  const [connected, setConnected] = useState(false);
   useEffect(
-    () => subscribe({ source, channel, min, max, interval, host, unitId, register, scale }, setValue),
+    () => subscribe({ source, channel, min, max, interval, host, unitId, register, scale }, setValue, setConnected),
     [source, channel, min, max, interval, host, unitId, register, scale],
   );
-  return value;
+  return { value, connected };
 }
 
-/** 直近 capacity サンプルの時系列バッファを購読する(FR-RT-03)。チャート部品が使う。 */
-export function useSeries(cfg: ChannelConfig, capacity: number): number[] {
+/** 現在値のみ */
+export function useChannel(cfg: ChannelConfig): number | null {
+  return useChannelState(cfg).value;
+}
+
+/** 直近 capacity サンプルの時系列バッファ + 接続状態(FR-RT-03/06)。チャート部品が使う。 */
+export function useSeriesState(
+  cfg: ChannelConfig,
+  capacity: number,
+): { series: number[]; connected: boolean } {
   const { source, channel, min, max, interval, host, unitId, register, scale } = cfg;
   const cap = Math.max(2, capacity);
   const [series, setSeries] = useState<number[]>([]);
+  const [connected, setConnected] = useState(false);
   useEffect(
     () =>
-      subscribe({ source, channel, min, max, interval, host, unitId, register, scale }, (v) =>
-        setSeries((prev) => {
-          const next = prev.concat(v);
-          return next.length > cap ? next.slice(next.length - cap) : next;
-        }),
+      subscribe(
+        { source, channel, min, max, interval, host, unitId, register, scale },
+        (v) =>
+          setSeries((prev) => {
+            const next = prev.concat(v);
+            return next.length > cap ? next.slice(next.length - cap) : next;
+          }),
+        setConnected,
       ),
     [source, channel, min, max, interval, host, unitId, register, scale, cap],
   );
-  return series;
+  return { series, connected };
+}
+
+/** 時系列のみ */
+export function useSeries(cfg: ChannelConfig, capacity: number): number[] {
+  return useSeriesState(cfg, capacity).series;
 }
 
 /** アプリイベント(FR-RT-04): app シェルがこれを購読してトースト等に橋渡しする */
@@ -157,20 +209,23 @@ export function useAlert(label: string, unit: string, value: number | null, seve
 export type RealtimeProps = ChannelConfig &
   Thresholds & { label: string; unit?: string; decimals?: number };
 
-function sourceTag(source: string): string {
-  return source === 'modbus' ? ' ● MODBUS' : source === 'live' ? ' ● LIVE' : '';
+// 接続状態を含むデータ源タグ。切断中は再接続中表示(FR-RT-06)
+function sourceTag(source: string, connected: boolean): string {
+  if (source !== 'live' && source !== 'modbus') return '';
+  const name = source === 'modbus' ? 'MODBUS' : 'LIVE';
+  return connected ? ' ● ' + name : ' ○ 再接続中…';
 }
 
 /** 数値カード */
 export function Metric(props: RealtimeProps) {
   const { label, unit = '', decimals = 0 } = props;
-  const value = useChannel(props);
+  const { value, connected } = useChannelState(props);
   const severity: Severity = value === null ? 'normal' : metricSeverity(value, props);
   useAlert(label, unit, value, severity);
   const cls = 'c-metric' + (severity !== 'normal' ? ' s-' + severity : '');
   return (
     <div className={cls}>
-      <span className="c-metric-label">{label}{sourceTag(props.source)}</span>
+      <span className="c-metric-label">{label}{sourceTag(props.source, connected)}</span>
       <span className="c-metric-value">
         {value === null ? '—' : value.toFixed(decimals)}
         <span className="c-metric-unit">{unit}</span>
@@ -182,7 +237,7 @@ export function Metric(props: RealtimeProps) {
 /** 横バーゲージ。[min,max] に対する現在値の割合をバーで表し、しきい値で色を変える */
 export function Gauge(props: RealtimeProps) {
   const { label, unit = '', decimals = 1, min, max } = props;
-  const value = useChannel(props);
+  const { value, connected } = useChannelState(props);
   const severity: Severity = value === null ? 'normal' : metricSeverity(value, props);
   useAlert(label, unit, value, severity);
   const ratio = value === null || max <= min ? 0 : Math.min(1, Math.max(0, (value - min) / (max - min)));
@@ -190,7 +245,7 @@ export function Gauge(props: RealtimeProps) {
   return (
     <div className={cls}>
       <div className="c-gauge-head">
-        <span className="c-gauge-label">{label}{sourceTag(props.source)}</span>
+        <span className="c-gauge-label">{label}{sourceTag(props.source, connected)}</span>
         <span className="c-gauge-value">
           {value === null ? '—' : value.toFixed(decimals)}{unit}
         </span>
@@ -222,7 +277,7 @@ export function Lamp(props: RealtimeProps) {
 /** スパークライン折れ線チャート(FR-RT-03)。直近 capacity サンプルを時系列表示する */
 export function Chart(props: RealtimeProps & { capacity?: number }) {
   const { label, unit = '', decimals = 1, min, max, capacity = 40 } = props;
-  const series = useSeries(props, capacity);
+  const { series, connected } = useSeriesState(props, capacity);
   const value = series.length > 0 ? series[series.length - 1] : null;
   const severity: Severity = value === null ? 'normal' : metricSeverity(value, props);
   useAlert(label, unit, value, severity);
@@ -239,7 +294,7 @@ export function Chart(props: RealtimeProps & { capacity?: number }) {
   return (
     <div className={cls}>
       <div className="c-chart-head">
-        <span className="c-chart-label">{label}{sourceTag(props.source)}</span>
+        <span className="c-chart-label">{label}{sourceTag(props.source, connected)}</span>
         <span className="c-chart-value">
           {value === null ? '—' : value.toFixed(decimals)}{unit}
         </span>

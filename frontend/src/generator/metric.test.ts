@@ -115,6 +115,19 @@ describe('metric(数値カード)生成', () => {
     expect(metricSrc).toContain(`'c-metric' + (severity !== 'normal'`);
   });
 
+  it('WS は切断時に指数バックオフで自動再接続し、接続状態を表示する(FR-RT-06)', () => {
+    const runtime = generateProject(docWithMetric({ source: 'live' }), 'x').find(
+      (f) => f.path === 'src/shared/realtime/runtime.tsx',
+    )!.content;
+    // 再接続: onclose → setTimeout(open, backoff)、バックオフ上限 5000ms
+    expect(runtime).toContain('ws.onclose');
+    expect(runtime).toContain('setTimeout(open');
+    expect(runtime).toContain('Math.min(5000, 500 * 2 ** retry)');
+    // 接続状態を持つフックと、切断時の「再接続中」表示
+    expect(runtime).toContain('export function useChannelState(');
+    expect(runtime).toContain('再接続中');
+  });
+
   it('app シェルが appforge:alert を購読してトースト化する', () => {
     const toasts = generateProject(docWithMetric({ warnAbove: 70 }), 'x').find(
       (f) => f.path === 'src/app/Toasts.tsx',
