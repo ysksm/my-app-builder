@@ -30,6 +30,20 @@ npm run dev
 
 http://localhost:5173 を開く。初回起動時にプロジェクトが自動作成され、編集は1秒デバウンスで自動保存される。
 
+## MCP サーバー(AI エージェント連携)
+
+ビルダーの操作を AI エージェント(Claude 等)から実行できます(Phase 0: read / generate / build)。
+
+```bash
+# 前提: Rust BE が起動済み
+cd mcp-server && npm install
+# Claude Code への登録例
+claude mcp add appforge -- npx tsx <リポジトリ>/mcp-server/src/index.ts
+```
+
+ツール: `list_projects` / `get_project` / `describe_app` / `generate_source` / `build_and_preview` / `export_source`。
+ドメイン・ジェネレータは frontend と同一コードを共有(検証: `cd mcp-server && npm test`)。
+
 ## 開発コマンド
 
 | 対象 | コマンド | 内容 |

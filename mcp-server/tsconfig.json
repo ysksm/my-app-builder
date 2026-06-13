@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node"],
+    "paths": { "@/*": ["../frontend/src/*"] }
+  },
+  "include": ["src", "test", "../frontend/src/domain/**/*", "../frontend/src/generator/**/*", "../frontend/src/shared/**/*"]
+}
