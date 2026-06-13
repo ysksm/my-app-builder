@@ -1,0 +1,14 @@
+{
+  "name": "appforge-demo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "AppForge の TODO アプリ自動生成デモ(Playwright)",
+  "scripts": {
+    "demo": "node todo-demo.mjs",
+    "postinstall": "playwright install chromium"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.1"
+  }
+}
