@@ -14,7 +14,8 @@ export type ComponentType =
   | 'image'
   | 'table'
   | 'header'
-  | 'footer';
+  | 'footer'
+  | 'metric';
 
 export type ComponentNode = Readonly<{
   id: NodeId;

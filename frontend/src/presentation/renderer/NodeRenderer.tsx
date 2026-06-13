@@ -2,6 +2,7 @@ import {
   createContext,
   Fragment,
   useContext,
+  useEffect,
   useState,
   type CSSProperties,
   type ReactNode,
@@ -118,7 +119,42 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
       );
     case 'footer':
       return <footer className="c-footer">{str(p('text'))}</footer>;
+    case 'metric':
+      return <MetricView node={node} mode={mode} />;
   }
+}
+
+/** リアルタイム数値カード。preview では模擬データでライブ更新、edit では静的表示 */
+function MetricView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
+  const def = componentDefs.metric;
+  const p = (key: string) => propOf(node, def, key);
+  const min = num(p('min'));
+  const max = num(p('max'));
+  const interval = num(p('interval'));
+  const decimals = num(p('decimals'));
+  const value = useMockMetric(min, max, interval, mode === 'preview');
+  return (
+    <div className="c-metric">
+      <span className="c-metric-label">{str(p('label'))}</span>
+      <span className="c-metric-value">
+        {value === null ? '—' : value.toFixed(decimals)}
+        <span className="c-metric-unit">{str(p('unit'))}</span>
+      </span>
+    </div>
+  );
+}
+
+/** 模擬データジェネレータ(FR-RT-03)。active のとき [min,max] を interval ごとに生成 */
+function useMockMetric(min: number, max: number, interval: number, active: boolean): number | null {
+  const [value, setValue] = useState<number | null>(null);
+  useEffect(() => {
+    if (!active) return;
+    const tick = () => setValue(min + Math.random() * (max - min));
+    tick();
+    const id = setInterval(tick, Math.max(200, interval));
+    return () => clearInterval(id);
+  }, [min, max, interval, active]);
+  return value;
 }
 
 function ButtonView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {

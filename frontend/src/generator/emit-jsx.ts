@@ -17,6 +17,7 @@ type EmitCtx = {
   handlerCount: number;
   needsNavigate: boolean;
   needsDispatch: boolean;
+  needsMetric: boolean;
   readonly usedActions: Set<UiAction>;
 };
 
@@ -165,6 +166,18 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
     }
     case 'footer':
       return [`${pad}<footer className="c-footer">{${s(p('text'))}}</footer>`];
+    case 'metric': {
+      ctx.needsMetric = true;
+      const attrs = [
+        `label={${s(p('label'))}}`,
+        `unit={${s(p('unit'))}}`,
+        `min={${num(p('min'))}}`,
+        `max={${num(p('max'))}}`,
+        `interval={${num(p('interval'))}}`,
+        `decimals={${num(p('decimals'))}}`,
+      ].join(' ');
+      return [`${pad}<Metric ${attrs} />`];
+    }
   }
 };
 
@@ -184,6 +197,7 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
     handlerCount: 0,
     needsNavigate: false,
     needsDispatch: false,
+    needsMetric: false,
     usedActions: new Set(),
   };
   const body = emitNode(opts.root, 4, ctx);
@@ -191,6 +205,7 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
   const imports: string[] = [];
   if (ctx.needsDispatch) imports.push(`import { useDispatch } from 'react-redux';`);
   if (ctx.needsNavigate) imports.push(`import { useNavigate } from 'react-router';`);
+  if (ctx.needsMetric) imports.push(`import { Metric } from '${relativeImport(opts.filePath, paths.metricComponent)}';`);
   if (ctx.usedActions.size > 0) {
     const actions = [...ctx.usedActions].sort().join(', ');
     imports.push(`import { ${actions} } from '${relativeImport(opts.filePath, paths.uiSlice)}';`);

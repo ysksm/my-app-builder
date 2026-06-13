@@ -32,6 +32,7 @@ const componentTypeSchema = z.enum([
   'table',
   'header',
   'footer',
+  'metric',
 ]);
 
 const actionSchema = z.discriminatedUnion('kind', [

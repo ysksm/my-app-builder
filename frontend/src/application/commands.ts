@@ -343,7 +343,7 @@ const action = z.discriminatedUnion('kind', [
 ]);
 const eventBinding = z.object({ event: z.literal('onClick'), action });
 const componentType = z.enum([
-  'container', 'heading', 'text', 'button', 'input', 'image', 'table', 'header', 'footer',
+  'container', 'heading', 'text', 'button', 'input', 'image', 'table', 'header', 'footer', 'metric',
 ]);
 const modelKind = z.enum(['aggregate', 'entity', 'valueObject']);
 const relationKind = z.enum(['hasOne', 'hasMany']);

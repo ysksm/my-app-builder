@@ -1,3 +1,4 @@
+import { ComponentNode } from '@/domain/component-node';
 import type { ProjectDoc } from '@/domain/project-doc';
 import { emitApiFiles } from './emit-api';
 import { emitTokensCss, emitAppCss } from './emit-css';
@@ -13,6 +14,51 @@ import { deriveInterfaceModel } from './interface-model';
 import { paths } from './layout';
 
 export type { GeneratedFile } from './files';
+
+/** ドキュメント内に metric(数値カード)ノードがあるか */
+const usesMetric = (doc: ProjectDoc): boolean => {
+  const treeHas = (node: ComponentNode): boolean =>
+    node.type === 'metric' || node.children.some(treeHas);
+  return (
+    doc.pages.some((pg) => treeHas(pg.root)) ||
+    doc.dialogs.some((d) => treeHas(d.root)) ||
+    (doc.layout.header !== null && treeHas(doc.layout.header)) ||
+    (doc.layout.footer !== null && treeHas(doc.layout.footer))
+  );
+};
+
+/** リアルタイム数値カード。模擬データジェネレータ(FR-RT-03)で [min,max] を interval ごとに更新 */
+const metricComponentTsx = `// 自動生成 — AppForge: リアルタイム数値カード(模擬データジェネレータ)
+import { useEffect, useState } from 'react';
+
+export type MetricProps = {
+  label: string;
+  unit: string;
+  min: number;
+  max: number;
+  interval: number;
+  decimals: number;
+};
+
+export function Metric({ label, unit, min, max, interval, decimals }: MetricProps) {
+  const [value, setValue] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setValue(min + Math.random() * (max - min));
+    tick();
+    const id = setInterval(tick, Math.max(200, interval));
+    return () => clearInterval(id);
+  }, [min, max, interval]);
+  return (
+    <div className="c-metric">
+      <span className="c-metric-label">{label}</span>
+      <span className="c-metric-value">
+        {value === null ? '—' : value.toFixed(decimals)}
+        <span className="c-metric-unit">{unit}</span>
+      </span>
+    </div>
+  );
+}
+`;
 
 /**
  * ProjectDoc → ビルド可能な React アプリのソース一式(features × レイヤード構成)。
@@ -54,6 +100,8 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
     })),
     { path: paths.tokensCss, content: emitTokensCss(doc.tokens, doc.styleEmitter) },
     { path: paths.appCss, content: emitAppCss() },
+    // リアルタイム: 数値カードを使うときだけ Metric コンポーネントを出力
+    ...(usesMetric(doc) ? [{ path: paths.metricComponent, content: metricComponentTsx }] : []),
     // カスタムコード保護(FR-GEN-05)の第1消費者: ユーザー編集可・再生成で保持
     {
       path: paths.overridesCss,

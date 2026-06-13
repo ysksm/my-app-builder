@@ -147,6 +147,24 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
       { key: 'rows', label: '行数', input: 'number' },
     ],
   },
+  metric: {
+    type: 'metric',
+    label: '数値カード',
+    icon: '📊',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    // リアルタイムモニタリング: 模擬データジェネレータが [min,max] を interval ごとに更新
+    defaultProps: { label: 'CPU 使用率', unit: '%', min: 0, max: 100, interval: 1000, decimals: 0 },
+    propFields: [
+      { key: 'label', label: 'ラベル', input: 'text' },
+      { key: 'unit', label: '単位', input: 'text' },
+      { key: 'min', label: '最小値', input: 'number' },
+      { key: 'max', label: '最大値', input: 'number' },
+      { key: 'interval', label: '更新間隔(ms)', input: 'number' },
+      { key: 'decimals', label: '小数桁', input: 'number' },
+    ],
+  },
   header: {
     type: 'header',
     label: 'ヘッダー',

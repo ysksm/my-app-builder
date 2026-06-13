@@ -221,6 +221,14 @@ body {
   background: var(--color-surface-card, #fff); color: var(--color-text, #1d2230);
 }
 .c-image { border-radius: var(--radius-sm, 4px); max-width: 100%; }
+.c-metric {
+  display: inline-flex; flex-direction: column; gap: 4px; align-self: flex-start;
+  background: var(--color-surface-card, #fff); border: 1px solid var(--color-border, #c6cde4);
+  border-radius: var(--radius-md, 8px); padding: 14px 20px; min-width: 140px;
+}
+.c-metric-label { font-size: 12px; color: var(--color-text-muted, #5b6480); }
+.c-metric-value { font-size: 30px; font-weight: 700; color: var(--color-primary, #4263eb); line-height: 1.1; }
+.c-metric-unit { font-size: 14px; font-weight: 500; color: var(--color-text-muted, #5b6480); margin-left: 4px; }
 .c-table { border-collapse: collapse; width: 100%; font-size: 13px; background: var(--color-surface-card, #fff); border-radius: var(--radius-sm, 4px); }
 .c-table th, .c-table td { border: 1px solid var(--color-border, #dde2f0); padding: 7px 10px; text-align: left; }
 .c-table th { background: var(--color-surface, #eef1fa); color: var(--color-text-muted, #3c4566); }
