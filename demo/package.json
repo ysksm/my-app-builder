@@ -6,7 +6,8 @@
   "description": "AppForge の TODO アプリ自動生成デモ(Playwright)",
   "scripts": {
     "demo": "node todo-demo.mjs",
-    "postinstall": "playwright install chromium"
+    "postinstall": "playwright install chromium",
+    "demo:dashboard": "node dashboard-demo.mjs"
   },
   "devDependencies": {
     "playwright": "^1.49.1"
