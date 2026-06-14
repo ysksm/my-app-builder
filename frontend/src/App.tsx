@@ -11,7 +11,7 @@ import { DesignSystemView } from './presentation/design/DesignSystemView';
 import { DiagramsView } from './presentation/diagrams/DiagramsView';
 import { ModelDesigner } from './presentation/model/ModelDesigner';
 import { PreviewApp } from './presentation/preview/PreviewApp';
-import { ChannelsContext } from './presentation/renderer/NodeRenderer';
+import { ChannelsContext, UiKitContext } from './presentation/renderer/NodeRenderer';
 import { RunApp } from './presentation/run/RunApp';
 import {
   docLoaded,
@@ -128,6 +128,10 @@ export function App() {
   const [boot, setBoot] = useState<BootState>({ phase: 'loading' });
   const viewMode = useAppSelector((s) => s.editor.viewMode);
   const channels = useAppSelector((s) => s.editor.doc.channels);
+  // 編集画面の実物描画: 対象 FW=React のときだけ選択中の kit を適用(他 FW は plain 近似)
+  const builderKit = useAppSelector((s) =>
+    s.editor.doc.targetFramework === 'react' ? (s.editor.doc.uiKits.react ?? 'plain') : 'plain',
+  );
   useAutosave();
   const externallyReloaded = useExternalSync(boot.phase === 'ready');
 
@@ -169,6 +173,7 @@ export function App() {
   }
   return (
     <ChannelsContext.Provider value={channels}>
+      <UiKitContext.Provider value={builderKit}>
       <div className="app">
         <TokenVars />
         <TopBar />
@@ -185,6 +190,7 @@ export function App() {
         {viewMode === 'preview' && <PreviewApp />}
         {viewMode === 'run' && <RunApp />}
       </div>
+      </UiKitContext.Provider>
     </ChannelsContext.Provider>
   );
 }

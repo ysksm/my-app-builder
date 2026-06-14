@@ -25,6 +25,7 @@ import type { DataChannelDef } from '@/domain/data-channel';
 import type { NodeId } from '@/domain/ids';
 import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
 import { DragPayload, useEditInteraction } from '../editor/edit-interaction';
+import { kitButton, kitDisclosure, kitInput, kitMenu } from './react-kit-views';
 
 export type RenderMode = 'edit' | 'preview';
 
@@ -38,6 +39,9 @@ export const ActionRunnerContext = createContext<ActionRunner | null>(null);
 /** データチャネル登録簿。モニタリング部品の channelRef 解決に使う(既定 = 空) */
 export const ChannelsContext = createContext<ReadonlyArray<DataChannelDef>>([]);
 
+/** 編集画面で実物描画する React UIライブラリ(kit)id。対象 FW=React 以外/未選択は 'plain' */
+export const UiKitContext = createContext<string>('plain');
+
 const str = (v: PropValue): string => String(v);
 const num = (v: PropValue): number => (typeof v === 'number' ? v : Number(v) || 0);
 
@@ -48,6 +52,7 @@ const propOf = (node: ComponentNode, def: ComponentDef, key: string): PropValue 
 export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
   const def = componentDefs[node.type];
   const p = (key: string) => propOf(node, def, key);
+  const kit = useContext(UiKitContext);
 
   switch (node.type) {
     case 'container': {
@@ -74,9 +79,18 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
     }
     case 'text':
       return <p className="c-text">{str(p('text'))}</p>;
-    case 'button':
+    case 'button': {
+      const k = kitButton(kit, { label: str(p('label')), variant: str(p('variant')) });
+      if (k) return <>{k}</>;
       return <ButtonView node={node} mode={mode} />;
-    case 'input':
+    }
+    case 'input': {
+      const k = kitInput(kit, {
+        label: str(p('label')),
+        placeholder: str(p('placeholder')),
+        inputType: str(p('inputType')),
+      });
+      if (k) return <>{k}</>;
       return (
         <label className="c-input">
           <span>{str(p('label'))}</span>
@@ -87,6 +101,7 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
           />
         </label>
       );
+    }
     case 'image':
       return (
         <img
@@ -151,30 +166,36 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
       return <EChartView node={node} mode={mode} />;
     case 'aggrid':
       return <DataGridView node={node} mode={mode} />;
-    case 'disclosure':
+    case 'disclosure': {
+      const k = kitDisclosure(kit, { title: str(p('title')), content: str(p('content')) });
+      if (k) return <>{k}</>;
       return (
         <details className="c-disclosure" open={mode === 'edit'}>
           <summary className="c-disclosure-summary">{str(p('title'))}</summary>
           <div className="c-disclosure-content">{str(p('content'))}</div>
         </details>
       );
-    case 'menu':
+    }
+    case 'menu': {
+      const items = str(p('items'))
+        .split(',')
+        .map((i) => i.trim())
+        .filter(Boolean);
+      const k = kitMenu(kit, { label: str(p('label')), items });
+      if (k) return <>{k}</>;
       return (
         <details className="c-menu">
           <summary className="c-menu-button">{str(p('label'))}</summary>
           <ul className="c-menu-list">
-            {str(p('items'))
-              .split(',')
-              .map((i) => i.trim())
-              .filter(Boolean)
-              .map((i, idx) => (
-                <li key={idx} className="c-menu-item">
-                  {i}
-                </li>
-              ))}
+            {items.map((i, idx) => (
+              <li key={idx} className="c-menu-item">
+                {i}
+              </li>
+            ))}
           </ul>
         </details>
       );
+    }
   }
 }
 
