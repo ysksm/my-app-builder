@@ -353,6 +353,27 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
       }
       return [`${pad}<span className="c-chip c-chip-${String(p('color'))}">{${s(p('label'))}}</span>`];
     }
+    case 'tabs': {
+      const tabs = String(p('tabs'))
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+      if (ctx.uiKit.tabs) {
+        const e = ctx.uiKit.tabs({ pad, tabs });
+        e.imports.forEach((i) => ctx.kitImports.add(i));
+        return e.jsx;
+      }
+      return [
+        `${pad}<div className="c-tabs">`,
+        ...tabs.flatMap((t) => [
+          `${pad}  <div className="c-tab-section">`,
+          `${pad}    <div className="c-tab-label">{${s(t)}}</div>`,
+          `${pad}    <div className="c-tab-panel">{${s(`${t} の内容`)}}</div>`,
+          `${pad}  </div>`,
+        ]),
+        `${pad}</div>`,
+      ];
+    }
   }
 };
 

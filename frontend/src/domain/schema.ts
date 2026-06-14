@@ -45,6 +45,7 @@ const componentTypeSchema = z.enum([
   'disclosure',
   'menu',
   'switch',
+  'tabs',
   'rating',
   'slider',
   'chip',

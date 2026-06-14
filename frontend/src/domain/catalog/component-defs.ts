@@ -408,6 +408,17 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
       { key: 'checked', label: '初期 ON', input: 'checkbox' },
     ],
   },
+  tabs: {
+    type: 'tabs',
+    label: 'タブ',
+    icon: '📑',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    // plain は全タブを縦に並べる(ステートレス)。Headless UI/React Aria を選ぶと切替式タブ
+    defaultProps: { tabs: 'タブ1,タブ2,タブ3' },
+    propFields: [{ key: 'tabs', label: 'タブ(カンマ区切り)', input: 'text' }],
+  },
   // ---------- UIライブラリ固有部品(MUI) ----------
   rating: {
     type: 'rating',

@@ -326,6 +326,15 @@ body {
 .c-chip { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 999px; font-size: 13px; background: var(--color-secondary, #e3e7f3); color: var(--color-secondary-text, #2b3354); align-self: flex-start; }
 .c-chip-primary { background: var(--color-primary, #4263eb); color: var(--color-primary-text, #fff); }
 
+/* タブ */
+.c-tabs { align-self: stretch; }
+.c-tab-list { display: flex; gap: 4px; border-bottom: 1px solid var(--color-border, #c6cde4); }
+.c-tab { padding: 8px 14px; cursor: pointer; border: none; background: none; color: var(--color-text-muted, #5b6480); border-bottom: 2px solid transparent; font: inherit; }
+.c-tab[data-selected], .c-tab[data-headlessui-state~="selected"] { color: var(--color-primary, #4263eb); border-bottom-color: var(--color-primary, #4263eb); }
+.c-tab-panel { padding: 14px 4px; color: var(--color-text, #1d2230); }
+.c-tab-section + .c-tab-section { border-top: 1px solid var(--color-border, #c6cde4); }
+.c-tab-section .c-tab-label { padding: 8px 4px 0; font-weight: 600; color: var(--color-text, #1d2230); }
+
 .c-setpoint {
   display: inline-flex; flex-direction: column; gap: 8px; align-self: flex-start; min-width: 220px;
   background: var(--color-surface-card, #fff); border: 1px solid var(--color-border, #c6cde4);

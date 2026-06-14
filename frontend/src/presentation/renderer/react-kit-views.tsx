@@ -21,6 +21,10 @@ import {
   MenuTrigger as RAMenuTrigger,
   Popover as RAPopover,
   Switch as RASwitch,
+  Tab as RATab,
+  TabList as RATabList,
+  TabPanel as RATabPanel,
+  Tabs as RATabs,
   TextField as RATextField,
 } from 'react-aria-components';
 import {
@@ -31,6 +35,11 @@ import {
   MenuButton,
   MenuItem,
   MenuItems,
+  Tab,
+  TabGroup,
+  TabList,
+  TabPanel,
+  TabPanels,
 } from '@headlessui/react';
 
 /**
@@ -159,6 +168,48 @@ export const kitSlider = (
 export const kitChip = (kit: string, p: { label: string; color: string }): ReactNode | null => {
   if (kit === 'mui') {
     return <Chip label={p.label} color={(p.color === 'default' ? 'default' : p.color) as 'primary' | 'secondary' | 'default'} />;
+  }
+  return null;
+};
+
+export const kitTabs = (kit: string, p: { tabs: ReadonlyArray<string> }): ReactNode | null => {
+  if (kit === 'headless') {
+    return (
+      <TabGroup>
+        <TabList className="c-tab-list">
+          {p.tabs.map((t, i) => (
+            <Tab key={i} className="c-tab">
+              {t}
+            </Tab>
+          ))}
+        </TabList>
+        <TabPanels>
+          {p.tabs.map((t, i) => (
+            <TabPanel key={i} className="c-tab-panel">
+              {t} の内容
+            </TabPanel>
+          ))}
+        </TabPanels>
+      </TabGroup>
+    );
+  }
+  if (kit === 'react-aria') {
+    return (
+      <RATabs className="c-tabs">
+        <RATabList className="c-tab-list">
+          {p.tabs.map((t, i) => (
+            <RATab key={i} id={`t${i}`} className="c-tab">
+              {t}
+            </RATab>
+          ))}
+        </RATabList>
+        {p.tabs.map((t, i) => (
+          <RATabPanel key={i} id={`t${i}`} className="c-tab-panel">
+            {t} の内容
+          </RATabPanel>
+        ))}
+      </RATabs>
+    );
   }
   return null;
 };

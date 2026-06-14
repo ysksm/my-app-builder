@@ -21,6 +21,7 @@ export type ReactUiKit = Readonly<{
   rating?: (a: { pad: string; labelExpr: string; value: number; max: number }) => KitEmit;
   slider?: (a: { pad: string; labelExpr: string; value: number; min: number; max: number }) => KitEmit;
   chip?: (a: { pad: string; labelExpr: string; color: string }) => KitEmit;
+  tabs?: (a: { pad: string; tabs: ReadonlyArray<string> }) => KitEmit;
 }>;
 
 const PLAIN: ReactUiKit = { id: 'plain', deps: {} };
@@ -131,6 +132,19 @@ const REACT_ARIA: ReactUiKit = {
       `${pad}</RAria.MenuTrigger>`,
     ],
   }),
+  tabs: ({ pad, tabs }) => ({
+    imports: [RA],
+    jsx: [
+      `${pad}<RAria.Tabs className="c-tabs">`,
+      `${pad}  <RAria.TabList className="c-tab-list">`,
+      ...tabs.map((t, i) => `${pad}    <RAria.Tab id="t${i}" className="c-tab">{${s(t)}}</RAria.Tab>`),
+      `${pad}  </RAria.TabList>`,
+      ...tabs.map(
+        (t, i) => `${pad}  <RAria.TabPanel id="t${i}" className="c-tab-panel">{${s(`${t} の内容`)}}</RAria.TabPanel>`,
+      ),
+      `${pad}</RAria.Tabs>`,
+    ],
+  }),
 };
 
 // ---- Headless UI(対話部品。button/input は持たないので未スタイル対話部品のみ提供)----
@@ -160,6 +174,19 @@ const HEADLESS: ReactUiKit = {
       ),
       `${pad}  </MenuItems>`,
       `${pad}</Menu>`,
+    ],
+  }),
+  tabs: ({ pad, tabs }) => ({
+    imports: [`import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react';`],
+    jsx: [
+      `${pad}<TabGroup>`,
+      `${pad}  <TabList className="c-tab-list">`,
+      ...tabs.map((t) => `${pad}    <Tab className="c-tab">{${s(t)}}</Tab>`),
+      `${pad}  </TabList>`,
+      `${pad}  <TabPanels>`,
+      ...tabs.map((t) => `${pad}    <TabPanel className="c-tab-panel">{${s(`${t} の内容`)}}</TabPanel>`),
+      `${pad}  </TabPanels>`,
+      `${pad}</TabGroup>`,
     ],
   }),
 };

@@ -28,6 +28,7 @@ export type ComponentType =
   | 'disclosure'
   | 'menu'
   | 'switch'
+  | 'tabs'
   // UIライブラリ固有部品(MUI など。plain フォールバックあり)
   | 'rating'
   | 'slider'

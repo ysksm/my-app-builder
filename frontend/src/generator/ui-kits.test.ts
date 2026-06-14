@@ -149,6 +149,25 @@ describe('UIライブラリ選択(FR-GUI-11)', () => {
     expect(componentDefs.switch.kit).toBeUndefined(); // switch は中立
   });
 
+  it('tabs: plain は縦並び、Headless UI は TabGroup、React Aria は Tabs', () => {
+    let doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const target = EditTarget.page(home.id);
+    const r = applyCommand(doc, { kind: 'insertNode', target, parentId: home.root.id, index: 0, type: 'tabs' });
+    if (!r.ok) throw new Error('insert');
+    doc = r.value.doc;
+    expect(get(generateProject(doc, 'x'), 'pages/Page0.tsx')).toContain('className="c-tab-section"');
+    const setKit = (k: string) => {
+      const rr = applyCommand(doc, { kind: 'setUiKit', framework: 'react', kit: k });
+      if (!rr.ok) throw new Error('kit');
+      return get(generateProject(rr.value.doc, 'x'), 'pages/Page0.tsx');
+    };
+    expect(setKit('headless')).toContain('<TabGroup>');
+    const aria = setKit('react-aria');
+    expect(aria).toContain('<RAria.Tabs');
+    expect(aria).toContain('<RAria.TabPanel');
+  });
+
   it('setUiKit は framework→kit を doc に保存', () => {
     const res = applyCommand(ProjectDoc.create(), { kind: 'setUiKit', framework: 'react', kit: 'mui' });
     if (!res.ok) throw new Error('apply');

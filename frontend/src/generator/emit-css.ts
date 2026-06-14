@@ -199,6 +199,20 @@ body {
 }
 .c-chip-primary { background: var(--color-primary); color: var(--color-primary-text); }
 
+/* タブ */
+.c-tabs { align-self: stretch; }
+.c-tab-list { display: flex; gap: 4px; border-bottom: 1px solid var(--color-border); }
+.c-tab {
+  padding: 8px 14px; cursor: pointer; border: none; background: none; color: var(--color-text-muted);
+  border-bottom: 2px solid transparent; font: inherit;
+}
+.c-tab[data-selected], .c-tab[data-headlessui-state~="selected"], .c-tab.is-selected {
+  color: var(--color-primary); border-bottom-color: var(--color-primary);
+}
+.c-tab-panel { padding: 14px 4px; color: var(--color-text); }
+.c-tab-section + .c-tab-section { border-top: 1px solid var(--color-border); }
+.c-tab-section .c-tab-label { padding: 8px 4px 0; font-weight: 600; color: var(--color-text); }
+
 /* 設定値の書き込みコントロール(設定ツール) */
 .c-setpoint {
   display: inline-flex; flex-direction: column; gap: 8px; align-self: flex-start;

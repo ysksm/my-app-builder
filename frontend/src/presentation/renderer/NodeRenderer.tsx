@@ -34,6 +34,7 @@ import {
   kitRating,
   kitSlider,
   kitSwitch,
+  kitTabs,
 } from './react-kit-views';
 
 export type RenderMode = 'edit' | 'preview';
@@ -255,6 +256,24 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
       const k = kitChip(kit, { label: str(p('label')), color: str(p('color')) });
       if (k) return <>{k}</>;
       return <span className={`c-chip c-chip-${str(p('color'))}`}>{str(p('label'))}</span>;
+    }
+    case 'tabs': {
+      const tabs = str(p('tabs'))
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+      const k = kitTabs(kit, { tabs });
+      if (k) return <>{k}</>;
+      return (
+        <div className="c-tabs">
+          {tabs.map((t, i) => (
+            <div key={i} className="c-tab-section">
+              <div className="c-tab-label">{t}</div>
+              <div className="c-tab-panel">{t} の内容</div>
+            </div>
+          ))}
+        </div>
+      );
     }
   }
 }
