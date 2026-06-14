@@ -5,6 +5,8 @@ import { emitVueElement, emitVuePage } from './emit-vue';
 import { emitVueDomain } from './emit-vue-domain';
 import type { GeneratedFile } from './files';
 import { screenStyleCss } from './screen-style';
+import { libDepsFor } from './component-libs';
+import { vueLibFiles } from './emit-fw-libs';
 import { collectComponents, toUiTree } from './ui-model';
 
 /**
@@ -33,7 +35,11 @@ const file = (path: string, content: string): GeneratedFile => ({ path, content 
 const toPackageName = (name: string): string =>
   name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'vue-app';
 
-const packageJson = (projectName: string, tailwind: boolean): string =>
+const packageJson = (
+  projectName: string,
+  tailwind: boolean,
+  libDeps: Readonly<Record<string, string>>,
+): string =>
   `${JSON.stringify(
     {
       name: toPackageName(projectName),
@@ -45,7 +51,7 @@ const packageJson = (projectName: string, tailwind: boolean): string =>
         build: 'vue-tsc --noEmit && vite build',
         preview: 'vite preview',
       },
-      dependencies: { vue: VUE_VERSIONS.vue, 'vue-router': VUE_VERSIONS.vueRouter },
+      dependencies: { vue: VUE_VERSIONS.vue, 'vue-router': VUE_VERSIONS.vueRouter, ...libDeps },
       devDependencies: {
         '@vitejs/plugin-vue': VUE_VERSIONS.pluginVue,
         ...(tailwind
@@ -346,8 +352,9 @@ export const generateVueProject = (doc: ProjectDoc, projectName: string): Genera
   // 集約があればドメイン層(型 + 検証 + シード mock repository)+ 一覧ページを生成
   const domain = emitVueDomain(doc.dataModel);
   const tailwind = doc.styleEmitter === 'tailwind';
+  const used = usedComponents(doc);
   const files: GeneratedFile[] = [
-    file('package.json', packageJson(projectName, tailwind)),
+    file('package.json', packageJson(projectName, tailwind, libDepsFor(used))),
     file('vite.config.ts', viteConfig(tailwind)),
     file('tsconfig.json', tsconfig),
     file('env.d.ts', envDts),
@@ -368,7 +375,6 @@ export const generateVueProject = (doc: ProjectDoc, projectName: string): Genera
   ];
 
   // 使われている UI 部品の Vue SFC + 共通 composable を出力
-  const used = usedComponents(doc);
   const realtimeUsed = [...used].filter((c) => c in REALTIME_VUE);
   if (realtimeUsed.length > 0) {
     files.push(file('src/shared/realtime/useChannel.ts', useChannelTs));
@@ -376,5 +382,7 @@ export const generateVueProject = (doc: ProjectDoc, projectName: string): Genera
       files.push(file(`src/shared/realtime/${name}.vue`, REALTIME_VUE[name]!));
     }
   }
+  // 外部ライブラリ製コンポーネント(uPlot / ECharts / AG Grid)
+  files.push(...vueLibFiles(used));
   return files;
 };

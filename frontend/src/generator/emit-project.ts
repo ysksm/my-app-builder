@@ -1,10 +1,26 @@
 import type { ProjectDoc } from '@/domain/project-doc';
+import type { ComponentNode } from '@/domain/component-node';
 import { crudProviders, crudRoutes } from './emit-crud';
 import { emitContainerWithRepositories } from './emit-domain';
 import { emitComponentFile } from './emit-jsx';
+import { libDepsFor } from './component-libs';
 import type { GeneratedFile } from './files';
 import { toPackageName, type NameTable } from './identifiers';
 import { paths, relativeImport } from './layout';
+import { collectComponents, toUiTree } from './ui-model';
+
+/** doc 全体で使われている UI 部品名(コンポーネント参照)を集める */
+const usedComponentTags = (doc: ProjectDoc): Set<string> => {
+  const all = new Set<string>();
+  const collect = (n: ComponentNode | null) => {
+    if (n) collectComponents(toUiTree(n), all);
+  };
+  doc.pages.forEach((p) => collect(p.root));
+  doc.dialogs.forEach((d) => collect(d.root));
+  collect(doc.layout.header);
+  collect(doc.layout.footer);
+  return all;
+};
 
 /**
  * プロジェクト雛形 + app/ + shared/ + pages/ の生成。
@@ -33,7 +49,11 @@ const VERSIONS = {
 
 const file = (path: string, content: string): GeneratedFile => ({ path, content });
 
-const packageJson = (projectName: string, tailwind: boolean): string =>
+const packageJson = (
+  projectName: string,
+  tailwind: boolean,
+  libDeps: Readonly<Record<string, string>>,
+): string =>
   `${JSON.stringify(
     {
       name: toPackageName(projectName),
@@ -52,6 +72,7 @@ const packageJson = (projectName: string, tailwind: boolean): string =>
         'react-dom': VERSIONS.reactDom,
         'react-redux': VERSIONS.reactRedux,
         'react-router': VERSIONS.reactRouter,
+        ...libDeps,
       },
       devDependencies: {
         '@rolldown/plugin-babel': VERSIONS.rolldownBabel,
@@ -401,8 +422,9 @@ export const emitProjectShell = (
   names: NameTable,
 ): GeneratedFile[] => {
   const tailwind = doc.styleEmitter === 'tailwind';
+  const libDeps = libDepsFor(usedComponentTags(doc));
   const files: GeneratedFile[] = [
-    file('package.json', packageJson(projectName, tailwind)),
+    file('package.json', packageJson(projectName, tailwind, libDeps)),
     file('vite.config.ts', viteConfig(tailwind)),
     file('tsconfig.json', tsconfig),
     file('index.html', indexHtml(projectName)),

@@ -3,6 +3,8 @@ import type { ComponentNode } from '@/domain/component-node';
 import { emitAppCss, emitTokensCss } from './emit-css';
 import { emitReactElement, emitReactRoute } from './emit-react-element';
 import { screenStyleJs } from './screen-style';
+import { libDepsFor } from './component-libs';
+import { remixLibSource } from './emit-fw-libs';
 import { emitRemixDomain } from './emit-remix-domain';
 import type { GeneratedFile } from './files';
 import { collectComponents, toUiTree } from './ui-model';
@@ -33,7 +35,11 @@ const file = (path: string, content: string): GeneratedFile => ({ path, content 
 const toPackageName = (name: string): string =>
   name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'remix-app';
 
-const packageJson = (projectName: string, tailwind: boolean): string =>
+const packageJson = (
+  projectName: string,
+  tailwind: boolean,
+  libDeps: Readonly<Record<string, string>>,
+): string =>
   `${JSON.stringify(
     {
       name: toPackageName(projectName),
@@ -52,6 +58,7 @@ const packageJson = (projectName: string, tailwind: boolean): string =>
         react: V.react,
         'react-dom': V.reactDom,
         'react-router': V.reactRouter,
+        ...libDeps,
       },
       devDependencies: {
         '@react-router/dev': V.rrDev,
@@ -278,17 +285,16 @@ export function Setpoint(p: { label: string; unit?: string; value: number; write
 }
 `;
 
-const usesRealtime = (doc: ProjectDoc): boolean => {
-  const has = (n: ComponentNode | null): boolean => {
-    if (!n) return false;
-    return collectComponents(toUiTree(n)).size > 0;
+const usedComponents = (doc: ProjectDoc): Set<string> => {
+  const all = new Set<string>();
+  const collect = (n: ComponentNode | null) => {
+    if (n) collectComponents(toUiTree(n), all);
   };
-  return (
-    doc.pages.some((p) => has(p.root)) ||
-    doc.dialogs.some((d) => has(d.root)) ||
-    has(doc.layout.header) ||
-    has(doc.layout.footer)
-  );
+  doc.pages.forEach((p) => collect(p.root));
+  doc.dialogs.forEach((d) => collect(d.root));
+  collect(doc.layout.header);
+  collect(doc.layout.footer);
+  return all;
 };
 
 /**
@@ -303,10 +309,11 @@ export const generateRemixProject = (
 ): GeneratedFile[] => {
   const base = basename.endsWith('/') ? basename : `${basename}/`;
   const tailwind = doc.styleEmitter === 'tailwind';
+  const used = usedComponents(doc);
   // 集約があればドメイン層 + 一覧ルートを生成
   const domain = emitRemixDomain(doc.dataModel);
   const files: GeneratedFile[] = [
-    file('package.json', packageJson(projectName, tailwind)),
+    file('package.json', packageJson(projectName, tailwind, libDepsFor(used))),
     file('vite.config.ts', viteConfig(base, tailwind)),
     file('react-router.config.ts', rrConfig(base)),
     file('tsconfig.json', tsconfig),
@@ -322,8 +329,10 @@ export const generateRemixProject = (
     ),
     ...domain.files,
   ];
-  if (usesRealtime(doc)) {
-    files.push(file('app/shared/realtime.tsx', realtimeTsx));
+  if (used.size > 0) {
+    const lib = remixLibSource(used);
+    const content = [lib.imports, realtimeTsx, lib.body].filter(Boolean).join('\n');
+    files.push(file('app/shared/realtime.tsx', content));
   }
   return files;
 };

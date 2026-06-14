@@ -3,6 +3,8 @@ import type { ProjectDoc } from '@/domain/project-doc';
 import { emitAppCss, emitTokensCss } from './emit-css';
 import { emitSvelteElement, emitSveltePage } from './emit-svelte';
 import { screenStyleCss } from './screen-style';
+import { libDepsFor } from './component-libs';
+import { svelteLibFiles } from './emit-fw-libs';
 import { emitSvelteDomain, type SvelteDomainRoute } from './emit-svelte-domain';
 import type { GeneratedFile } from './files';
 import { collectComponents, toUiTree } from './ui-model';
@@ -29,7 +31,11 @@ const file = (path: string, content: string): GeneratedFile => ({ path, content 
 const toPackageName = (name: string): string =>
   name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'svelte-app';
 
-const packageJson = (projectName: string, tailwind: boolean): string =>
+const packageJson = (
+  projectName: string,
+  tailwind: boolean,
+  libDeps: Readonly<Record<string, string>>,
+): string =>
   `${JSON.stringify(
     {
       name: toPackageName(projectName),
@@ -41,7 +47,7 @@ const packageJson = (projectName: string, tailwind: boolean): string =>
         build: 'svelte-check --tsconfig ./tsconfig.json && vite build',
         preview: 'vite preview',
       },
-      dependencies: { 'svelte-spa-router': V.spaRouter },
+      dependencies: { 'svelte-spa-router': V.spaRouter, ...libDeps },
       devDependencies: {
         '@sveltejs/vite-plugin-svelte': V.pluginSvelte,
         ...(tailwind ? { '@tailwindcss/vite': V.tailwindVite, tailwindcss: V.tailwind } : {}),
@@ -332,8 +338,9 @@ export const generateSvelteProject = (doc: ProjectDoc, projectName: string): Gen
   // 集約があればドメイン層 + 一覧ページ + svelte-spa-router ルートを生成
   const domain = emitSvelteDomain(doc.dataModel);
   const tailwind = doc.styleEmitter === 'tailwind';
+  const used = usedComponents(doc);
   const files: GeneratedFile[] = [
-    file('package.json', packageJson(projectName, tailwind)),
+    file('package.json', packageJson(projectName, tailwind, libDepsFor(used))),
     file('vite.config.ts', viteConfig(tailwind)),
     file('svelte.config.js', svelteConfig),
     file('tsconfig.json', tsconfig),
@@ -352,7 +359,6 @@ export const generateSvelteProject = (doc: ProjectDoc, projectName: string): Gen
     ...domain.files,
   ];
 
-  const used = usedComponents(doc);
   const realtimeUsed = [...used].filter((c) => c in REALTIME_SVELTE);
   if (realtimeUsed.length > 0) {
     files.push(file('src/shared/realtime/severity.ts', severityTs));
@@ -360,5 +366,7 @@ export const generateSvelteProject = (doc: ProjectDoc, projectName: string): Gen
       files.push(file(`src/shared/realtime/${name}.svelte`, REALTIME_SVELTE[name]!));
     }
   }
+  // 外部ライブラリ製コンポーネント(uPlot / ECharts / AG Grid)
+  files.push(...svelteLibFiles(used));
   return files;
 };

@@ -295,6 +295,74 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
       { key: 'confirmMessage', label: '確認メッセージ', input: 'text' },
     ],
   },
+  // ---------- 外部ライブラリ製コンポーネント(vanilla JS)----------
+  uplot: {
+    type: 'uplot',
+    label: 'uPlot 時系列',
+    icon: '📉',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    // 高速時系列ライブラリ uPlot。DataChannel の系列を直近 capacity 件で折れ線描画
+    defaultProps: { label: 'uPlot トレンド', unit: '%', decimals: 1, capacity: 60, ...channelDefaults },
+    propFields: [
+      { key: 'label', label: 'ラベル', input: 'text' },
+      { key: 'unit', label: '単位', input: 'text' },
+      ...channelFields,
+      { key: 'decimals', label: '小数桁', input: 'number' },
+      { key: 'capacity', label: '保持サンプル数', input: 'number' },
+      ...thresholdFields,
+    ],
+  },
+  echarts: {
+    type: 'echarts',
+    label: 'ECharts チャート',
+    icon: '📊',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    // Apache ECharts。chartType で gauge / line / bar を切替。DataChannel に接続
+    defaultProps: {
+      label: 'ECharts',
+      unit: '%',
+      decimals: 1,
+      capacity: 40,
+      chartType: 'gauge',
+      ...channelDefaults,
+    },
+    propFields: [
+      { key: 'label', label: 'ラベル', input: 'text' },
+      { key: 'unit', label: '単位', input: 'text' },
+      {
+        key: 'chartType',
+        label: '種類',
+        input: 'select',
+        options: [
+          { value: 'gauge', label: 'ゲージ' },
+          { value: 'line', label: '折れ線' },
+          { value: 'bar', label: '棒' },
+        ],
+      },
+      ...channelFields,
+      { key: 'decimals', label: '小数桁', input: 'number' },
+      { key: 'capacity', label: '保持サンプル数', input: 'number' },
+      ...thresholdFields,
+    ],
+  },
+  aggrid: {
+    type: 'aggrid',
+    label: 'AG Grid 表',
+    icon: '🗂️',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    // AG Grid データグリッド。列はカンマ区切り、行数分のサンプル行を描画(ソート/フィルタ可)
+    defaultProps: { columns: 'ID,名前,状態,数量', rows: 6 },
+    propFields: [
+      { key: 'columns', label: '列(カンマ区切り)', input: 'text' },
+      { key: 'rows', label: 'サンプル行数', input: 'number' },
+    ],
+  },
   header: {
     type: 'header',
     label: 'ヘッダー',

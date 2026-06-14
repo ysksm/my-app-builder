@@ -134,6 +134,19 @@ body {
 .c-chart.s-crit .c-chart-line { stroke: var(--color-danger); }
 .c-chart.s-crit .c-chart-value { color: var(--color-danger); }
 
+/* 外部ライブラリ製コンポーネント(uPlot / ECharts / AG Grid) */
+.c-uplot, .c-echart {
+  display: flex; flex-direction: column; gap: 6px; align-self: stretch; min-width: 280px;
+  background: var(--color-surface-card); border: 1px solid var(--color-border);
+  border-radius: var(--radius-md); padding: 12px 16px;
+}
+.c-uplot-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.c-uplot-label, .c-echart-label { font-size: 12px; color: var(--color-text-muted); }
+.c-uplot-value { font-size: 18px; font-weight: 700; color: var(--color-primary); }
+.c-uplot-canvas { width: 100%; min-height: 120px; }
+.c-echart-canvas { width: 100%; height: 180px; }
+.c-aggrid { width: 100%; height: 280px; align-self: stretch; }
+
 /* 設定値の書き込みコントロール(設定ツール) */
 .c-setpoint {
   display: inline-flex; flex-direction: column; gap: 8px; align-self: flex-start;

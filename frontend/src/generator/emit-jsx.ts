@@ -20,6 +20,8 @@ type EmitCtx = {
   needsDispatch: boolean;
   // リアルタイム部品の import 名(Metric / Gauge / Lamp / Chart)。すべて同一モジュールから
   readonly realtimeImports: Set<string>;
+  // 外部ライブラリ製コンポーネント(Uplot / EChart / DataGrid)。各々別ファイルから import
+  readonly libImports: Set<string>;
   // データチャネル登録簿(channelRef の解決に使う)
   readonly channels: ReadonlyArray<DataChannelDef>;
   readonly usedActions: Set<UiAction>;
@@ -173,8 +175,10 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
     case 'metric':
     case 'gauge':
     case 'lamp':
-    case 'chart': {
-      // metric / gauge / lamp / chart は同じデータチャネル属性を共有(コンポーネント名のみ異なる)
+    case 'chart':
+    case 'uplot':
+    case 'echarts': {
+      // metric / gauge / lamp / chart / uplot / echarts は同じデータチャネル属性を共有
       const tag =
         node.type === 'gauge'
           ? 'Gauge'
@@ -182,8 +186,15 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
             ? 'Lamp'
             : node.type === 'chart'
               ? 'Chart'
-              : 'Metric';
-      ctx.realtimeImports.add(tag);
+              : node.type === 'uplot'
+                ? 'Uplot'
+                : node.type === 'echarts'
+                  ? 'EChart'
+                  : 'Metric';
+      // 外部ライブラリ製は別ファイルから import(uPlot / ECharts)
+      if (node.type === 'uplot' || node.type === 'echarts') ctx.libImports.add(tag);
+      else ctx.realtimeImports.add(tag);
+      const seriesLike = node.type === 'chart' || node.type === 'uplot' || node.type === 'echarts';
       const rc = resolveChannelAttrs(node, ctx);
       // しきい値: 有限数のときだけ属性を出力(空欄=無効)
       const finite = (v: unknown): number | null => {
@@ -210,8 +221,10 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
         `max={${rc.max}}`,
         `interval={${rc.interval}}`,
         ...(showsValue ? [`decimals={${num(p('decimals'))}}`] : []),
-        // チャートのみ: 保持サンプル数
-        ...(node.type === 'chart' ? [`capacity={${num(p('capacity'))}}`] : []),
+        // ECharts のみ: チャート種類(gauge / line / bar)
+        ...(node.type === 'echarts' ? [`chartType={${s(p('chartType'))}}`] : []),
+        // 時系列系(chart / uplot / echarts): 保持サンプル数
+        ...(seriesLike ? [`capacity={${num(p('capacity'))}}`] : []),
         // しきい値アラート(設定時のみ)
         ...threshold('warnAbove'),
         ...threshold('critAbove'),
@@ -235,6 +248,12 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
         `confirmMessage={${s(p('confirmMessage'))}}`,
       ].join(' ');
       return [`${pad}<Setpoint ${attrs} />`];
+    }
+    case 'aggrid': {
+      // AG Grid データグリッド(外部ライブラリ、別ファイルから import)
+      ctx.libImports.add('DataGrid');
+      const attrs = [`columns={${s(p('columns'))}}`, `rows={${num(p('rows'))}}`].join(' ');
+      return [`${pad}<DataGrid ${attrs} />`];
     }
   }
 };
@@ -299,6 +318,7 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
     needsNavigate: false,
     needsDispatch: false,
     realtimeImports: new Set(),
+    libImports: new Set(),
     channels: opts.channels ?? [],
     usedActions: new Set(),
   };
@@ -313,6 +333,10 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
   if (ctx.realtimeImports.size > 0) {
     const parts = [...ctx.realtimeImports].sort().join(', ');
     imports.push(`import { ${parts} } from '${relativeImport(opts.filePath, paths.realtimeRuntime)}';`);
+  }
+  // 外部ライブラリ製コンポーネントは各々の専用ファイルから import
+  for (const tag of [...ctx.libImports].sort()) {
+    imports.push(`import { ${tag} } from '${relativeImport(opts.filePath, paths.realtimeLib(tag))}';`);
   }
   if (ctx.usedActions.size > 0) {
     const actions = [...ctx.usedActions].sort().join(', ');

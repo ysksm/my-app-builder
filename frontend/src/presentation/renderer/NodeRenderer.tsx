@@ -3,10 +3,22 @@ import {
   Fragment,
   useContext,
   useEffect,
+  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
 } from 'react';
+import uPlot from 'uplot';
+import 'uplot/dist/uPlot.min.css';
+import * as echarts from 'echarts';
+import {
+  AllCommunityModule,
+  createGrid,
+  ModuleRegistry,
+  themeQuartz,
+  type GridApi,
+} from 'ag-grid-community';
+import { echartsOption, sampleGridRows } from './lib-component-helpers';
 import type { EventBinding, EventType } from '@/domain/actions';
 import type { ComponentNode, PropValue } from '@/domain/component-node';
 import type { DataChannelDef } from '@/domain/data-channel';
@@ -133,7 +145,154 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
       return <ChartView node={node} mode={mode} />;
     case 'setpoint':
       return <SetpointView node={node} mode={mode} />;
+    case 'uplot':
+      return <UplotView node={node} mode={mode} />;
+    case 'echarts':
+      return <EChartView node={node} mode={mode} />;
+    case 'aggrid':
+      return <DataGridView node={node} mode={mode} />;
   }
+}
+
+// AG Grid v33: モジュールは一度だけ登録する
+ModuleRegistry.registerModules([AllCommunityModule]);
+
+/** テーマトークンから実際の色を読む(canvas 描画ライブラリは CSS 変数を解決できないため) */
+function readColor(varName: string, fallback: string): string {
+  if (typeof document === 'undefined') return fallback;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  return v || fallback;
+}
+
+/** uPlot 製の時系列折れ線。DataChannel の系列を直近 capacity 件で描画 */
+function UplotView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
+  const def = componentDefs.uplot;
+  const p = (key: string) => propOf(node, def, key);
+  const resolved = useResolvedChannel(node, def);
+  const capacity = Math.max(2, num(p('capacity')) || 60);
+  const { series } = useMetricSeries(resolved, mode === 'preview', capacity);
+  const value = series.length > 0 ? series[series.length - 1]! : null;
+  const hostRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<uPlot | null>(null);
+
+  useEffect(() => {
+    if (!hostRef.current) return;
+    const opts: uPlot.Options = {
+      width: hostRef.current.clientWidth || 280,
+      height: 120,
+      cursor: { show: false },
+      legend: { show: false },
+      scales: { x: { time: false }, y: { range: [resolved.min, resolved.max] } },
+      axes: [{ show: false }, { size: 34, stroke: readColor('--color-text-muted', '#5b6480') }],
+      series: [{}, { stroke: readColor('--color-primary', '#4263eb'), width: 2 }],
+    };
+    const u = new uPlot(opts, [[], []], hostRef.current);
+    chartRef.current = u;
+    return () => {
+      u.destroy();
+      chartRef.current = null;
+    };
+  }, [resolved.min, resolved.max]);
+
+  useEffect(() => {
+    const u = chartRef.current;
+    if (!u) return;
+    u.setData([series.map((_, i) => i), [...series]]);
+  }, [series]);
+
+  return (
+    <div className="c-uplot">
+      <div className="c-uplot-head">
+        <span className="c-uplot-label">{str(p('label'))}</span>
+        <span className="c-uplot-value">
+          {value === null ? '—' : value.toFixed(num(p('decimals')))}
+          {str(p('unit'))}
+        </span>
+      </div>
+      <div ref={hostRef} className="c-uplot-canvas" />
+    </div>
+  );
+}
+
+/** Apache ECharts 製チャート(gauge / line / bar)。DataChannel に接続 */
+function EChartView({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
+  const def = componentDefs.echarts;
+  const p = (key: string) => propOf(node, def, key);
+  const chartType = (str(p('chartType')) || 'gauge') as 'gauge' | 'line' | 'bar';
+  const resolved = useResolvedChannel(node, def);
+  const capacity = Math.max(2, num(p('capacity')) || 40);
+  const { series } = useMetricSeries(resolved, mode === 'preview', capacity);
+  const value = series.length > 0 ? series[series.length - 1]! : 0;
+  const hostRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<echarts.ECharts | null>(null);
+
+  useEffect(() => {
+    if (!hostRef.current) return;
+    const c = echarts.init(hostRef.current);
+    chartRef.current = c;
+    const onResize = () => c.resize();
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      c.dispose();
+      chartRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const c = chartRef.current;
+    if (!c) return;
+    c.setOption(
+      echartsOption(chartType, {
+        label: str(p('label')),
+        unit: str(p('unit')),
+        min: resolved.min,
+        max: resolved.max,
+        value,
+        series,
+        decimals: num(p('decimals')),
+        color: readColor('--color-primary', '#4263eb'),
+      }),
+      true,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartType, value, series, resolved.min, resolved.max]);
+
+  return (
+    <div className="c-echart">
+      <div className="c-echart-label">{str(p('label'))}</div>
+      <div ref={hostRef} className="c-echart-canvas" />
+    </div>
+  );
+}
+
+/** AG Grid 製データグリッド(ソート/フィルタ可)。列はカンマ区切り、行数分のサンプル */
+function DataGridView({ node }: { node: ComponentNode; mode: RenderMode }) {
+  const def = componentDefs.aggrid;
+  const p = (key: string) => propOf(node, def, key);
+  const columnsStr = str(p('columns'));
+  const rows = Math.max(0, Math.min(100, num(p('rows'))));
+  const hostRef = useRef<HTMLDivElement>(null);
+  const apiRef = useRef<GridApi | null>(null);
+
+  useEffect(() => {
+    if (!hostRef.current) return;
+    const columns = columnsStr
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean);
+    const api = createGrid(hostRef.current, {
+      theme: themeQuartz,
+      columnDefs: columns.map((c) => ({ field: c, sortable: true, filter: true, flex: 1 })),
+      rowData: sampleGridRows(columns, rows),
+      pagination: rows > 10,
+      paginationPageSize: 10,
+    });
+    apiRef.current = api;
+    return () => api.destroy();
+  }, [columnsStr, rows]);
+
+  return <div ref={hostRef} className="c-aggrid" />;
 }
 
 /**

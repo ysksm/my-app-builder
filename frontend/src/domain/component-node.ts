@@ -19,7 +19,11 @@ export type ComponentType =
   | 'gauge'
   | 'lamp'
   | 'chart'
-  | 'setpoint';
+  | 'setpoint'
+  // 外部ライブラリ製コンポーネント(vanilla JS、4FW + ビルダー共通)
+  | 'uplot'
+  | 'echarts'
+  | 'aggrid';
 
 export type ComponentNode = Readonly<{
   id: NodeId;

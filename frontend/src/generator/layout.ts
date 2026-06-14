@@ -91,6 +91,8 @@ export const paths = {
   overridesCss: `src/custom/overrides.css`,
   // リアルタイム: データチャネル + モニタリング部品(Metric / Gauge / Lamp)を1モジュールに集約
   realtimeRuntime: `${SHARED}/realtime/runtime.tsx`,
+  // 外部ライブラリ製コンポーネント(uPlot/ECharts/AG Grid)は使用時のみ個別ファイルで出力
+  realtimeLib: (name: string) => `${SHARED}/realtime/${name}.tsx`,
 
   // pages(横断 UI)
   appHeader: `${PAGES}/AppHeader.tsx`,

@@ -8,6 +8,7 @@ import { emitComponentFile } from './emit-jsx';
 import { screenStyleJs } from './screen-style';
 import { emitOpenApi } from './emit-openapi';
 import { emitProjectShell } from './emit-project';
+import { emitReactLibFiles } from './emit-react-libs';
 import { emitTypeSpec } from './emit-typespec';
 import { emitUsecaseFiles } from './emit-usecase';
 import type { GeneratedFile } from './files';
@@ -23,7 +24,14 @@ export { generateRemixProject } from './emit-remix-project';
 /** ドキュメント内にリアルタイムモニタリング部品(metric / gauge / lamp)があるか */
 const usesMetric = (doc: ProjectDoc): boolean => {
   const isRealtime = (t: ComponentNode['type']): boolean =>
-    t === 'metric' || t === 'gauge' || t === 'lamp' || t === 'chart' || t === 'setpoint';
+    t === 'metric' ||
+    t === 'gauge' ||
+    t === 'lamp' ||
+    t === 'chart' ||
+    t === 'setpoint' ||
+    // uPlot / ECharts は runtime のフック(useSeriesState 等)を使うので runtime も必要
+    t === 'uplot' ||
+    t === 'echarts';
   const treeHas = (node: ComponentNode): boolean =>
     isRealtime(node.type) || node.children.some(treeHas);
   return (
@@ -420,6 +428,8 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
     { path: paths.appCss, content: emitAppCss() },
     // リアルタイム: 数値カードを使うときだけ Metric コンポーネントを出力
     ...(usesMetric(doc) ? [{ path: paths.realtimeRuntime, content: realtimeRuntimeTsx }] : []),
+    // 外部ライブラリ製コンポーネント(uPlot / ECharts / AG Grid)は使ったものだけ出力
+    ...emitReactLibFiles(doc),
     // カスタムコード保護(FR-GEN-05)の第1消費者: ユーザー編集可・再生成で保持
     {
       path: paths.overridesCss,
