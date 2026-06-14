@@ -5,17 +5,34 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use tokio::sync::broadcast;
 
 use crate::build;
 use crate::realtime;
-use crate::store::{Store, StoreError};
+use crate::store::{Project, Store, StoreError};
+
+/// プロジェクト更新の通知(MCP Phase 2 / FR-MCP-02)。WS でビルダーへ即時プッシュする
+#[derive(Clone, Serialize)]
+pub struct ProjectEvent {
+    pub id: String,
+    pub updated_at: i64,
+}
 
 #[derive(Clone)]
 pub struct AppState {
     pub store: Store,
     pub workspaces: PathBuf,
+    /// プロジェクト更新イベントの配信(create / update で送信)
+    pub events: broadcast::Sender<ProjectEvent>,
+}
+
+impl AppState {
+    fn notify(&self, project: &Project) {
+        // 受信者がいなくてもエラーにしない(送信失敗は無視)
+        let _ = self.events.send(ProjectEvent { id: project.id.clone(), updated_at: project.updated_at });
+    }
 }
 
 #[derive(Deserialize)]
@@ -41,6 +58,7 @@ pub fn router(state: AppState) -> Router {
             get(get_project).put(update_project).delete(delete_project),
         )
         .route("/api/projects/{id}/build", post(build::build_project))
+        .route("/api/projects/{id}/events", get(realtime::project_events))
         .route("/api/channels/{id}/stream", get(realtime::channel_stream))
         .route("/api/channels/{id}/write", post(realtime::channel_write))
         .route("/preview/{id}", get(build::serve_preview_index))
@@ -65,6 +83,7 @@ async fn create_project(
     Json(input): Json<ProjectInput>,
 ) -> Result<impl IntoResponse, StoreError> {
     let project = state.store.create(&input.name, &input.doc)?;
+    state.notify(&project);
     Ok((StatusCode::CREATED, Json(project)))
 }
 
@@ -73,7 +92,9 @@ async fn update_project(
     Path(id): Path<String>,
     Json(input): Json<ProjectInput>,
 ) -> Result<impl IntoResponse, StoreError> {
-    Ok(Json(state.store.update(&id, &input.name, &input.doc)?))
+    let project = state.store.update(&id, &input.name, &input.doc)?;
+    state.notify(&project);
+    Ok(Json(project))
 }
 
 async fn delete_project(
@@ -96,6 +117,7 @@ mod tests {
         router(AppState {
             store: Store::open_in_memory().unwrap(),
             workspaces: std::env::temp_dir().join("appforge-test-ws"),
+            events: broadcast::channel(16).0,
         })
     }
 

@@ -15,7 +15,9 @@ async fn main() {
     std::fs::create_dir_all(&workspaces).expect("failed to create workspaces dir");
 
     let store = store::Store::open(&db_path).expect("failed to open database");
-    let state = handlers::AppState { store, workspaces };
+    // プロジェクト更新イベントの配信チャネル(MCP Phase 2 の即時同期用)
+    let (events, _) = tokio::sync::broadcast::channel(64);
+    let state = handlers::AppState { store, workspaces, events };
     let app = handlers::router(state).layer(CorsLayer::permissive());
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 8787));

@@ -1,7 +1,7 @@
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        Path, Query,
+        Path, Query, State,
     },
     http::StatusCode,
     response::Response,
@@ -11,7 +11,36 @@ use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
+
+use crate::handlers::{AppState, ProjectEvent};
+
+/// GET /api/projects/{id}/events — そのプロジェクトの更新を WS でプッシュ(MCP Phase 2)
+pub async fn project_events(
+    ws: WebSocketUpgrade,
+    Path(id): Path<String>,
+    State(state): State<AppState>,
+) -> Response {
+    let rx = state.events.subscribe();
+    ws.on_upgrade(move |socket| forward_project_events(socket, rx, id))
+}
+
+async fn forward_project_events(mut socket: WebSocket, mut rx: broadcast::Receiver<ProjectEvent>, id: String) {
+    loop {
+        match rx.recv().await {
+            Ok(ev) if ev.id == id => {
+                let payload = format!("{{\"id\":{:?},\"updatedAt\":{}}}", ev.id, ev.updated_at);
+                if socket.send(Message::Text(payload.into())).await.is_err() {
+                    break; // クライアント切断
+                }
+            }
+            Ok(_) => {} // 他プロジェクトのイベントは無視
+            Err(broadcast::error::RecvError::Lagged(_)) => {} // 取りこぼしは無視して継続
+            Err(broadcast::error::RecvError::Closed) => break,
+        }
+    }
+}
 
 /// リアルタイムモニタリングのデータチャネル(FR-RT-00/01)。
 ///

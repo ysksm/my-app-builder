@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { loadOrCreateProject } from './application/load-or-create-project';
 import { container } from './di/container';
 import { EditorPage } from './presentation/editor/EditorPage';
@@ -47,7 +47,10 @@ function useAutosave(): void {
 /**
  * 外部更新の検知と再読込(MCP Phase 2 / FR-MCP-02)。MCP エージェント等が同じ
  * プロジェクトを編集すると updatedAt が進む。ビルダーがアイドル(未編集・非保存中)の
- * ときだけ安全に再読込する(ローカル編集を失わない)。戻り値は再読込を通知するフラグ。
+ * ときだけ安全に再読込する(ローカル編集を失わない)。
+ *
+ * 即時性は BE の WebSocket(/api/projects/{id}/events)で実現し、ポーリングは
+ * 接続断時のフォールバック(長めの間隔)。戻り値は再読込を通知するフラグ。
  */
 function useExternalSync(active: boolean): boolean {
   const dispatch = useAppDispatch();
@@ -57,34 +60,60 @@ function useExternalSync(active: boolean): boolean {
   const saveState = useAppSelector((s) => s.editor.saveState);
   const [reloaded, setReloaded] = useState(false);
 
+  // 最新状態を ref に保持(WS ハンドラが再購読せずに参照できるように)
+  const stateRef = useRef({ syncedAt, dirty, saveState });
+  stateRef.current = { syncedAt, dirty, saveState };
+
+  const reloadIfExternal = useCallback(async () => {
+    if (!projectId) return;
+    const cur = stateRef.current;
+    // 自分の編集・保存中は比較しない(自分の保存による更新と区別できないため)
+    if (cur.dirty || cur.saveState === 'saving') return;
+    const result = await container.projectRepository.get(projectId);
+    if (!result.ok) return;
+    if (result.value.updatedAt !== stateRef.current.syncedAt) {
+      dispatch(
+        docLoaded({
+          projectId: result.value.id,
+          name: result.value.name,
+          doc: result.value.doc,
+          updatedAt: result.value.updatedAt,
+        }),
+      );
+      setReloaded(true);
+      setTimeout(() => setReloaded(false), 4000);
+    }
+  }, [projectId, dispatch]);
+
+  // WebSocket による即時プッシュ(切断時は指数バックオフで再接続)
   useEffect(() => {
     if (!active || !projectId) return;
-    // 自分の編集・保存中は比較しない(自分の保存による updatedAt 変化と区別できないため)
-    if (dirty || saveState === 'saving') return;
-    let cancelled = false;
-    const id = setInterval(() => {
-      void container.projectRepository.get(projectId).then((result) => {
-        if (cancelled || !result.ok) return;
-        if (result.value.updatedAt !== syncedAt) {
-          // アイドル中の差分は外部更新。ローカル編集はないので安全に再読込
-          dispatch(
-            docLoaded({
-              projectId: result.value.id,
-              name: result.value.name,
-              doc: result.value.doc,
-              updatedAt: result.value.updatedAt,
-            }),
-          );
-          setReloaded(true);
-          setTimeout(() => setReloaded(false), 4000);
-        }
-      });
-    }, 4000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
+    let closed = false;
+    let ws: WebSocket | null = null;
+    let retry = 0;
+    let timer = 0;
+    const open = () => {
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${proto}//${window.location.host}/api/projects/${encodeURIComponent(projectId)}/events`);
+      ws.onopen = () => { retry = 0; };
+      ws.onmessage = () => { void reloadIfExternal(); };
+      ws.onclose = () => {
+        if (closed) return;
+        timer = window.setTimeout(open, Math.min(5000, 500 * 2 ** retry));
+        retry += 1;
+      };
+      ws.onerror = () => { try { ws?.close(); } catch { /* ignore */ } };
     };
-  }, [active, projectId, syncedAt, dirty, saveState, dispatch]);
+    open();
+    return () => { closed = true; clearTimeout(timer); if (ws) ws.close(); };
+  }, [active, projectId, reloadIfExternal]);
+
+  // フォールバック: WS が落ちている場合に備えた長めのポーリング
+  useEffect(() => {
+    if (!active || !projectId) return;
+    const id = setInterval(() => { void reloadIfExternal(); }, 15000);
+    return () => clearInterval(id);
+  }, [active, projectId, reloadIfExternal]);
 
   return reloaded;
 }
