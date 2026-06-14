@@ -62,11 +62,26 @@ const REALTIME_TAG: Partial<Record<ComponentNode['type'], string>> = {
   aggrid: 'DataGrid',
 };
 
-/** ComponentNode 木 → 中立 UI 要素ツリー */
-export const toUiTree = (node: ComponentNode): UiElement => {
+/**
+ * ComponentNode 木 → 中立 UI 要素ツリー。
+ * tagMap を渡すと、その種別を「kit のコンポーネント参照(component:true)」に写像する
+ * (Svelte の UIライブラリ選択で disclosure→Disclosure 等に差し替えるのに使う)。
+ */
+export const toUiTree = (
+  node: ComponentNode,
+  tagMap: Readonly<Partial<Record<string, string>>> = {},
+): UiElement => {
   const def = componentDefs[node.type];
   const p = (k: string) => propValueOf(node.props, def, k);
-  const kids = () => node.children.map(toUiTree);
+  const kids = () => node.children.map((c) => toUiTree(c, tagMap));
+
+  // kit がこの種別を差し替えるなら、props をそのまま渡すコンポーネント参照にする
+  const kitTag = tagMap[node.type];
+  if (kitTag) {
+    const attrs: Record<string, UiAttrValue> = {};
+    for (const [k, v] of Object.entries({ ...def.defaultProps, ...node.props })) attrs[k] = v;
+    return make({ tag: kitTag, component: true, attrs });
+  }
 
   switch (node.type) {
     case 'container': {

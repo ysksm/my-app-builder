@@ -18,7 +18,10 @@ export const UI_KITS: Readonly<Record<string, ReadonlyArray<UiKitInfo>>> = {
     { id: 'react-aria', label: 'React Aria(ヘッドレス)' },
     { id: 'headless', label: 'Headless UI(対話部品)' },
   ],
-  svelte: [{ id: 'plain', label: '標準スタイル(c-*)' }],
+  svelte: [
+    { id: 'plain', label: '標準スタイル(c-*)' },
+    { id: 'bits', label: 'Bits UI(ヘッドレス)' },
+  ],
 };
 
 /** doc.uiKits からフレームワークの kit id を解決(未設定なら plain) */

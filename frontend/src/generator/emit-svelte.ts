@@ -68,8 +68,9 @@ export const emitSveltePage = (
   componentName: string,
   importBase = './realtime',
   screenStyle?: string,
+  tagMap: Readonly<Partial<Record<string, string>>> = {},
 ): string => {
-  const tree = toUiTree(root);
+  const tree = toUiTree(root, tagMap);
   const components = [...collectComponents(tree)].sort();
   const imports = components.map((c) => `  import ${c} from '${importBase}/${c}.svelte';`).join('\n');
   const markup = screenStyle

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ProjectDoc, EditTarget } from '@/domain/project-doc';
 import { applyCommand } from '@/application/commands';
 import { generateProject } from './index';
+import { generateSvelteProject } from './emit-svelte-project';
 
 /** ホームに button + input を置いた doc(任意で React kit を設定) */
 const withControls = (kit?: string) => {
@@ -83,6 +84,29 @@ describe('UIライブラリ選択(FR-GUI-11)', () => {
     const page = get(files, 'pages/Page0.tsx');
     expect(page).toContain('className="c-button'); // kit 未対応 → plain
     expect(page).toContain('className="c-input"');
+  });
+
+  it('Svelte×Bits UI: plain は <details>、bits はラッパー + bits-ui 依存', () => {
+    let doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const target = EditTarget.page(home.id);
+    (['disclosure', 'menu'] as const).forEach((type, i) => {
+      const r = applyCommand(doc, { kind: 'insertNode', target, parentId: home.root.id, index: i, type });
+      if (!r.ok) throw new Error('insert');
+      doc = r.value.doc;
+    });
+    // plain
+    const plain = get(generateSvelteProject(doc, 'x'), 'pages/Page0.svelte');
+    expect(plain).toContain('<details class="c-disclosure">');
+    // bits
+    const r = applyCommand(doc, { kind: 'setUiKit', framework: 'svelte', kit: 'bits' });
+    if (!r.ok) throw new Error('setUiKit');
+    const files = generateSvelteProject(r.value.doc, 'x');
+    const page = get(files, 'pages/Page0.svelte');
+    expect(page).toContain('<Disclosure');
+    expect(page).toContain('<Menu');
+    expect(get(files, 'shared/realtime/Disclosure.svelte')).toContain("from 'bits-ui'");
+    expect(get(files, 'package.json')).toContain('bits-ui');
   });
 
   it('setUiKit は framework→kit を doc に保存', () => {

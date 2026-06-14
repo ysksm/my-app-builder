@@ -5,6 +5,8 @@ import { emitSvelteElement, emitSveltePage } from './emit-svelte';
 import { screenStyleCss } from './screen-style';
 import { libDepsFor } from './component-libs';
 import { svelteLibFiles } from './emit-fw-libs';
+import { resolveSvelteKit } from './svelte-ui-kits';
+import { kitIdOf } from './ui-kits';
 import { emitSvelteDomain, type SvelteDomainRoute } from './emit-svelte-domain';
 import type { GeneratedFile } from './files';
 import { collectComponents, toUiTree } from './ui-model';
@@ -321,10 +323,13 @@ const REALTIME_SVELTE: Record<string, string> = {
   Setpoint: setpointSvelte,
 };
 
-const usedComponents = (doc: ProjectDoc): Set<string> => {
+const usedComponents = (
+  doc: ProjectDoc,
+  tagMap: Readonly<Partial<Record<string, string>>>,
+): Set<string> => {
   const all = new Set<string>();
   const collect = (n: ComponentNode | null) => {
-    if (n) collectComponents(toUiTree(n), all);
+    if (n) collectComponents(toUiTree(n, tagMap), all);
   };
   doc.pages.forEach((p) => collect(p.root));
   doc.dialogs.forEach((d) => collect(d.root));
@@ -338,9 +343,10 @@ export const generateSvelteProject = (doc: ProjectDoc, projectName: string): Gen
   // 集約があればドメイン層 + 一覧ページ + svelte-spa-router ルートを生成
   const domain = emitSvelteDomain(doc.dataModel);
   const tailwind = doc.styleEmitter === 'tailwind';
-  const used = usedComponents(doc);
+  const kit = resolveSvelteKit(kitIdOf(doc.uiKits, 'svelte'));
+  const used = usedComponents(doc, kit.tagMap);
   const files: GeneratedFile[] = [
-    file('package.json', packageJson(projectName, tailwind, libDepsFor(used))),
+    file('package.json', packageJson(projectName, tailwind, { ...libDepsFor(used), ...kit.deps })),
     file('vite.config.ts', viteConfig(tailwind)),
     file('svelte.config.js', svelteConfig),
     file('tsconfig.json', tsconfig),
@@ -353,10 +359,12 @@ export const generateSvelteProject = (doc: ProjectDoc, projectName: string): Gen
     ...doc.pages.map((page, i) =>
       file(
         `src/pages/Page${i}.svelte`,
-        emitSveltePage(page.root, `Page${i}`, '../shared/realtime', screenStyleCss(page.screen)),
+        emitSveltePage(page.root, `Page${i}`, '../shared/realtime', screenStyleCss(page.screen), kit.tagMap),
       ),
     ),
     ...domain.files,
+    // UIライブラリ(kit)のラッパーコンポーネント(Bits UI 等)を使用時のみ出力
+    ...kit.files(used),
   ];
 
   const realtimeUsed = [...used].filter((c) => c in REALTIME_SVELTE);
