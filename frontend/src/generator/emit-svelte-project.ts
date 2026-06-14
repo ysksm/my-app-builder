@@ -2,6 +2,7 @@ import type { ComponentNode } from '@/domain/component-node';
 import type { ProjectDoc } from '@/domain/project-doc';
 import { emitAppCss, emitTokensCss } from './emit-css';
 import { emitSvelteElement, emitSveltePage } from './emit-svelte';
+import { emitSvelteDomain, type SvelteDomainRoute } from './emit-svelte-domain';
 import type { GeneratedFile } from './files';
 import { collectComponents, toUiTree } from './ui-model';
 
@@ -110,17 +111,19 @@ mount(App, { target: document.getElementById('app')! });
 `;
 
 /** App.svelte: 共通ヘッダー/フッター + svelte-spa-router の <Router /> */
-const appSvelte = (doc: ProjectDoc): string => {
-  const imports = doc.pages.map((_, i) => `  import Page${i} from './pages/Page${i}.svelte';`).join('\n');
-  const routeEntries = doc.pages.map((p, i) => `    ${JSON.stringify(p.path)}: Page${i},`).join('\n');
+const appSvelte = (doc: ProjectDoc, extraRoutes: ReadonlyArray<SvelteDomainRoute>): string => {
+  const pageImports = doc.pages.map((_, i) => `  import Page${i} from './pages/Page${i}.svelte';`);
+  const domainImports = extraRoutes.map((r) => `  import ${r.importName} from ${JSON.stringify(r.importPath)};`);
+  const pageEntries = doc.pages.map((p, i) => `    ${JSON.stringify(p.path)}: Page${i},`);
+  const domainEntries = extraRoutes.map((r) => `    ${JSON.stringify(r.path)}: ${r.importName},`);
   const header = doc.layout.header ? emitSvelteElement(toUiTree(doc.layout.header), 1).join('\n') : '';
   const footer = doc.layout.footer ? emitSvelteElement(toUiTree(doc.layout.footer), 1).join('\n') : '';
   return `<!-- 自動生成 — AppForge(Svelte 5) -->
 <script lang="ts">
   import Router from 'svelte-spa-router';
-${imports}
+${[...pageImports, ...domainImports].join('\n')}
   const routes = {
-${routeEntries}
+${[...pageEntries, ...domainEntries].join('\n')}
   };
 </script>
 
@@ -322,6 +325,8 @@ const usedComponents = (doc: ProjectDoc): Set<string> => {
 
 /** ProjectDoc → ビルド可能な Svelte 5 アプリ一式 */
 export const generateSvelteProject = (doc: ProjectDoc, projectName: string): GeneratedFile[] => {
+  // 集約があればドメイン層 + 一覧ページ + svelte-spa-router ルートを生成
+  const domain = emitSvelteDomain(doc.dataModel);
   const files: GeneratedFile[] = [
     file('package.json', packageJson(projectName)),
     file('vite.config.ts', viteConfig),
@@ -329,13 +334,14 @@ export const generateSvelteProject = (doc: ProjectDoc, projectName: string): Gen
     file('tsconfig.json', tsconfig),
     file('index.html', indexHtml(projectName)),
     file('src/main.ts', mainTs),
-    file('src/App.svelte', appSvelte(doc)),
+    file('src/App.svelte', appSvelte(doc, domain.routes)),
     // Vue/Svelte PoC は tailwind 未配線 → css-variables 固定
     file('src/styles/tokens.css', emitTokensCss(doc.tokens, 'css-variables')),
     file('src/styles/app.css', emitAppCss()),
     ...doc.pages.map((page, i) =>
       file(`src/pages/Page${i}.svelte`, emitSveltePage(page.root, `Page${i}`, '../shared/realtime')),
     ),
+    ...domain.files,
   ];
 
   const used = usedComponents(doc);

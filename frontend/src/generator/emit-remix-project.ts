@@ -2,6 +2,7 @@ import type { ProjectDoc } from '@/domain/project-doc';
 import type { ComponentNode } from '@/domain/component-node';
 import { emitAppCss, emitTokensCss } from './emit-css';
 import { emitReactElement, emitReactRoute } from './emit-react-element';
+import { emitRemixDomain } from './emit-remix-domain';
 import type { GeneratedFile } from './files';
 import { collectComponents, toUiTree } from './ui-model';
 
@@ -141,21 +142,17 @@ export default function App() {
 `;
 };
 
-/** app/routes.ts: doc.pages → ファイルルート設定 */
-const routesTs = (doc: ProjectDoc): string => {
-  const entries = doc.pages
-    .map((p, i) => {
-      const rel = p.path.replace(/^\//, '');
-      return rel === ''
-        ? `  index('routes/page${i}.tsx'),`
-        : `  route(${JSON.stringify(rel)}, 'routes/page${i}.tsx'),`;
-    })
-    .join('\n');
+/** app/routes.ts: doc.pages → ファイルルート設定(+ ドメイン一覧ルート) */
+const routesTs = (doc: ProjectDoc, extraEntries: ReadonlyArray<string>): string => {
+  const pageEntries = doc.pages.map((p, i) => {
+    const rel = p.path.replace(/^\//, '');
+    return rel === '' ? `  index('routes/page${i}.tsx'),` : `  route(${JSON.stringify(rel)}, 'routes/page${i}.tsx'),`;
+  });
   return `// 自動生成 — AppForge(Remix ルート設定)
 import { type RouteConfig, index, route } from '@react-router/dev/routes';
 
 export default [
-${entries}
+${[...pageEntries, ...extraEntries].join('\n')}
 ] satisfies RouteConfig;
 `;
 };
@@ -301,18 +298,21 @@ export const generateRemixProject = (
   basename = '/',
 ): GeneratedFile[] => {
   const base = basename.endsWith('/') ? basename : `${basename}/`;
+  // 集約があればドメイン層 + 一覧ルートを生成
+  const domain = emitRemixDomain(doc.dataModel);
   const files: GeneratedFile[] = [
     file('package.json', packageJson(projectName)),
     file('vite.config.ts', viteConfig(base)),
     file('react-router.config.ts', rrConfig(base)),
     file('tsconfig.json', tsconfig),
     file('app/root.tsx', rootTsx(doc)),
-    file('app/routes.ts', routesTs(doc)),
+    file('app/routes.ts', routesTs(doc, domain.routeEntries)),
     file('app/styles/tokens.css', emitTokensCss(doc.tokens, 'css-variables')),
     file('app/styles/app.css', emitAppCss()),
     ...doc.pages.map((page, i) =>
       file(`app/routes/page${i}.tsx`, emitReactRoute(page.root, `Page${i}`, '../shared/realtime')),
     ),
+    ...domain.files,
   ];
   if (usesRealtime(doc)) {
     files.push(file('app/shared/realtime.tsx', realtimeTsx));
