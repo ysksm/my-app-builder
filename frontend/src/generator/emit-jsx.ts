@@ -374,6 +374,32 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
         `${pad}</div>`,
       ];
     }
+    case 'alert': {
+      if (ctx.uiKit.alert) {
+        const e = ctx.uiKit.alert({ pad, messageExpr: s(p('message')), severity: String(p('severity')) });
+        e.imports.forEach((i) => ctx.kitImports.add(i));
+        return e.jsx;
+      }
+      return [`${pad}<div className="c-alert c-alert-${String(p('severity'))}">{${s(p('message'))}}</div>`];
+    }
+    case 'badge': {
+      if (ctx.uiKit.badge) {
+        const e = ctx.uiKit.badge({ pad, labelExpr: s(p('label')), count: num(p('count')), color: String(p('color')) });
+        e.imports.forEach((i) => ctx.kitImports.add(i));
+        return e.jsx;
+      }
+      return [
+        `${pad}<span className="c-badge-wrap"><span className="c-badge-label">{${s(p('label'))}}</span><span className="c-badge c-badge-${String(p('color'))}">{${num(p('count'))}}</span></span>`,
+      ];
+    }
+    case 'avatar': {
+      if (ctx.uiKit.avatar) {
+        const e = ctx.uiKit.avatar({ pad, labelExpr: s(p('label')) });
+        e.imports.forEach((i) => ctx.kitImports.add(i));
+        return e.jsx;
+      }
+      return [`${pad}<span className="c-avatar">{${s(p('label'))}}</span>`];
+    }
   }
 };
 

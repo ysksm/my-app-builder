@@ -9,6 +9,9 @@ import Chip from '@mui/material/Chip';
 import MuiAccordion from '@mui/material/Accordion';
 import MuiAccordionSummary from '@mui/material/AccordionSummary';
 import MuiAccordionDetails from '@mui/material/AccordionDetails';
+import Alert from '@mui/material/Alert';
+import Badge from '@mui/material/Badge';
+import Avatar from '@mui/material/Avatar';
 import {
   Button as RAButton,
   Disclosure as RADisclosure,
@@ -168,6 +171,31 @@ export const kitSlider = (
 export const kitChip = (kit: string, p: { label: string; color: string }): ReactNode | null => {
   if (kit === 'mui') {
     return <Chip label={p.label} color={(p.color === 'default' ? 'default' : p.color) as 'primary' | 'secondary' | 'default'} />;
+  }
+  return null;
+};
+
+export const kitAlert = (kit: string, p: { message: string; severity: string }): ReactNode | null => {
+  if (kit === 'mui') {
+    return <Alert severity={p.severity as 'info' | 'success' | 'warning' | 'error'}>{p.message}</Alert>;
+  }
+  return null;
+};
+
+export const kitBadge = (kit: string, p: { label: string; count: number; color: string }): ReactNode | null => {
+  if (kit === 'mui') {
+    return (
+      <Badge badgeContent={p.count} color={p.color as 'primary' | 'secondary' | 'error'}>
+        <span className="c-badge-anchor">{p.label}</span>
+      </Badge>
+    );
+  }
+  return null;
+};
+
+export const kitAvatar = (kit: string, p: { label: string }): ReactNode | null => {
+  if (kit === 'mui') {
+    return <Avatar>{p.label}</Avatar>;
   }
   return null;
 };

@@ -26,6 +26,9 @@ import type { NodeId } from '@/domain/ids';
 import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
 import { DragPayload, useEditInteraction } from '../editor/edit-interaction';
 import {
+  kitAlert,
+  kitAvatar,
+  kitBadge,
   kitButton,
   kitChip,
   kitDisclosure,
@@ -274,6 +277,26 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
           ))}
         </div>
       );
+    }
+    case 'alert': {
+      const k = kitAlert(kit, { message: str(p('message')), severity: str(p('severity')) });
+      if (k) return <>{k}</>;
+      return <div className={`c-alert c-alert-${str(p('severity'))}`}>{str(p('message'))}</div>;
+    }
+    case 'badge': {
+      const k = kitBadge(kit, { label: str(p('label')), count: num(p('count')), color: str(p('color')) });
+      if (k) return <>{k}</>;
+      return (
+        <span className="c-badge-wrap">
+          <span className="c-badge-label">{str(p('label'))}</span>
+          <span className={`c-badge c-badge-${str(p('color'))}`}>{num(p('count'))}</span>
+        </span>
+      );
+    }
+    case 'avatar': {
+      const k = kitAvatar(kit, { label: str(p('label')) });
+      if (k) return <>{k}</>;
+      return <span className="c-avatar">{str(p('label'))}</span>;
     }
   }
 }

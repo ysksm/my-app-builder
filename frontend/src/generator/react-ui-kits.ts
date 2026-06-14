@@ -22,6 +22,9 @@ export type ReactUiKit = Readonly<{
   slider?: (a: { pad: string; labelExpr: string; value: number; min: number; max: number }) => KitEmit;
   chip?: (a: { pad: string; labelExpr: string; color: string }) => KitEmit;
   tabs?: (a: { pad: string; tabs: ReadonlyArray<string> }) => KitEmit;
+  alert?: (a: { pad: string; messageExpr: string; severity: string }) => KitEmit;
+  badge?: (a: { pad: string; labelExpr: string; count: number; color: string }) => KitEmit;
+  avatar?: (a: { pad: string; labelExpr: string }) => KitEmit;
 }>;
 
 const PLAIN: ReactUiKit = { id: 'plain', deps: {} };
@@ -81,6 +84,20 @@ const MUI: ReactUiKit = {
       `${pad}  <AccordionDetails>{${contentExpr}}</AccordionDetails>`,
       `${pad}</Accordion>`,
     ],
+  }),
+  alert: ({ pad, messageExpr, severity }) => ({
+    imports: [`import Alert from '@mui/material/Alert';`],
+    jsx: [`${pad}<Alert severity=${JSON.stringify(severity)}>{${messageExpr}}</Alert>`],
+  }),
+  badge: ({ pad, labelExpr, count, color }) => ({
+    imports: [`import Badge from '@mui/material/Badge';`],
+    jsx: [
+      `${pad}<Badge badgeContent={${count}} color=${JSON.stringify(color)}><span className="c-badge-anchor">{${labelExpr}}</span></Badge>`,
+    ],
+  }),
+  avatar: ({ pad, labelExpr }) => ({
+    imports: [`import Avatar from '@mui/material/Avatar';`],
+    jsx: [`${pad}<Avatar>{${labelExpr}}</Avatar>`],
   }),
 };
 

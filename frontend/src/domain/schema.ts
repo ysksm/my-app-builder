@@ -49,6 +49,9 @@ const componentTypeSchema = z.enum([
   'rating',
   'slider',
   'chip',
+  'alert',
+  'badge',
+  'avatar',
 ]);
 
 const actionSchema = z.discriminatedUnion('kind', [

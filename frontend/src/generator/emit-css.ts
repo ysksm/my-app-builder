@@ -213,6 +213,25 @@ body {
 .c-tab-section + .c-tab-section { border-top: 1px solid var(--color-border); }
 .c-tab-section .c-tab-label { padding: 8px 4px 0; font-weight: 600; color: var(--color-text); }
 
+/* アラート / バッジ / アバター(plain フォールバック) */
+.c-alert { padding: 10px 14px; border-radius: var(--radius-md); font-size: 14px; align-self: stretch; border: 1px solid; }
+.c-alert-info { background: #e7f5ff; border-color: #74c0fc; color: #1864ab; }
+.c-alert-success { background: #ebfbee; border-color: #69db7c; color: #2b8a3e; }
+.c-alert-warning { background: #fff9db; border-color: #ffd43b; color: #e67700; }
+.c-alert-error { background: #fff5f5; border-color: #ff8787; color: #c92a2a; }
+.c-badge-wrap { position: relative; display: inline-flex; align-items: center; padding: 4px 6px; }
+.c-badge {
+  position: absolute; top: -6px; right: -8px; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 9px; font-size: 11px; line-height: 18px; text-align: center;
+  background: var(--color-primary); color: var(--color-primary-text);
+}
+.c-badge-secondary { background: var(--color-secondary); color: var(--color-secondary-text); }
+.c-badge-error { background: var(--color-danger); color: var(--color-danger-text, #fff); }
+.c-avatar {
+  display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px;
+  border-radius: 50%; background: var(--color-primary); color: var(--color-primary-text); font-size: 14px; font-weight: 600;
+}
+
 /* 設定値の書き込みコントロール(設定ツール) */
 .c-setpoint {
   display: inline-flex; flex-direction: column; gap: 8px; align-self: flex-start;

@@ -229,6 +229,19 @@ export const toUiTree = (
       });
     case 'chip':
       return make({ tag: 'span', classes: ['c-chip', `c-chip-${String(p('color'))}`], text: String(p('label')) });
+    case 'alert':
+      return make({ tag: 'div', classes: ['c-alert', `c-alert-${String(p('severity'))}`], text: String(p('message')) });
+    case 'badge':
+      return make({
+        tag: 'span',
+        classes: ['c-badge-wrap'],
+        children: [
+          make({ tag: 'span', classes: ['c-badge-label'], text: String(p('label')) }),
+          make({ tag: 'span', classes: ['c-badge', `c-badge-${String(p('color'))}`], text: String(num(p('count'))) }),
+        ],
+      });
+    case 'avatar':
+      return make({ tag: 'span', classes: ['c-avatar'], text: String(p('label')) });
     case 'tabs': {
       // plain = 全タブを縦に並べる(ステートレス。kit 選択時は切替式)
       const tabs = String(p('tabs'))

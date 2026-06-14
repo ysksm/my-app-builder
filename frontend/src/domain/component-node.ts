@@ -32,7 +32,10 @@ export type ComponentType =
   // UIライブラリ固有部品(MUI など。plain フォールバックあり)
   | 'rating'
   | 'slider'
-  | 'chip';
+  | 'chip'
+  | 'alert'
+  | 'badge'
+  | 'avatar';
 
 export type ComponentNode = Readonly<{
   id: NodeId;

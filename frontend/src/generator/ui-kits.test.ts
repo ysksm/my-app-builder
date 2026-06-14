@@ -168,6 +168,26 @@ describe('UIライブラリ選択(FR-GUI-11)', () => {
     expect(aria).toContain('<RAria.TabPanel');
   });
 
+  it('MUI 静的固有部品: alert/badge/avatar が MUI 部品で出力', () => {
+    let doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const target = EditTarget.page(home.id);
+    (['alert', 'badge', 'avatar'] as const).forEach((type, i) => {
+      const r = applyCommand(doc, { kind: 'insertNode', target, parentId: home.root.id, index: i, type });
+      if (!r.ok) throw new Error('insert');
+      doc = r.value.doc;
+    });
+    // plain
+    expect(get(generateProject(doc, 'x'), 'pages/Page0.tsx')).toContain('className="c-alert');
+    // MUI
+    const mr = applyCommand(doc, { kind: 'setUiKit', framework: 'react', kit: 'mui' });
+    if (!mr.ok) throw new Error('kit');
+    const page = get(generateProject(mr.value.doc, 'x'), 'pages/Page0.tsx');
+    expect(page).toContain('<Alert ');
+    expect(page).toContain('<Badge ');
+    expect(page).toContain('<Avatar>');
+  });
+
   it('setUiKit は framework→kit を doc に保存', () => {
     const res = applyCommand(ProjectDoc.create(), { kind: 'setUiKit', framework: 'react', kit: 'mui' });
     if (!res.ok) throw new Error('apply');
