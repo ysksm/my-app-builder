@@ -9,9 +9,8 @@ import {
 } from '@/generator';
 import type { ProjectDoc } from '@/domain/project-doc';
 import { toPackageName } from '@/generator/identifiers';
-import { UI_KITS, kitIdOf } from '@/generator/ui-kits';
-import { uiKitSet } from '../store/editor-slice';
-import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { TARGET_FRAMEWORKS } from '@/generator/ui-kits';
+import { useAppSelector } from '../store/hooks';
 
 type BuildState =
   | Readonly<{ phase: 'building' }>
@@ -19,13 +18,6 @@ type BuildState =
   | Readonly<{ phase: 'error'; log: string }>;
 
 type Framework = 'react' | 'vue' | 'svelte' | 'remix';
-
-const FRAMEWORKS: ReadonlyArray<{ id: Framework; label: string }> = [
-  { id: 'react', label: 'React' },
-  { id: 'vue', label: 'Vue' },
-  { id: 'svelte', label: 'Svelte' },
-  { id: 'remix', label: 'Remix' },
-];
 
 /**
  * フレームワーク別にソース生成。Remix(パスルーティング)はサブパス配信に合わせて
@@ -54,13 +46,13 @@ const generateFor = (
  * ビルドランナーで npm install → 型チェック + vite build を実行、成果物を iframe で表示する。
  */
 export function RunApp() {
-  const dispatch = useAppDispatch();
   const doc = useAppSelector((s) => s.editor.doc);
   const projectId = useAppSelector((s) => s.editor.projectId);
   const projectName = useAppSelector((s) => s.editor.projectName);
-  const [framework, setFramework] = useState<Framework>('react');
-  const kits = UI_KITS[framework] ?? [];
-  const currentKit = kitIdOf(doc.uiKits, framework);
+  // デザイン対象フレームワークは doc 設定(TopBar で選択)に従う
+  const framework = (doc.targetFramework as Framework) ?? 'react';
+  const frameworkLabel =
+    TARGET_FRAMEWORKS.find((f) => f.id === framework)?.label ?? framework;
   const [state, setState] = useState<BuildState>({ phase: 'building' });
   const [nonce, setNonce] = useState(0);
   const [showLog, setShowLog] = useState(false);
@@ -126,35 +118,9 @@ export function RunApp() {
   return (
     <div className="run-root">
       <div className="run-toolbar">
-        <div className="run-framework" role="group" aria-label="生成フレームワーク">
-          {FRAMEWORKS.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              className={framework === f.id ? 'on' : ''}
-              disabled={state.phase === 'building'}
-              onClick={() => setFramework(f.id)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        {kits.length > 1 && (
-          <label className="run-kit">
-            <span>UIライブラリ</span>
-            <select
-              value={currentKit}
-              disabled={state.phase === 'building'}
-              onChange={(e) => dispatch(uiKitSet({ framework, kit: e.target.value }))}
-            >
-              {kits.map((k) => (
-                <option key={k.id} value={k.id}>
-                  {k.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+        <span className="run-target" title="対象は上部の設定で選択します">
+          🎯 {frameworkLabel}
+        </span>
         <span className={`run-status ${state.phase}`}>{statusLabel}</span>
         <button
           type="button"

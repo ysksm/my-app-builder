@@ -5,6 +5,12 @@
  */
 export type UiKitInfo = Readonly<{ id: string; label: string }>;
 
+/** デザイン対象に選べるフレームワーク(デザイン前に選ぶ。Angular は将来) */
+export const TARGET_FRAMEWORKS: ReadonlyArray<UiKitInfo> = [
+  { id: 'react', label: 'React' },
+  { id: 'svelte', label: 'Svelte' },
+];
+
 export const UI_KITS: Readonly<Record<string, ReadonlyArray<UiKitInfo>>> = {
   react: [
     { id: 'plain', label: '標準スタイル(c-*)' },

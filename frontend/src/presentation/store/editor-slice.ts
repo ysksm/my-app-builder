@@ -425,6 +425,10 @@ export const editorSlice = createSlice({
       run(state, { kind: 'setUiKit', ...action.payload });
     },
 
+    targetFrameworkSet(state, action: PayloadAction<string>) {
+      run(state, { kind: 'setTargetFramework', framework: action.payload });
+    },
+
     modelSelected(state, action: PayloadAction<ModelId | null>) {
       state.selectedModelId = action.payload;
     },
@@ -518,6 +522,7 @@ export const {
   themeRemoved,
   presetApplied,
   uiKitSet,
+  targetFrameworkSet,
   modelSelected,
   undone,
   redone,

@@ -67,6 +67,8 @@ export type ProjectDoc = Readonly<{
   themes: ReadonlyArray<ThemePreset>;
   /** フレームワークごとの UIライブラリ選択(FR-GUI-11)。framework id → kit id(既定 plain) */
   uiKits: Readonly<Record<string, string>>;
+  /** デザイン対象フレームワーク(FR-GUI-11)。デザイン前に選ぶプロジェクト設定(既定 react) */
+  targetFramework: string;
 }>;
 
 export const ProjectDoc = {
@@ -87,12 +89,18 @@ export const ProjectDoc = {
       boardPositions: {},
       themes: [],
       uiKits: {},
+      targetFramework: 'react',
     };
   },
 
   /** フレームワークの UIライブラリ(kit)を設定する */
   setUiKit(doc: ProjectDoc, framework: string, kit: string): ProjectDoc {
     return { ...doc, uiKits: { ...doc.uiKits, [framework]: kit } };
+  },
+
+  /** デザイン対象フレームワークを設定する */
+  setTargetFramework(doc: ProjectDoc, framework: string): ProjectDoc {
+    return { ...doc, targetFramework: framework };
   },
 
   findPage(doc: ProjectDoc, pageId: PageId): Page | null {

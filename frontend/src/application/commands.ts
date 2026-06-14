@@ -106,7 +106,8 @@ export type Command =
   | Readonly<{ kind: 'applyTheme'; themeId: string }>
   | Readonly<{ kind: 'removeTheme'; themeId: string }>
   | Readonly<{ kind: 'applyPreset'; presetId: string }>
-  | Readonly<{ kind: 'setUiKit'; framework: string; kit: string }>;
+  | Readonly<{ kind: 'setUiKit'; framework: string; kit: string }>
+  | Readonly<{ kind: 'setTargetFramework'; framework: string }>;
 
 export type CommandKind = Command['kind'];
 
@@ -356,6 +357,9 @@ export const applyCommand = (
     case 'setUiKit': {
       return ok(outcome(ProjectDoc.setUiKit(doc, cmd.framework, cmd.kit)));
     }
+    case 'setTargetFramework': {
+      return ok(outcome(ProjectDoc.setTargetFramework(doc, cmd.framework)));
+    }
   }
 };
 
@@ -504,6 +508,7 @@ const commandSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('removeTheme'), themeId: z.string() }),
   z.object({ kind: z.literal('applyPreset'), presetId: z.string() }),
   z.object({ kind: z.literal('setUiKit'), framework: z.string(), kit: z.string() }),
+  z.object({ kind: z.literal('setTargetFramework'), framework: z.string() }),
 ]);
 
 /** 外部入力(JSON)→ 検証済み Command 配列。MCP の apply_commands が信頼境界で使う */

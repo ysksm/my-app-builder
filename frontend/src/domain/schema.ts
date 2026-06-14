@@ -220,6 +220,8 @@ export const projectDocSchema = z.object({
     .default(() => []),
   // 後方互換: UIライブラリ選択(framework→kit)が無い旧プロジェクトは空(=全 plain)
   uiKits: z.record(z.string(), z.string()).default(() => ({})),
+  // 後方互換: 対象フレームワーク未設定の旧プロジェクトは react
+  targetFramework: z.string().default('react'),
 });
 
 /** 保存/読込境界での検証。永続化された JSON を信頼せず必ずここを通す */
