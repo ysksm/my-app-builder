@@ -42,6 +42,8 @@ const componentTypeSchema = z.enum([
   'uplot',
   'echarts',
   'aggrid',
+  'disclosure',
+  'menu',
 ]);
 
 const actionSchema = z.discriminatedUnion('kind', [

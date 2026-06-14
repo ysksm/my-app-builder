@@ -363,6 +363,35 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
       { key: 'rows', label: 'サンプル行数', input: 'number' },
     ],
   },
+  // ---------- 対話部品(UIライブラリ選択で kit の部品に切替)----------
+  disclosure: {
+    type: 'disclosure',
+    label: 'アコーディオン',
+    icon: '🔽',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    // plain は <details>(ステートレス)。Headless UI 等を選ぶと kit の Disclosure
+    defaultProps: { title: '詳細を表示', content: 'ここに内容が入ります。' },
+    propFields: [
+      { key: 'title', label: '見出し', input: 'text' },
+      { key: 'content', label: '内容', input: 'textarea' },
+    ],
+  },
+  menu: {
+    type: 'menu',
+    label: 'ドロップダウン',
+    icon: '🔻',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    // plain は <details>。Headless UI 等を選ぶと kit の Menu。項目はカンマ区切り
+    defaultProps: { label: 'メニュー', items: '編集,複製,削除' },
+    propFields: [
+      { key: 'label', label: 'ボタン文言', input: 'text' },
+      { key: 'items', label: '項目(カンマ区切り)', input: 'text' },
+    ],
+  },
   header: {
     type: 'header',
     label: 'ヘッダー',

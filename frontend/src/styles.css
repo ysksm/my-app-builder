@@ -297,6 +297,19 @@ body {
 .c-echart-canvas { width: 100%; height: 180px; }
 .c-aggrid { width: 100%; height: 280px; align-self: stretch; }
 
+/* 対話部品(アコーディオン / ドロップダウン) */
+.c-disclosure {
+  border: 1px solid var(--color-border, #c6cde4); border-radius: var(--radius-md, 8px);
+  background: var(--color-surface-card, #fff); overflow: hidden; align-self: stretch;
+}
+.c-disclosure-summary { cursor: pointer; padding: 10px 14px; font-weight: 600; color: var(--color-text, #1d2230); list-style: none; user-select: none; }
+.c-disclosure-content { padding: 12px 14px; color: var(--color-text-muted, #5b6480); border-top: 1px solid var(--color-border, #c6cde4); }
+.c-menu { position: relative; display: inline-block; align-self: flex-start; }
+.c-menu-button { cursor: pointer; padding: 8px 14px; border-radius: var(--radius-sm, 4px); background: var(--color-primary, #4263eb); color: var(--color-primary-text, #fff); list-style: none; user-select: none; font-weight: 600; border: none; }
+.c-menu-list { margin: 4px 0 0; padding: 6px; list-style: none; min-width: 160px; background: var(--color-surface-card, #fff); border: 1px solid var(--color-border, #c6cde4); border-radius: var(--radius-md, 8px); box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+.c-menu-item { display: block; width: 100%; text-align: left; padding: 8px 10px; border: none; background: none; border-radius: var(--radius-sm, 4px); color: var(--color-text, #1d2230); cursor: pointer; font: inherit; }
+.c-menu-item:hover { background: var(--color-secondary, #e3e7f3); }
+
 .c-setpoint {
   display: inline-flex; flex-direction: column; gap: 8px; align-self: flex-start; min-width: 220px;
   background: var(--color-surface-card, #fff); border: 1px solid var(--color-border, #c6cde4);

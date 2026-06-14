@@ -15,6 +15,8 @@ export type ReactUiKit = Readonly<{
     placeholderExpr: string | null;
     inputType: string;
   }) => KitEmit;
+  disclosure?: (a: { pad: string; titleExpr: string; contentExpr: string }) => KitEmit;
+  menu?: (a: { pad: string; labelExpr: string; items: ReadonlyArray<string> }) => KitEmit;
 }>;
 
 const PLAIN: ReactUiKit = { id: 'plain', deps: {} };
@@ -66,10 +68,42 @@ const REACT_ARIA: ReactUiKit = {
   }),
 };
 
+// ---- Headless UI(対話部品。button/input は持たないので未スタイル対話部品のみ提供)----
+const s = (v: string): string => JSON.stringify(v);
+
+const HEADLESS: ReactUiKit = {
+  id: 'headless',
+  deps: { '@headlessui/react': '^2.2.0' },
+  disclosure: ({ pad, titleExpr, contentExpr }) => ({
+    imports: [`import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react';`],
+    jsx: [
+      `${pad}<Disclosure as="div" className="c-disclosure">`,
+      `${pad}  <DisclosureButton className="c-disclosure-summary">{${titleExpr}}</DisclosureButton>`,
+      `${pad}  <DisclosurePanel className="c-disclosure-content">{${contentExpr}}</DisclosurePanel>`,
+      `${pad}</Disclosure>`,
+    ],
+  }),
+  menu: ({ pad, labelExpr, items }) => ({
+    imports: [`import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';`],
+    jsx: [
+      `${pad}<Menu as="div" className="c-menu">`,
+      `${pad}  <MenuButton className="c-menu-button">{${labelExpr}}</MenuButton>`,
+      `${pad}  <MenuItems anchor="bottom start" className="c-menu-list">`,
+      ...items.map(
+        (i) =>
+          `${pad}    <MenuItem><button type="button" className="c-menu-item">{${s(i)}}</button></MenuItem>`,
+      ),
+      `${pad}  </MenuItems>`,
+      `${pad}</Menu>`,
+    ],
+  }),
+};
+
 const REACT_KITS: Readonly<Record<string, ReactUiKit>> = {
   plain: PLAIN,
   mui: MUI,
   'react-aria': REACT_ARIA,
+  headless: HEADLESS,
 };
 
 /** kit id → アダプタ(未知/未指定は plain) */

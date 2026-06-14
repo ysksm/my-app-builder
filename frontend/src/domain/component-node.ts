@@ -23,7 +23,10 @@ export type ComponentType =
   // 外部ライブラリ製コンポーネント(vanilla JS、4FW + ビルダー共通)
   | 'uplot'
   | 'echarts'
-  | 'aggrid';
+  | 'aggrid'
+  // 対話部品(plain は <details> でステートレス、UIライブラリ選択時は kit の部品)
+  | 'disclosure'
+  | 'menu';
 
 export type ComponentNode = Readonly<{
   id: NodeId;

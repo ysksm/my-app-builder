@@ -275,6 +275,38 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
       const attrs = [`columns={${s(p('columns'))}}`, `rows={${num(p('rows'))}}`].join(' ');
       return [`${pad}<DataGrid ${attrs} />`];
     }
+    case 'disclosure': {
+      if (ctx.uiKit.disclosure) {
+        const e = ctx.uiKit.disclosure({ pad, titleExpr: s(p('title')), contentExpr: s(p('content')) });
+        e.imports.forEach((i) => ctx.kitImports.add(i));
+        return e.jsx;
+      }
+      return [
+        `${pad}<details className="c-disclosure">`,
+        `${pad}  <summary className="c-disclosure-summary">{${s(p('title'))}}</summary>`,
+        `${pad}  <div className="c-disclosure-content">{${s(p('content'))}}</div>`,
+        `${pad}</details>`,
+      ];
+    }
+    case 'menu': {
+      const items = String(p('items'))
+        .split(',')
+        .map((i) => i.trim())
+        .filter(Boolean);
+      if (ctx.uiKit.menu) {
+        const e = ctx.uiKit.menu({ pad, labelExpr: s(p('label')), items });
+        e.imports.forEach((i) => ctx.kitImports.add(i));
+        return e.jsx;
+      }
+      return [
+        `${pad}<details className="c-menu">`,
+        `${pad}  <summary className="c-menu-button">{${s(p('label'))}}</summary>`,
+        `${pad}  <ul className="c-menu-list">`,
+        ...items.map((i) => `${pad}    <li className="c-menu-item">{${s(i)}}</li>`),
+        `${pad}  </ul>`,
+        `${pad}</details>`,
+      ];
+    }
   }
 };
 

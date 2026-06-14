@@ -54,6 +54,37 @@ describe('UIライブラリ選択(FR-GUI-11)', () => {
     expect(get(files, 'package.json')).toContain('react-aria-components');
   });
 
+  it('対話部品: plain は <details>、Headless UI は @headlessui/react の部品', () => {
+    let doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const target = EditTarget.page(home.id);
+    (['disclosure', 'menu'] as const).forEach((type, i) => {
+      const r = applyCommand(doc, { kind: 'insertNode', target, parentId: home.root.id, index: i, type });
+      if (!r.ok) throw new Error('insert');
+      doc = r.value.doc;
+    });
+    // plain
+    const plain = get(generateProject(doc, 'x'), 'pages/Page0.tsx');
+    expect(plain).toContain('<details className="c-disclosure">');
+    expect(plain).toContain('<details className="c-menu">');
+    // Headless UI
+    const r = applyCommand(doc, { kind: 'setUiKit', framework: 'react', kit: 'headless' });
+    if (!r.ok) throw new Error('setUiKit');
+    const files = generateProject(r.value.doc, 'x');
+    const page = get(files, 'pages/Page0.tsx');
+    expect(page).toContain("from '@headlessui/react'");
+    expect(page).toContain('<Disclosure');
+    expect(page).toContain('<Menu');
+    expect(get(files, 'package.json')).toContain('@headlessui/react');
+  });
+
+  it('Headless UI は button/input には非対応 → plain にフォールバック', () => {
+    const files = generateProject(withControls('headless'), 'x');
+    const page = get(files, 'pages/Page0.tsx');
+    expect(page).toContain('className="c-button'); // kit 未対応 → plain
+    expect(page).toContain('className="c-input"');
+  });
+
   it('setUiKit は framework→kit を doc に保存', () => {
     const res = applyCommand(ProjectDoc.create(), { kind: 'setUiKit', framework: 'react', kit: 'mui' });
     if (!res.ok) throw new Error('apply');

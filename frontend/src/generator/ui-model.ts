@@ -145,6 +145,35 @@ export const toUiTree = (node: ComponentNode): UiElement => {
       });
     case 'footer':
       return make({ tag: 'footer', classes: ['c-footer'], text: String(p('text')) });
+    case 'disclosure': {
+      // plain = <details>(ステートレス。全 framework で動く)
+      return make({
+        tag: 'details',
+        classes: ['c-disclosure'],
+        children: [
+          make({ tag: 'summary', classes: ['c-disclosure-summary'], text: String(p('title')) }),
+          make({ tag: 'div', classes: ['c-disclosure-content'], text: String(p('content')) }),
+        ],
+      });
+    }
+    case 'menu': {
+      const items = String(p('items'))
+        .split(',')
+        .map((i) => i.trim())
+        .filter(Boolean);
+      return make({
+        tag: 'details',
+        classes: ['c-menu'],
+        children: [
+          make({ tag: 'summary', classes: ['c-menu-button'], text: String(p('label')) }),
+          make({
+            tag: 'ul',
+            classes: ['c-menu-list'],
+            children: items.map((i) => make({ tag: 'li', classes: ['c-menu-item'], text: i })),
+          }),
+        ],
+      });
+    }
     case 'metric':
     case 'gauge':
     case 'lamp':

@@ -147,6 +147,33 @@ body {
 .c-echart-canvas { width: 100%; height: 180px; }
 .c-aggrid { width: 100%; height: 280px; align-self: stretch; }
 
+/* 対話部品(アコーディオン / ドロップダウン) */
+.c-disclosure {
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  background: var(--color-surface-card); overflow: hidden; align-self: stretch;
+}
+.c-disclosure-summary {
+  cursor: pointer; padding: 10px 14px; font-weight: 600; color: var(--color-text);
+  list-style: none; user-select: none;
+}
+.c-disclosure-content { padding: 12px 14px; color: var(--color-text-muted); border-top: 1px solid var(--color-border); }
+.c-menu { position: relative; display: inline-block; align-self: flex-start; }
+.c-menu-button {
+  cursor: pointer; padding: 8px 14px; border-radius: var(--radius-sm);
+  background: var(--color-primary); color: var(--color-primary-text);
+  list-style: none; user-select: none; font-weight: 600; border: none;
+}
+.c-menu-list {
+  margin: 4px 0 0; padding: 6px; list-style: none; min-width: 160px;
+  background: var(--color-surface-card); border: 1px solid var(--color-border);
+  border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,.12);
+}
+.c-menu-item {
+  display: block; width: 100%; text-align: left; padding: 8px 10px; border: none; background: none;
+  border-radius: var(--radius-sm); color: var(--color-text); cursor: pointer; font: inherit;
+}
+.c-menu-item:hover { background: var(--color-secondary); }
+
 /* 設定値の書き込みコントロール(設定ツール) */
 .c-setpoint {
   display: inline-flex; flex-direction: column; gap: 8px; align-self: flex-start;

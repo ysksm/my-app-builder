@@ -151,6 +151,30 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
       return <EChartView node={node} mode={mode} />;
     case 'aggrid':
       return <DataGridView node={node} mode={mode} />;
+    case 'disclosure':
+      return (
+        <details className="c-disclosure" open={mode === 'edit'}>
+          <summary className="c-disclosure-summary">{str(p('title'))}</summary>
+          <div className="c-disclosure-content">{str(p('content'))}</div>
+        </details>
+      );
+    case 'menu':
+      return (
+        <details className="c-menu">
+          <summary className="c-menu-button">{str(p('label'))}</summary>
+          <ul className="c-menu-list">
+            {str(p('items'))
+              .split(',')
+              .map((i) => i.trim())
+              .filter(Boolean)
+              .map((i, idx) => (
+                <li key={idx} className="c-menu-item">
+                  {i}
+                </li>
+              ))}
+          </ul>
+        </details>
+      );
   }
 }
 

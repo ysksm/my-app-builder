@@ -16,6 +16,7 @@ export const UI_KITS: Readonly<Record<string, ReadonlyArray<UiKitInfo>>> = {
     { id: 'plain', label: '標準スタイル(c-*)' },
     { id: 'mui', label: 'MUI(Material UI)' },
     { id: 'react-aria', label: 'React Aria(ヘッドレス)' },
+    { id: 'headless', label: 'Headless UI(対話部品)' },
   ],
   svelte: [{ id: 'plain', label: '標準スタイル(c-*)' }],
 };
