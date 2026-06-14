@@ -405,6 +405,18 @@ export const editorSlice = createSlice({
       run(state, { kind: 'setBoardPosition', ...action.payload });
     },
 
+    themeSaved(state, action: PayloadAction<string>) {
+      run(state, { kind: 'saveTheme', name: action.payload });
+    },
+
+    themeApplied(state, action: PayloadAction<string>) {
+      run(state, { kind: 'applyTheme', themeId: action.payload });
+    },
+
+    themeRemoved(state, action: PayloadAction<string>) {
+      run(state, { kind: 'removeTheme', themeId: action.payload });
+    },
+
     modelSelected(state, action: PayloadAction<ModelId | null>) {
       state.selectedModelId = action.payload;
     },
@@ -493,6 +505,9 @@ export const {
   channelUpdated,
   channelRemoved,
   boardPositionSet,
+  themeSaved,
+  themeApplied,
+  themeRemoved,
   modelSelected,
   undone,
   redone,

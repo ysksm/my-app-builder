@@ -192,6 +192,9 @@ export const projectDocSchema = z.object({
   boardPositions: z
     .record(z.string(), z.object({ x: z.number(), y: z.number() }))
     .default(() => ({})),
+  themes: z
+    .array(z.object({ id: z.string(), name: z.string(), tokens: designTokensSchema }))
+    .default(() => []),
 });
 
 /** 保存/読込境界での検証。永続化された JSON を信頼せず必ずここを通す */

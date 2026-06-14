@@ -100,7 +100,11 @@ export type Command =
   | Readonly<{ kind: 'updateChannel'; channelId: ChannelId; patch: Partial<Omit<DataChannelDef, 'id'>> }>
   | Readonly<{ kind: 'removeChannel'; channelId: ChannelId }>
   // スクリーンボード配置(FR-PAGE-06)
-  | Readonly<{ kind: 'setBoardPosition'; screenId: string; x: number; y: number }>;
+  | Readonly<{ kind: 'setBoardPosition'; screenId: string; x: number; y: number }>
+  // 名前付きデザインテーマ(FR-DS-08)
+  | Readonly<{ kind: 'saveTheme'; name: string }>
+  | Readonly<{ kind: 'applyTheme'; themeId: string }>
+  | Readonly<{ kind: 'removeTheme'; themeId: string }>;
 
 export type CommandKind = Command['kind'];
 
@@ -116,6 +120,7 @@ export type CreatedEntities = Readonly<{
   usecaseId?: UsecaseId;
   partId?: CustomPartId;
   channelId?: ChannelId;
+  themeId?: string;
 }>;
 
 export type CommandOutcome = Readonly<{
@@ -330,6 +335,18 @@ export const applyCommand = (
     case 'setBoardPosition': {
       return ok(outcome(ProjectDoc.setBoardPosition(doc, cmd.screenId, cmd.x, cmd.y)));
     }
+    case 'saveTheme': {
+      const { doc: next, theme } = ProjectDoc.saveTheme(doc, cmd.name);
+      return ok(outcome(next, { themeId: theme.id }));
+    }
+    case 'applyTheme': {
+      const res = ProjectDoc.applyTheme(doc, cmd.themeId);
+      return res.ok ? ok(outcome(res.value)) : res;
+    }
+    case 'removeTheme': {
+      const res = ProjectDoc.removeTheme(doc, cmd.themeId);
+      return res.ok ? ok(outcome(res.value)) : res;
+    }
   }
 };
 
@@ -459,6 +476,9 @@ const commandSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('updateChannel'), channelId: id, patch: channelPatch }),
   z.object({ kind: z.literal('removeChannel'), channelId: id }),
   z.object({ kind: z.literal('setBoardPosition'), screenId: z.string(), x: z.number(), y: z.number() }),
+  z.object({ kind: z.literal('saveTheme'), name: z.string() }),
+  z.object({ kind: z.literal('applyTheme'), themeId: z.string() }),
+  z.object({ kind: z.literal('removeTheme'), themeId: z.string() }),
 ]);
 
 /** 外部入力(JSON)→ 検証済み Command 配列。MCP の apply_commands が信頼境界で使う */

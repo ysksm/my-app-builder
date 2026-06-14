@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import type { DesignTokens, TokenGroup } from '@/domain/design-tokens';
 import { ComponentNode } from '@/domain/component-node';
-import { styleEmitterSet, tokenSet } from '../store/editor-slice';
+import { styleEmitterSet, themeApplied, themeRemoved, themeSaved, tokenSet } from '../store/editor-slice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { NodeBody } from '../renderer/NodeRenderer';
 
@@ -45,6 +46,8 @@ export function DesignSystemView() {
           </button>
         </div>
 
+        <ThemesSection />
+
         <h2 className="design-h2" style={{ marginTop: 18 }}>
           デザイントークン
         </h2>
@@ -60,6 +63,60 @@ export function DesignSystemView() {
         <DesignPreview />
       </div>
     </div>
+  );
+}
+
+/** 名前付きテーマの保存 / 適用 / 削除(FR-DS-08) */
+function ThemesSection() {
+  const dispatch = useAppDispatch();
+  const themes = useAppSelector((s) => s.editor.doc.themes);
+  const [name, setName] = useState('');
+
+  const save = () => {
+    dispatch(themeSaved(name.trim() || `テーマ${themes.length + 1}`));
+    setName('');
+  };
+
+  return (
+    <section className="themes-section">
+      <h2 className="design-h2" style={{ marginTop: 18 }}>
+        テーマ
+      </h2>
+      <p className="muted design-note">現在のトークン一式を名前を付けて保存し、ワンクリックで切り替えられます。</p>
+      <div className="theme-save">
+        <input
+          type="text"
+          value={name}
+          placeholder="テーマ名(例: ダーク)"
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') save();
+          }}
+        />
+        <button type="button" className="btn" onClick={save}>
+          現在の配色を保存
+        </button>
+      </div>
+      {themes.length > 0 && (
+        <ul className="theme-list">
+          {themes.map((t) => (
+            <li key={t.id} className="theme-row">
+              <span
+                className="theme-swatch"
+                style={{ background: t.tokens.color.primary?.$value ?? '#888' }}
+              />
+              <span className="theme-name">{t.name}</span>
+              <button type="button" className="btn small" onClick={() => dispatch(themeApplied(t.id))}>
+                適用
+              </button>
+              <button type="button" className="icon-btn" title="削除" onClick={() => dispatch(themeRemoved(t.id))}>
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

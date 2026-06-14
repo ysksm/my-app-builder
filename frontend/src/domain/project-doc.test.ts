@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ComponentNode } from './component-node';
+import { DesignTokens } from './design-tokens';
 import { EditTarget, ProjectDoc } from './project-doc';
 import { parseProjectDoc } from './schema';
 
@@ -37,6 +38,47 @@ describe('ProjectDoc.setBoardPosition(FR-PAGE-06)', () => {
     const parsed = parseProjectDoc(legacy);
     if (!parsed.ok) throw new Error('parse');
     expect(parsed.value.boardPositions).toEqual({});
+  });
+});
+
+describe('ProjectDoc 名前付きテーマ(FR-DS-08)', () => {
+  it('現在のトークンを保存し、適用で差し替え、削除できる', () => {
+    const base = ProjectDoc.create();
+    expect(base.themes).toEqual([]);
+    // 色を変えてから「現在の配色」を保存
+    const blue = DesignTokens.setToken(base.tokens, 'color', 'primary', '#1111ff');
+    const d0 = { ...base, tokens: blue };
+    const { doc: d1, theme } = ProjectDoc.saveTheme(d0, 'ブルー');
+    expect(d1.themes).toHaveLength(1);
+    expect(theme.name).toBe('ブルー');
+
+    // トークンを別の色にしてから、保存テーマを適用すると元の青に戻る
+    const d2 = { ...d1, tokens: DesignTokens.setToken(d1.tokens, 'color', 'primary', '#ff0000') };
+    const applied = ProjectDoc.applyTheme(d2, theme.id);
+    if (!applied.ok) throw new Error('apply');
+    expect(applied.value.tokens.color.primary?.$value).toBe('#1111ff');
+
+    const removed = ProjectDoc.removeTheme(applied.value, theme.id);
+    if (!removed.ok) throw new Error('remove');
+    expect(removed.value.themes).toHaveLength(0);
+  });
+
+  it('存在しないテーマの適用/削除は notFound', () => {
+    const base = ProjectDoc.create();
+    expect(ProjectDoc.applyTheme(base, 'nope').ok).toBe(false);
+    expect(ProjectDoc.removeTheme(base, 'nope').ok).toBe(false);
+  });
+
+  it('themes 未保存の旧ドキュメントは空配列で補完される', () => {
+    const legacy = {
+      schemaVersion: 1,
+      pages: [{ id: 'p1', name: 'ホーム', path: '/', root: ComponentNode.create('container'), useHeader: true, useFooter: true }],
+      layout: { header: null, footer: null },
+      dialogs: [],
+    };
+    const parsed = parseProjectDoc(legacy);
+    if (!parsed.ok) throw new Error('parse');
+    expect(parsed.value.themes).toEqual([]);
   });
 });
 

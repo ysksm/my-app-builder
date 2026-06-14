@@ -39,6 +39,13 @@ export type CustomPartDef = Readonly<{
 /** スタイル emitter の選択(FR-DS-05)。中立トークンからどの形式を生成するか */
 export type StyleEmitter = 'css-variables' | 'tailwind';
 
+/** 名前付きデザインテーマ(FR-DS-08)。デザイントークン一式のスナップショット */
+export type ThemePreset = Readonly<{
+  id: string;
+  name: string;
+  tokens: DesignTokens;
+}>;
+
 export type ProjectDoc = Readonly<{
   schemaVersion: 1;
   pages: ReadonlyArray<Page>;
@@ -55,6 +62,8 @@ export type ProjectDoc = Readonly<{
   channels: ReadonlyArray<DataChannelDef>;
   /** スクリーンボード上の画面カード位置(FR-PAGE-06)。画面 ID → 座標 */
   boardPositions: Readonly<Record<string, Readonly<{ x: number; y: number }>>>;
+  /** 名前付きデザインテーマ(FR-DS-08)。保存したトークン一式を切り替えられる */
+  themes: ReadonlyArray<ThemePreset>;
 }>;
 
 export const ProjectDoc = {
@@ -73,6 +82,7 @@ export const ProjectDoc = {
       styleEmitter: 'css-variables',
       channels: [],
       boardPositions: {},
+      themes: [],
     };
   },
 
@@ -225,5 +235,27 @@ export const ProjectDoc = {
   /** スクリーンボードの画面カード位置を保存する(FR-PAGE-06) */
   setBoardPosition(doc: ProjectDoc, screenId: string, x: number, y: number): ProjectDoc {
     return { ...doc, boardPositions: { ...doc.boardPositions, [screenId]: { x, y } } };
+  },
+
+  /** 現在のデザイントークンを名前付きテーマとして保存する(FR-DS-08) */
+  saveTheme(doc: ProjectDoc, name: string): Readonly<{ doc: ProjectDoc; theme: ThemePreset }> {
+    const theme: ThemePreset = {
+      id: crypto.randomUUID(),
+      name: name.trim() || `テーマ${doc.themes.length + 1}`,
+      tokens: doc.tokens,
+    };
+    return { doc: { ...doc, themes: [...doc.themes, theme] }, theme };
+  },
+
+  /** 保存済みテーマを適用する(現在のトークンを差し替える) */
+  applyTheme(doc: ProjectDoc, themeId: string): Result<ProjectDoc, DomainError> {
+    const theme = doc.themes.find((t) => t.id === themeId);
+    if (!theme) return err(DomainError.notFound('theme'));
+    return ok({ ...doc, tokens: theme.tokens });
+  },
+
+  removeTheme(doc: ProjectDoc, themeId: string): Result<ProjectDoc, DomainError> {
+    if (!doc.themes.some((t) => t.id === themeId)) return err(DomainError.notFound('theme'));
+    return ok({ ...doc, themes: doc.themes.filter((t) => t.id !== themeId) });
   },
 } as const;
