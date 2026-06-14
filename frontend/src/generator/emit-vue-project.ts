@@ -2,6 +2,7 @@ import type { ComponentNode } from '@/domain/component-node';
 import type { ProjectDoc } from '@/domain/project-doc';
 import { emitAppCss, emitTokensCss } from './emit-css';
 import { emitVueElement, emitVuePage } from './emit-vue';
+import { emitVueDomain } from './emit-vue-domain';
 import type { GeneratedFile } from './files';
 import { collectComponents, toUiTree } from './ui-model';
 
@@ -115,17 +116,20 @@ import './styles/app.css';
 createApp(App).use(router).mount('#app');
 `;
 
-const routerTs = (doc: ProjectDoc): string => {
-  const routes = doc.pages
-    .map((p, i) => `  { path: ${JSON.stringify(p.path)}, component: () => import('./pages/Page${i}.vue') },`)
-    .join('\n');
+const routerTs = (doc: ProjectDoc, extraRoutes: ReadonlyArray<{ path: string; component: string }>): string => {
+  const pageRoutes = doc.pages.map(
+    (p, i) => `  { path: ${JSON.stringify(p.path)}, component: () => import('./pages/Page${i}.vue') },`,
+  );
+  const domainRoutes = extraRoutes.map(
+    (r) => `  { path: ${JSON.stringify(r.path)}, component: () => import(${JSON.stringify(r.component)}) },`,
+  );
   return `// 自動生成 — AppForge(Vue Router、ハッシュ履歴でサブパス配信に対応)
 import { createRouter, createWebHashHistory } from 'vue-router';
 
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
-${routes}
+${[...pageRoutes, ...domainRoutes].join('\n')}
   ],
 });
 `;
@@ -333,6 +337,8 @@ const usedComponents = (doc: ProjectDoc): Set<string> => {
 
 /** ProjectDoc → ビルド可能な Vue 3 アプリ一式 */
 export const generateVueProject = (doc: ProjectDoc, projectName: string): GeneratedFile[] => {
+  // 集約があればドメイン層(型 + 検証 + シード mock repository)+ 一覧ページを生成
+  const domain = emitVueDomain(doc.dataModel);
   const files: GeneratedFile[] = [
     file('package.json', packageJson(projectName)),
     file('vite.config.ts', viteConfig),
@@ -341,13 +347,14 @@ export const generateVueProject = (doc: ProjectDoc, projectName: string): Genera
     file('index.html', indexHtml(projectName)),
     file('src/main.ts', mainTs),
     file('src/App.vue', appVue(doc)),
-    file('src/router.ts', routerTs(doc)),
+    file('src/router.ts', routerTs(doc, domain.routes)),
     // Vue PoC は tailwind プラグインを配線しないため css-variables 固定(依存ゼロ)
     file('src/styles/tokens.css', emitTokensCss(doc.tokens, 'css-variables')),
     file('src/styles/app.css', emitAppCss()),
     ...doc.pages.map((page, i) =>
       file(`src/pages/Page${i}.vue`, emitVuePage(page.root, `Page${i}`, '../shared/realtime')),
     ),
+    ...domain.files,
   ];
 
   // 使われている UI 部品の Vue SFC + 共通 composable を出力
