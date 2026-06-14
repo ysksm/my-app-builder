@@ -9,6 +9,7 @@ export const UI_KITS: Readonly<Record<string, ReadonlyArray<UiKitInfo>>> = {
   react: [
     { id: 'plain', label: '標準スタイル(c-*)' },
     { id: 'mui', label: 'MUI(Material UI)' },
+    { id: 'react-aria', label: 'React Aria(ヘッドレス)' },
   ],
   svelte: [{ id: 'plain', label: '標準スタイル(c-*)' }],
 };

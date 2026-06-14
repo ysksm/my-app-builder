@@ -44,7 +44,33 @@ const MUI: ReactUiKit = {
   }),
 };
 
-const REACT_KITS: Readonly<Record<string, ReactUiKit>> = { plain: PLAIN, mui: MUI };
+// ---- React Aria Components(ヘッドレス・アクセシブル。スタイルは c-* トークンを流用)----
+const REACT_ARIA: ReactUiKit = {
+  id: 'react-aria',
+  deps: { 'react-aria-components': '^1.5.0' },
+  button: ({ pad, labelExpr, variant, onClick }) => ({
+    imports: [`import { Button } from 'react-aria-components';`],
+    // React Aria は onClick ではなく onPress。スタイルは既存トークンクラスを流用
+    jsx: [
+      `${pad}<Button className="c-button v-${variant}"${onClick.replace('onClick=', 'onPress=')}>{${labelExpr}}</Button>`,
+    ],
+  }),
+  input: ({ pad, labelExpr, placeholderExpr, inputType }) => ({
+    imports: [`import { Input, Label, TextField } from 'react-aria-components';`],
+    jsx: [
+      `${pad}<TextField className="c-input">`,
+      `${pad}  <Label>{${labelExpr}}</Label>`,
+      `${pad}  <Input type="${inputType}"${placeholderExpr ? ` placeholder={${placeholderExpr}}` : ''} />`,
+      `${pad}</TextField>`,
+    ],
+  }),
+};
+
+const REACT_KITS: Readonly<Record<string, ReactUiKit>> = {
+  plain: PLAIN,
+  mui: MUI,
+  'react-aria': REACT_ARIA,
+};
 
 /** kit id → アダプタ(未知/未指定は plain) */
 export const resolveReactKit = (id: string | undefined): ReactUiKit => REACT_KITS[id ?? 'plain'] ?? PLAIN;
