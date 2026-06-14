@@ -68,32 +68,67 @@ const MUI: ReactUiKit = {
     imports: [`import Chip from '@mui/material/Chip';`],
     jsx: [`${pad}<Chip label={${labelExpr}} color=${JSON.stringify(color === 'default' ? 'default' : color)} />`],
   }),
+  disclosure: ({ pad, titleExpr, contentExpr }) => ({
+    imports: [
+      `import Accordion from '@mui/material/Accordion';`,
+      `import AccordionSummary from '@mui/material/AccordionSummary';`,
+      `import AccordionDetails from '@mui/material/AccordionDetails';`,
+    ],
+    jsx: [
+      `${pad}<Accordion>`,
+      `${pad}  <AccordionSummary>{${titleExpr}}</AccordionSummary>`,
+      `${pad}  <AccordionDetails>{${contentExpr}}</AccordionDetails>`,
+      `${pad}</Accordion>`,
+    ],
+  }),
 };
 
 // ---- React Aria Components(ヘッドレス・アクセシブル。スタイルは c-* トークンを流用)----
+// 同一モジュールから多数の名前を使うため、名前衝突を避けて namespace import に統一する
+const RA = `import * as RAria from 'react-aria-components';`;
 const REACT_ARIA: ReactUiKit = {
   id: 'react-aria',
   deps: { 'react-aria-components': '^1.5.0' },
   button: ({ pad, labelExpr, variant, onClick }) => ({
-    imports: [`import { Button } from 'react-aria-components';`],
+    imports: [RA],
     // React Aria は onClick ではなく onPress。スタイルは既存トークンクラスを流用
     jsx: [
-      `${pad}<Button className="c-button v-${variant}"${onClick.replace('onClick=', 'onPress=')}>{${labelExpr}}</Button>`,
+      `${pad}<RAria.Button className="c-button v-${variant}"${onClick.replace('onClick=', 'onPress=')}>{${labelExpr}}</RAria.Button>`,
     ],
   }),
   input: ({ pad, labelExpr, placeholderExpr, inputType }) => ({
-    imports: [`import { Input, Label, TextField } from 'react-aria-components';`],
+    imports: [RA],
     jsx: [
-      `${pad}<TextField className="c-input">`,
-      `${pad}  <Label>{${labelExpr}}</Label>`,
-      `${pad}  <Input type="${inputType}"${placeholderExpr ? ` placeholder={${placeholderExpr}}` : ''} />`,
-      `${pad}</TextField>`,
+      `${pad}<RAria.TextField className="c-input">`,
+      `${pad}  <RAria.Label>{${labelExpr}}</RAria.Label>`,
+      `${pad}  <RAria.Input type="${inputType}"${placeholderExpr ? ` placeholder={${placeholderExpr}}` : ''} />`,
+      `${pad}</RAria.TextField>`,
     ],
   }),
   switch: ({ pad, labelExpr, checked }) => ({
-    imports: [`import { Switch } from 'react-aria-components';`],
+    imports: [RA],
     jsx: [
-      `${pad}<Switch defaultSelected={${checked}} className="c-switch"><span className="c-switch-indicator" />{${labelExpr}}</Switch>`,
+      `${pad}<RAria.Switch defaultSelected={${checked}} className="c-switch"><span className="c-switch-indicator" />{${labelExpr}}</RAria.Switch>`,
+    ],
+  }),
+  disclosure: ({ pad, titleExpr, contentExpr }) => ({
+    imports: [RA],
+    jsx: [
+      `${pad}<RAria.Disclosure className="c-disclosure">`,
+      `${pad}  <RAria.Heading><RAria.Button slot="trigger" className="c-disclosure-summary">{${titleExpr}}</RAria.Button></RAria.Heading>`,
+      `${pad}  <RAria.DisclosurePanel className="c-disclosure-content">{${contentExpr}}</RAria.DisclosurePanel>`,
+      `${pad}</RAria.Disclosure>`,
+    ],
+  }),
+  menu: ({ pad, labelExpr, items }) => ({
+    imports: [RA],
+    jsx: [
+      `${pad}<RAria.MenuTrigger>`,
+      `${pad}  <RAria.Button className="c-menu-button">{${labelExpr}}</RAria.Button>`,
+      `${pad}  <RAria.Popover className="c-menu-list"><RAria.Menu>`,
+      ...items.map((i) => `${pad}    <RAria.MenuItem className="c-menu-item">{${s(i)}}</RAria.MenuItem>`),
+      `${pad}  </RAria.Menu></RAria.Popover>`,
+      `${pad}</RAria.MenuTrigger>`,
     ],
   }),
 };

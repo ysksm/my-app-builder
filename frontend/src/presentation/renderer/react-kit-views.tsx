@@ -6,10 +6,20 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Rating from '@mui/material/Rating';
 import Slider from '@mui/material/Slider';
 import Chip from '@mui/material/Chip';
+import MuiAccordion from '@mui/material/Accordion';
+import MuiAccordionSummary from '@mui/material/AccordionSummary';
+import MuiAccordionDetails from '@mui/material/AccordionDetails';
 import {
   Button as RAButton,
+  Disclosure as RADisclosure,
+  DisclosurePanel as RADisclosurePanel,
+  Heading as RAHeading,
   Input as RAInput,
   Label as RALabel,
+  Menu as RAMenu,
+  MenuItem as RAMenuItem,
+  MenuTrigger as RAMenuTrigger,
+  Popover as RAPopover,
   Switch as RASwitch,
   TextField as RATextField,
 } from 'react-aria-components';
@@ -73,6 +83,26 @@ export const kitInput = (
 };
 
 export const kitDisclosure = (kit: string, p: { title: string; content: string }): ReactNode | null => {
+  if (kit === 'mui') {
+    return (
+      <MuiAccordion>
+        <MuiAccordionSummary>{p.title}</MuiAccordionSummary>
+        <MuiAccordionDetails>{p.content}</MuiAccordionDetails>
+      </MuiAccordion>
+    );
+  }
+  if (kit === 'react-aria') {
+    return (
+      <RADisclosure className="c-disclosure">
+        <RAHeading>
+          <RAButton slot="trigger" className="c-disclosure-summary">
+            {p.title}
+          </RAButton>
+        </RAHeading>
+        <RADisclosurePanel className="c-disclosure-content">{p.content}</RADisclosurePanel>
+      </RADisclosure>
+    );
+  }
   if (kit === 'headless') {
     return (
       <Disclosure as="div" className="c-disclosure">
@@ -134,6 +164,22 @@ export const kitChip = (kit: string, p: { label: string; color: string }): React
 };
 
 export const kitMenu = (kit: string, p: { label: string; items: ReadonlyArray<string> }): ReactNode | null => {
+  if (kit === 'react-aria') {
+    return (
+      <RAMenuTrigger>
+        <RAButton className="c-menu-button">{p.label}</RAButton>
+        <RAPopover className="c-menu-list">
+          <RAMenu>
+            {p.items.map((i, idx) => (
+              <RAMenuItem key={idx} className="c-menu-item">
+                {i}
+              </RAMenuItem>
+            ))}
+          </RAMenu>
+        </RAPopover>
+      </RAMenuTrigger>
+    );
+  }
   if (kit === 'headless') {
     return (
       <Menu as="div" className="c-menu">

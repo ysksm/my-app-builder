@@ -49,9 +49,9 @@ describe('UIライブラリ選択(FR-GUI-11)', () => {
   it('React=React Aria を選ぶと react-aria-components の部品 + 依存を出力', () => {
     const files = generateProject(withControls('react-aria'), 'x');
     const page = get(files, 'pages/Page0.tsx');
-    expect(page).toContain("from 'react-aria-components'");
-    expect(page).toContain('<Button ');
-    expect(page).toContain('<TextField');
+    expect(page).toContain("import * as RAria from 'react-aria-components'");
+    expect(page).toContain('<RAria.Button ');
+    expect(page).toContain('<RAria.TextField');
     expect(get(files, 'package.json')).toContain('react-aria-components');
   });
 
