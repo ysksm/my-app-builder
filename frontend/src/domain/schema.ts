@@ -3,6 +3,7 @@ import { err, ok, type Result } from '@/shared/result';
 import type { ComponentNode } from './component-node';
 import { DesignTokens } from './design-tokens';
 import { DomainError } from './errors';
+import { Page } from './page';
 import type {
   ChannelId,
   CustomPartId,
@@ -62,6 +63,14 @@ const componentNodeSchema: z.ZodType<ComponentNode> = z.lazy(() =>
   }),
 );
 
+const sizeConstraintSchema = z.object({
+  mode: z.enum(['auto', 'fixed', 'min', 'max']),
+  value: z.number(),
+});
+const screenSizeSchema = z
+  .object({ width: sizeConstraintSchema, height: sizeConstraintSchema })
+  .default(() => Page.defaultScreen);
+
 const pageSchema = z.object({
   id: idSchema<PageId>(),
   name: z.string(),
@@ -69,6 +78,8 @@ const pageSchema = z.object({
   root: componentNodeSchema,
   useHeader: z.boolean(),
   useFooter: z.boolean(),
+  // 後方互換: 旧プロジェクト(screen 無し)は既定サイズで補完
+  screen: screenSizeSchema,
 });
 
 const dialogSchema = z.object({

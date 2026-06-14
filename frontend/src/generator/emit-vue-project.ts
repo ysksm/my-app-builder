@@ -4,6 +4,7 @@ import { emitAppCss, emitTokensCss } from './emit-css';
 import { emitVueElement, emitVuePage } from './emit-vue';
 import { emitVueDomain } from './emit-vue-domain';
 import type { GeneratedFile } from './files';
+import { screenStyleCss } from './screen-style';
 import { collectComponents, toUiTree } from './ui-model';
 
 /**
@@ -352,7 +353,10 @@ export const generateVueProject = (doc: ProjectDoc, projectName: string): Genera
     file('src/styles/tokens.css', emitTokensCss(doc.tokens, 'css-variables')),
     file('src/styles/app.css', emitAppCss()),
     ...doc.pages.map((page, i) =>
-      file(`src/pages/Page${i}.vue`, emitVuePage(page.root, `Page${i}`, '../shared/realtime')),
+      file(
+        `src/pages/Page${i}.vue`,
+        emitVuePage(page.root, `Page${i}`, '../shared/realtime', screenStyleCss(page.screen)),
+      ),
     ),
     ...domain.files,
   ];

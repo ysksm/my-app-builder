@@ -47,7 +47,7 @@ import { ProjectDoc, type EditTarget, type StyleEmitter } from '@/domain/project
  */
 
 type NodePatch = Record<string, PropValue>;
-type PagePatch = Partial<Pick<Page, 'name' | 'path' | 'useHeader' | 'useFooter'>>;
+type PagePatch = Partial<Pick<Page, 'name' | 'path' | 'useHeader' | 'useFooter' | 'screen'>>;
 type ModelPatch = Partial<Pick<ModelDef, 'name' | 'kind' | 'x' | 'y'>>;
 type FieldPatch = Partial<Omit<FieldDef, 'id'>>;
 
@@ -414,8 +414,16 @@ const usecasePatch = z
     guard: usecaseGuard.nullable(),
   })
   .partial();
+const sizeConstraint = z.object({ mode: z.enum(['auto', 'fixed', 'min', 'max']), value: z.number() });
+const screenSize = z.object({ width: sizeConstraint, height: sizeConstraint });
 const pagePatch = z
-  .object({ name: z.string(), path: z.string(), useHeader: z.boolean(), useFooter: z.boolean() })
+  .object({
+    name: z.string(),
+    path: z.string(),
+    useHeader: z.boolean(),
+    useFooter: z.boolean(),
+    screen: screenSize,
+  })
   .partial();
 const modelPatch = z.object({ name: z.string(), kind: modelKind, x: z.number(), y: z.number() }).partial();
 const channelPatch = z

@@ -2,6 +2,7 @@ import type { ComponentNode } from '@/domain/component-node';
 import type { ProjectDoc } from '@/domain/project-doc';
 import { emitAppCss, emitTokensCss } from './emit-css';
 import { emitSvelteElement, emitSveltePage } from './emit-svelte';
+import { screenStyleCss } from './screen-style';
 import { emitSvelteDomain, type SvelteDomainRoute } from './emit-svelte-domain';
 import type { GeneratedFile } from './files';
 import { collectComponents, toUiTree } from './ui-model';
@@ -339,7 +340,10 @@ export const generateSvelteProject = (doc: ProjectDoc, projectName: string): Gen
     file('src/styles/tokens.css', emitTokensCss(doc.tokens, 'css-variables')),
     file('src/styles/app.css', emitAppCss()),
     ...doc.pages.map((page, i) =>
-      file(`src/pages/Page${i}.svelte`, emitSveltePage(page.root, `Page${i}`, '../shared/realtime')),
+      file(
+        `src/pages/Page${i}.svelte`,
+        emitSveltePage(page.root, `Page${i}`, '../shared/realtime', screenStyleCss(page.screen)),
+      ),
     ),
     ...domain.files,
   ];

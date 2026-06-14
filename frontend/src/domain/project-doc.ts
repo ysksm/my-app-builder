@@ -143,7 +143,7 @@ export const ProjectDoc = {
   updatePage(
     doc: ProjectDoc,
     pageId: PageId,
-    patch: Partial<Pick<Page, 'name' | 'path' | 'useHeader' | 'useFooter'>>,
+    patch: Partial<Pick<Page, 'name' | 'path' | 'useHeader' | 'useFooter' | 'screen'>>,
   ): Result<ProjectDoc, DomainError> {
     if (!ProjectDoc.findPage(doc, pageId)) return err(DomainError.notFound('page'));
     const normalized = patch.path !== undefined ? { ...patch, path: Page.normalizePath(patch.path) } : patch;

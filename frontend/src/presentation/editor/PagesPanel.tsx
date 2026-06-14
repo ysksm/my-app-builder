@@ -1,3 +1,4 @@
+import type { SizeConstraint, SizeMode } from '@/domain/page';
 import { EditTarget, ProjectDoc } from '@/domain/project-doc';
 import {
   dialogAdded,
@@ -9,6 +10,51 @@ import {
   pageUpdated,
 } from '../store/editor-slice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
+
+const MODE_LABELS: ReadonlyArray<{ mode: SizeMode; label: string }> = [
+  { mode: 'auto', label: '自動' },
+  { mode: 'fixed', label: '固定' },
+  { mode: 'min', label: '最小' },
+  { mode: 'max', label: '最大' },
+];
+
+function ScreenAxisField({
+  axisLabel,
+  constraint,
+  onChange,
+}: {
+  axisLabel: string;
+  constraint: SizeConstraint;
+  onChange: (next: SizeConstraint) => void;
+}) {
+  return (
+    <label className="field row screen-axis">
+      <span className="screen-axis-label">{axisLabel}</span>
+      <select
+        value={constraint.mode}
+        onChange={(e) => onChange({ ...constraint, mode: e.target.value as SizeMode })}
+      >
+        {MODE_LABELS.map((m) => (
+          <option key={m.mode} value={m.mode}>
+            {m.label}
+          </option>
+        ))}
+      </select>
+      {constraint.mode !== 'auto' && (
+        <>
+          <input
+            type="number"
+            min={0}
+            className="screen-axis-value"
+            value={constraint.value}
+            onChange={(e) => onChange({ ...constraint, value: Number(e.target.value) || 0 })}
+          />
+          <span className="muted">px</span>
+        </>
+      )}
+    </label>
+  );
+}
 
 export function PagesPanel() {
   const dispatch = useAppDispatch();
@@ -108,6 +154,32 @@ export function PagesPanel() {
             />
             <span>共通フッターを使う</span>
           </label>
+
+          <h4 className="detail-subhead">画面サイズ</h4>
+          <ScreenAxisField
+            axisLabel="幅"
+            constraint={activePage.screen.width}
+            onChange={(width) =>
+              dispatch(
+                pageUpdated({
+                  pageId: activePage.id,
+                  patch: { screen: { ...activePage.screen, width } },
+                }),
+              )
+            }
+          />
+          <ScreenAxisField
+            axisLabel="高さ"
+            constraint={activePage.screen.height}
+            onChange={(height) =>
+              dispatch(
+                pageUpdated({
+                  pageId: activePage.id,
+                  patch: { screen: { ...activePage.screen, height } },
+                }),
+              )
+            }
+          />
         </div>
       )}
 

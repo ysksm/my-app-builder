@@ -1,3 +1,4 @@
+import { Page } from '@/domain/page';
 import { EditTarget, ProjectDoc } from '@/domain/project-doc';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { editTargetChanged, nodeSelected } from '../store/editor-slice';
@@ -41,7 +42,10 @@ export function Canvas() {
           </button>
         </div>
       )}
-      <div className={`page-frame${target.kind === 'dialog' ? ' dialog-frame' : ''}`}>
+      <div
+        className={`page-frame${target.kind === 'dialog' ? ' dialog-frame' : ''}`}
+        style={page ? Page.screenBox(page.screen) : undefined}
+      >
         {page?.useHeader && doc.layout.header && (
           <div
             className="layout-strip"

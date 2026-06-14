@@ -287,6 +287,8 @@ export type ComponentFileOptions = Readonly<{
   filePath: string;
   /** データチャネル登録簿(channelRef 解決用。未指定なら inline props にフォールバック) */
   channels?: ReadonlyArray<DataChannelDef>;
+  /** ページの画面サイズ inline style(`style={{ ... }}` の中身)。指定時は page-screen でラップ */
+  screenStyle?: string;
 }>;
 
 export const emitComponentFile = (opts: ComponentFileOptions): string => {
@@ -300,7 +302,10 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
     channels: opts.channels ?? [],
     usedActions: new Set(),
   };
-  const body = emitNode(opts.root, 4, ctx);
+  const inner = emitNode(opts.root, opts.screenStyle ? 5 : 4, ctx);
+  const body = opts.screenStyle
+    ? [`    <div className="page-screen" style={{ ${opts.screenStyle} }}>`, ...inner, '    </div>']
+    : inner;
 
   const imports: string[] = [];
   if (ctx.needsDispatch) imports.push(`import { useDispatch } from 'react-redux';`);

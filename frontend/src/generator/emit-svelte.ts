@@ -67,11 +67,18 @@ export const emitSveltePage = (
   root: ComponentNode,
   componentName: string,
   importBase = './realtime',
+  screenStyle?: string,
 ): string => {
   const tree = toUiTree(root);
   const components = [...collectComponents(tree)].sort();
   const imports = components.map((c) => `  import ${c} from '${importBase}/${c}.svelte';`).join('\n');
-  const markup = emitSvelteElement(tree, 0).join('\n');
+  const markup = screenStyle
+    ? [
+        `<div class="page-screen" style="${screenStyle}">`,
+        ...emitSvelteElement(tree, 1),
+        '</div>',
+      ].join('\n')
+    : emitSvelteElement(tree, 0).join('\n');
 
   return `<!-- 自動生成 — AppForge: Svelte 5(framework generator / ${componentName}) -->
 <script lang="ts">

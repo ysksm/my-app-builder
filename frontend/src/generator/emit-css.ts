@@ -36,6 +36,9 @@ body {
 .app-root { min-height: 100vh; display: flex; flex-direction: column; }
 .page-main { flex: 1; display: flex; flex-direction: column; }
 .page-main > .c-container { flex: 1; }
+/* 画面サイズ指定のラッパー(幅/高さの固定・最小・最大は inline style で付与、ここで中央寄せ) */
+.page-screen { flex: 1; width: 100%; margin-inline: auto; display: flex; flex-direction: column; }
+.page-screen > .c-container { flex: 1; }
 
 .c-heading { line-height: 1.4; }
 .c-text { line-height: 1.7; }

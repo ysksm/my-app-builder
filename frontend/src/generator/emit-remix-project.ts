@@ -2,6 +2,7 @@ import type { ProjectDoc } from '@/domain/project-doc';
 import type { ComponentNode } from '@/domain/component-node';
 import { emitAppCss, emitTokensCss } from './emit-css';
 import { emitReactElement, emitReactRoute } from './emit-react-element';
+import { screenStyleJs } from './screen-style';
 import { emitRemixDomain } from './emit-remix-domain';
 import type { GeneratedFile } from './files';
 import { collectComponents, toUiTree } from './ui-model';
@@ -310,7 +311,10 @@ export const generateRemixProject = (
     file('app/styles/tokens.css', emitTokensCss(doc.tokens, 'css-variables')),
     file('app/styles/app.css', emitAppCss()),
     ...doc.pages.map((page, i) =>
-      file(`app/routes/page${i}.tsx`, emitReactRoute(page.root, `Page${i}`, '../shared/realtime')),
+      file(
+        `app/routes/page${i}.tsx`,
+        emitReactRoute(page.root, `Page${i}`, '../shared/realtime', screenStyleJs(page.screen)),
+      ),
     ),
     ...domain.files,
   ];

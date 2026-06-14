@@ -208,7 +208,7 @@ export const editorSlice = createSlice({
       state,
       action: PayloadAction<{
         pageId: PageId;
-        patch: Partial<Pick<Page, 'name' | 'path' | 'useHeader' | 'useFooter'>>;
+        patch: Partial<Pick<Page, 'name' | 'path' | 'useHeader' | 'useFooter' | 'screen'>>;
       }>,
     ) {
       run(state, { kind: 'updatePage', ...action.payload });

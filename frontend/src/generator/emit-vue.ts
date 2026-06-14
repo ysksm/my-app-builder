@@ -70,11 +70,18 @@ export const emitVuePage = (
   root: ComponentNode,
   componentName: string,
   importBase = './realtime',
+  screenStyle?: string,
 ): string => {
   const tree = toUiTree(root);
   const components = [...collectComponents(tree)].sort();
   const imports = components.map((c) => `import ${c} from '${importBase}/${c}.vue';`).join('\n');
-  const template = emitVueElement(tree, 1).join('\n');
+  const template = screenStyle
+    ? [
+        `  <div class="page-screen" style="${screenStyle}">`,
+        ...emitVueElement(tree, 2),
+        '  </div>',
+      ].join('\n')
+    : emitVueElement(tree, 1).join('\n');
 
   return `<!-- 自動生成 — AppForge: Vue 3 SFC(framework generator PoC / ${componentName}) -->
 <script setup lang="ts">

@@ -5,6 +5,7 @@ import { emitTokensCss, emitAppCss } from './emit-css';
 import { emitCrudFiles } from './emit-crud';
 import { emitDomainFiles } from './emit-domain';
 import { emitComponentFile } from './emit-jsx';
+import { screenStyleJs } from './screen-style';
 import { emitOpenApi } from './emit-openapi';
 import { emitProjectShell } from './emit-project';
 import { emitTypeSpec } from './emit-typespec';
@@ -401,6 +402,7 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
         names,
         filePath: paths.page(i),
         channels: doc.channels,
+        screenStyle: screenStyleJs(page.screen),
       }),
     })),
     ...doc.dialogs.map((dialog, i) => ({

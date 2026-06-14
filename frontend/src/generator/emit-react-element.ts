@@ -56,12 +56,19 @@ export const emitReactRoute = (
   root: ComponentNode,
   componentName: string,
   realtimeModule: string,
+  screenStyle?: string,
 ): string => {
   const tree = toUiTree(root);
   const components = [...collectComponents(tree)].sort();
   const imports =
     components.length > 0 ? `import { ${components.join(', ')} } from '${realtimeModule}';\n` : '';
-  const body = emitReactElement(tree, 2).join('\n');
+  const body = screenStyle
+    ? [
+        `    <div className="page-screen" style={{ ${screenStyle} }}>`,
+        ...emitReactElement(tree, 3),
+        '    </div>',
+      ].join('\n')
+    : emitReactElement(tree, 2).join('\n');
   return `// 自動生成 — AppForge: Remix(React Router 7)ルート / ${componentName}
 ${imports}
 export default function ${componentName}() {
