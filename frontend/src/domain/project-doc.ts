@@ -3,6 +3,7 @@ import { ComponentNode } from './component-node';
 import { DataModel } from './data-model';
 import { DataChannelDef } from './data-channel';
 import { DesignTokens } from './design-tokens';
+import { findDesignPreset } from './design-presets';
 import { DialogDef } from './dialog';
 import { CustomPartId } from './ids';
 import { DomainError } from './errors';
@@ -257,5 +258,12 @@ export const ProjectDoc = {
   removeTheme(doc: ProjectDoc, themeId: string): Result<ProjectDoc, DomainError> {
     if (!doc.themes.some((t) => t.id === themeId)) return err(DomainError.notFound('theme'));
     return ok({ ...doc, themes: doc.themes.filter((t) => t.id !== themeId) });
+  },
+
+  /** 既定のデザインシステム・プリセット(統一カラーパレット)を適用する */
+  applyPreset(doc: ProjectDoc, presetId: string): Result<ProjectDoc, DomainError> {
+    const preset = findDesignPreset(presetId);
+    if (!preset) return err(DomainError.notFound('preset'));
+    return ok({ ...doc, tokens: preset.tokens });
   },
 } as const;

@@ -417,6 +417,10 @@ export const editorSlice = createSlice({
       run(state, { kind: 'removeTheme', themeId: action.payload });
     },
 
+    presetApplied(state, action: PayloadAction<string>) {
+      run(state, { kind: 'applyPreset', presetId: action.payload });
+    },
+
     modelSelected(state, action: PayloadAction<ModelId | null>) {
       state.selectedModelId = action.payload;
     },
@@ -508,6 +512,7 @@ export const {
   themeSaved,
   themeApplied,
   themeRemoved,
+  presetApplied,
   modelSelected,
   undone,
   redone,

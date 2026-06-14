@@ -20,6 +20,8 @@ const V = {
   spaRouter: '^4.0.1',
   typescript: '^5.7.3',
   vite: '^6.0.7',
+  tailwind: '^4.3.1',
+  tailwindVite: '^4.3.1',
 } as const;
 
 const file = (path: string, content: string): GeneratedFile => ({ path, content });
@@ -27,7 +29,7 @@ const file = (path: string, content: string): GeneratedFile => ({ path, content 
 const toPackageName = (name: string): string =>
   name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'svelte-app';
 
-const packageJson = (projectName: string): string =>
+const packageJson = (projectName: string, tailwind: boolean): string =>
   `${JSON.stringify(
     {
       name: toPackageName(projectName),
@@ -42,6 +44,7 @@ const packageJson = (projectName: string): string =>
       dependencies: { 'svelte-spa-router': V.spaRouter },
       devDependencies: {
         '@sveltejs/vite-plugin-svelte': V.pluginSvelte,
+        ...(tailwind ? { '@tailwindcss/vite': V.tailwindVite, tailwindcss: V.tailwind } : {}),
         svelte: V.svelte,
         'svelte-check': V.svelteCheck,
         typescript: V.typescript,
@@ -52,13 +55,13 @@ const packageJson = (projectName: string): string =>
     2,
   )}\n`;
 
-const viteConfig = `// 自動生成 — AppForge(Svelte framework generator)
+const viteConfig = (tailwind: boolean): string => `// 自動生成 — AppForge(Svelte framework generator)
 import { defineConfig } from 'vite';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { svelte } from '@sveltejs/vite-plugin-svelte';${tailwind ? `\nimport tailwindcss from '@tailwindcss/vite';` : ''}
 
 export default defineConfig({
   base: './',
-  plugins: [svelte()],
+  plugins: [${tailwind ? 'tailwindcss(), ' : ''}svelte()],
 });
 `;
 
@@ -328,16 +331,17 @@ const usedComponents = (doc: ProjectDoc): Set<string> => {
 export const generateSvelteProject = (doc: ProjectDoc, projectName: string): GeneratedFile[] => {
   // 集約があればドメイン層 + 一覧ページ + svelte-spa-router ルートを生成
   const domain = emitSvelteDomain(doc.dataModel);
+  const tailwind = doc.styleEmitter === 'tailwind';
   const files: GeneratedFile[] = [
-    file('package.json', packageJson(projectName)),
-    file('vite.config.ts', viteConfig),
+    file('package.json', packageJson(projectName, tailwind)),
+    file('vite.config.ts', viteConfig(tailwind)),
     file('svelte.config.js', svelteConfig),
     file('tsconfig.json', tsconfig),
     file('index.html', indexHtml(projectName)),
     file('src/main.ts', mainTs),
     file('src/App.svelte', appSvelte(doc, domain.routes)),
-    // Vue/Svelte PoC は tailwind 未配線 → css-variables 固定
-    file('src/styles/tokens.css', emitTokensCss(doc.tokens, 'css-variables')),
+    // スタイル emitter に従って tokens.css を出力(tailwind 時は @theme + プラグイン配線)
+    file('src/styles/tokens.css', emitTokensCss(doc.tokens, doc.styleEmitter)),
     file('src/styles/app.css', emitAppCss()),
     ...doc.pages.map((page, i) =>
       file(

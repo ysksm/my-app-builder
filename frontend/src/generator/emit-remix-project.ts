@@ -24,6 +24,8 @@ const V = {
   typescript: '^5.7.3',
   vite: '^6.0.7',
   isbot: '^5.1.21',
+  tailwind: '^4.3.1',
+  tailwindVite: '^4.3.1',
 } as const;
 
 const file = (path: string, content: string): GeneratedFile => ({ path, content });
@@ -31,7 +33,7 @@ const file = (path: string, content: string): GeneratedFile => ({ path, content 
 const toPackageName = (name: string): string =>
   name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'remix-app';
 
-const packageJson = (projectName: string): string =>
+const packageJson = (projectName: string, tailwind: boolean): string =>
   `${JSON.stringify(
     {
       name: toPackageName(projectName),
@@ -55,6 +57,7 @@ const packageJson = (projectName: string): string =>
         '@react-router/dev': V.rrDev,
         '@types/react': V.typesReact,
         '@types/react-dom': V.typesReactDom,
+        ...(tailwind ? { '@tailwindcss/vite': V.tailwindVite, tailwindcss: V.tailwind } : {}),
         typescript: V.typescript,
         vite: V.vite,
       },
@@ -65,13 +68,13 @@ const packageJson = (projectName: string): string =>
 
 // vite の base と RR7 の basename を一致させる。プレビュー(サブパス配信)では
 // その配信パスを、ルート配備(エクスポート)では '/' を渡す。
-const viteConfig = (basename: string): string => `// 自動生成 — AppForge(Remix / React Router 7)
+const viteConfig = (basename: string, tailwind: boolean): string => `// 自動生成 — AppForge(Remix / React Router 7)
 import { reactRouter } from '@react-router/dev/vite';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vite';${tailwind ? `\nimport tailwindcss from '@tailwindcss/vite';` : ''}
 
 export default defineConfig({
   base: ${JSON.stringify(basename)},
-  plugins: [reactRouter()],
+  plugins: [${tailwind ? 'tailwindcss(), ' : ''}reactRouter()],
 });
 `;
 
@@ -299,16 +302,17 @@ export const generateRemixProject = (
   basename = '/',
 ): GeneratedFile[] => {
   const base = basename.endsWith('/') ? basename : `${basename}/`;
+  const tailwind = doc.styleEmitter === 'tailwind';
   // 集約があればドメイン層 + 一覧ルートを生成
   const domain = emitRemixDomain(doc.dataModel);
   const files: GeneratedFile[] = [
-    file('package.json', packageJson(projectName)),
-    file('vite.config.ts', viteConfig(base)),
+    file('package.json', packageJson(projectName, tailwind)),
+    file('vite.config.ts', viteConfig(base, tailwind)),
     file('react-router.config.ts', rrConfig(base)),
     file('tsconfig.json', tsconfig),
     file('app/root.tsx', rootTsx(doc)),
     file('app/routes.ts', routesTs(doc, domain.routeEntries)),
-    file('app/styles/tokens.css', emitTokensCss(doc.tokens, 'css-variables')),
+    file('app/styles/tokens.css', emitTokensCss(doc.tokens, doc.styleEmitter)),
     file('app/styles/app.css', emitAppCss()),
     ...doc.pages.map((page, i) =>
       file(

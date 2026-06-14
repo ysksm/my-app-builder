@@ -1,7 +1,15 @@
 import { useState } from 'react';
 import type { DesignTokens, TokenGroup } from '@/domain/design-tokens';
 import { ComponentNode } from '@/domain/component-node';
-import { styleEmitterSet, themeApplied, themeRemoved, themeSaved, tokenSet } from '../store/editor-slice';
+import { DESIGN_PRESETS } from '@/domain/design-presets';
+import {
+  presetApplied,
+  styleEmitterSet,
+  themeApplied,
+  themeRemoved,
+  themeSaved,
+  tokenSet,
+} from '../store/editor-slice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { NodeBody } from '../renderer/NodeRenderer';
 
@@ -46,6 +54,8 @@ export function DesignSystemView() {
           </button>
         </div>
 
+        <PresetsSection />
+
         <ThemesSection />
 
         <h2 className="design-h2" style={{ marginTop: 18 }}>
@@ -63,6 +73,39 @@ export function DesignSystemView() {
         <DesignPreview />
       </div>
     </div>
+  );
+}
+
+/** 既定のデザインシステム・プリセット(統一カラーパレット)をワンクリック適用 */
+function PresetsSection() {
+  const dispatch = useAppDispatch();
+  return (
+    <section className="presets-section">
+      <h2 className="design-h2" style={{ marginTop: 18 }}>
+        デザインシステム
+      </h2>
+      <p className="muted design-note">
+        統一されたカラーパレットを用意しています。クリックでトークン一式を切り替えられます(色のみ変更、余白/角丸/フォントは共通)。
+      </p>
+      <div className="preset-grid">
+        {DESIGN_PRESETS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            className="preset-card"
+            title={`${p.name} を適用`}
+            onClick={() => dispatch(presetApplied(p.id))}
+          >
+            <span className="preset-swatches">
+              {p.swatch.map((color, i) => (
+                <span key={i} className="preset-swatch" style={{ background: color }} />
+              ))}
+            </span>
+            <span className="preset-name">{p.name}</span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 

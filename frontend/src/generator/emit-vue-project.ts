@@ -24,6 +24,8 @@ const VUE_VERSIONS = {
   vueTsc: '^2.2.0',
   typescript: '^5.7.3',
   vite: '^6.0.7',
+  tailwind: '^4.3.1',
+  tailwindVite: '^4.3.1',
 } as const;
 
 const file = (path: string, content: string): GeneratedFile => ({ path, content });
@@ -31,7 +33,7 @@ const file = (path: string, content: string): GeneratedFile => ({ path, content 
 const toPackageName = (name: string): string =>
   name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'vue-app';
 
-const packageJson = (projectName: string): string =>
+const packageJson = (projectName: string, tailwind: boolean): string =>
   `${JSON.stringify(
     {
       name: toPackageName(projectName),
@@ -46,6 +48,9 @@ const packageJson = (projectName: string): string =>
       dependencies: { vue: VUE_VERSIONS.vue, 'vue-router': VUE_VERSIONS.vueRouter },
       devDependencies: {
         '@vitejs/plugin-vue': VUE_VERSIONS.pluginVue,
+        ...(tailwind
+          ? { '@tailwindcss/vite': VUE_VERSIONS.tailwindVite, tailwindcss: VUE_VERSIONS.tailwind }
+          : {}),
         typescript: VUE_VERSIONS.typescript,
         'vue-tsc': VUE_VERSIONS.vueTsc,
         vite: VUE_VERSIONS.vite,
@@ -55,13 +60,13 @@ const packageJson = (projectName: string): string =>
     2,
   )}\n`;
 
-const viteConfig = `// 自動生成 — AppForge(Vue framework generator)
+const viteConfig = (tailwind: boolean): string => `// 自動生成 — AppForge(Vue framework generator)
 import { defineConfig } from 'vite';
-import vue from '@vitejs/plugin-vue';
+import vue from '@vitejs/plugin-vue';${tailwind ? `\nimport tailwindcss from '@tailwindcss/vite';` : ''}
 
 export default defineConfig({
   base: './',
-  plugins: [vue()],
+  plugins: [${tailwind ? 'tailwindcss(), ' : ''}vue()],
 });
 `;
 
@@ -340,17 +345,18 @@ const usedComponents = (doc: ProjectDoc): Set<string> => {
 export const generateVueProject = (doc: ProjectDoc, projectName: string): GeneratedFile[] => {
   // 集約があればドメイン層(型 + 検証 + シード mock repository)+ 一覧ページを生成
   const domain = emitVueDomain(doc.dataModel);
+  const tailwind = doc.styleEmitter === 'tailwind';
   const files: GeneratedFile[] = [
-    file('package.json', packageJson(projectName)),
-    file('vite.config.ts', viteConfig),
+    file('package.json', packageJson(projectName, tailwind)),
+    file('vite.config.ts', viteConfig(tailwind)),
     file('tsconfig.json', tsconfig),
     file('env.d.ts', envDts),
     file('index.html', indexHtml(projectName)),
     file('src/main.ts', mainTs),
     file('src/App.vue', appVue(doc)),
     file('src/router.ts', routerTs(doc, domain.routes)),
-    // Vue PoC は tailwind プラグインを配線しないため css-variables 固定(依存ゼロ)
-    file('src/styles/tokens.css', emitTokensCss(doc.tokens, 'css-variables')),
+    // スタイル emitter に従って tokens.css を出力(tailwind 時は @theme + プラグイン配線)
+    file('src/styles/tokens.css', emitTokensCss(doc.tokens, doc.styleEmitter)),
     file('src/styles/app.css', emitAppCss()),
     ...doc.pages.map((page, i) =>
       file(

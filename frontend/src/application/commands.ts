@@ -104,7 +104,8 @@ export type Command =
   // 名前付きデザインテーマ(FR-DS-08)
   | Readonly<{ kind: 'saveTheme'; name: string }>
   | Readonly<{ kind: 'applyTheme'; themeId: string }>
-  | Readonly<{ kind: 'removeTheme'; themeId: string }>;
+  | Readonly<{ kind: 'removeTheme'; themeId: string }>
+  | Readonly<{ kind: 'applyPreset'; presetId: string }>;
 
 export type CommandKind = Command['kind'];
 
@@ -347,6 +348,10 @@ export const applyCommand = (
       const res = ProjectDoc.removeTheme(doc, cmd.themeId);
       return res.ok ? ok(outcome(res.value)) : res;
     }
+    case 'applyPreset': {
+      const res = ProjectDoc.applyPreset(doc, cmd.presetId);
+      return res.ok ? ok(outcome(res.value)) : res;
+    }
   }
 };
 
@@ -493,6 +498,7 @@ const commandSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('saveTheme'), name: z.string() }),
   z.object({ kind: z.literal('applyTheme'), themeId: z.string() }),
   z.object({ kind: z.literal('removeTheme'), themeId: z.string() }),
+  z.object({ kind: z.literal('applyPreset'), presetId: z.string() }),
 ]);
 
 /** 外部入力(JSON)→ 検証済み Command 配列。MCP の apply_commands が信頼境界で使う */
