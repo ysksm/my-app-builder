@@ -533,6 +533,22 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
     defaultProps: { label: 'AB' },
     propFields: [{ key: 'label', label: 'イニシャル', input: 'text' }],
   },
+  // ---------- UIライブラリ固有部品(Headless UI) ----------
+  combobox: {
+    type: 'combobox',
+    label: 'コンボボックス',
+    icon: '🔍',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    kit: 'headless',
+    // Headless UI Combobox(入力フィルタ付き選択)。plain は <select>
+    defaultProps: { options: 'りんご,ぶどう,みかん,もも', placeholder: '検索…' },
+    propFields: [
+      { key: 'options', label: '選択肢(カンマ区切り)', input: 'text' },
+      { key: 'placeholder', label: 'プレースホルダ', input: 'text' },
+    ],
+  },
   header: {
     type: 'header',
     label: 'ヘッダー',

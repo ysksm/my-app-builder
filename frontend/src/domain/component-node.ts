@@ -35,7 +35,8 @@ export type ComponentType =
   | 'chip'
   | 'alert'
   | 'badge'
-  | 'avatar';
+  | 'avatar'
+  | 'combobox';
 
 export type ComponentNode = Readonly<{
   id: NodeId;

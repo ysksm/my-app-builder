@@ -346,6 +346,7 @@ body {
 .c-badge-secondary { background: var(--color-secondary, #e3e7f3); color: var(--color-secondary-text, #2b3354); }
 .c-badge-error { background: var(--color-danger, #e03131); color: #fff; }
 .c-avatar { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--color-primary, #4263eb); color: var(--color-primary-text, #fff); font-size: 14px; font-weight: 600; }
+.c-combobox-input { padding: 8px 12px; border: 1px solid var(--color-border, #c6cde4); border-radius: var(--radius-sm, 4px); background: var(--color-surface-card, #fff); color: var(--color-text, #1d2230); font: inherit; min-width: 200px; }
 
 .c-setpoint {
   display: inline-flex; flex-direction: column; gap: 8px; align-self: flex-start; min-width: 220px;

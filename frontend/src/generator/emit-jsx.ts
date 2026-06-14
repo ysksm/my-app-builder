@@ -400,6 +400,22 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
       }
       return [`${pad}<span className="c-avatar">{${s(p('label'))}}</span>`];
     }
+    case 'combobox': {
+      const options = String(p('options'))
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean);
+      // Headless UI は状態が要るので専用ラッパー(別ファイル)を参照
+      if (ctx.uiKit.id === 'headless') {
+        ctx.libImports.add('AppCombobox');
+        return [`${pad}<AppCombobox options={${JSON.stringify(options)}} placeholder={${s(p('placeholder'))}} />`];
+      }
+      return [
+        `${pad}<select className="c-combobox-input" defaultValue="">`,
+        ...options.map((o) => `${pad}  <option value={${s(o)}}>{${s(o)}}</option>`),
+        `${pad}</select>`,
+      ];
+    }
   }
 };
 

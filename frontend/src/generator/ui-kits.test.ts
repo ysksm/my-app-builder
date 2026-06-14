@@ -188,6 +188,28 @@ describe('UIライブラリ選択(FR-GUI-11)', () => {
     expect(page).toContain('<Avatar>');
   });
 
+  it('combobox: plain は <select>、Headless UI は AppCombobox ラッパー + ファイル出力', () => {
+    let doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const target = EditTarget.page(home.id);
+    const r = applyCommand(doc, { kind: 'insertNode', target, parentId: home.root.id, index: 0, type: 'combobox' });
+    if (!r.ok) throw new Error('insert');
+    doc = r.value.doc;
+    // plain
+    const plain = generateProject(doc, 'x');
+    expect(get(plain, 'pages/Page0.tsx')).toContain('<select className="c-combobox-input"');
+    expect(plain.find((f) => f.path.includes('AppCombobox'))).toBeUndefined();
+    // Headless UI
+    const hr = applyCommand(doc, { kind: 'setUiKit', framework: 'react', kit: 'headless' });
+    if (!hr.ok) throw new Error('kit');
+    const files = generateProject(hr.value.doc, 'x');
+    expect(get(files, 'pages/Page0.tsx')).toContain('<AppCombobox ');
+    const wrapper = get(files, 'realtime/AppCombobox.tsx');
+    expect(wrapper).toContain('Combobox');
+    expect(wrapper).toContain("from '@headlessui/react'");
+    expect(get(files, 'package.json')).toContain('@headlessui/react');
+  });
+
   it('setUiKit は framework→kit を doc に保存', () => {
     const res = applyCommand(ProjectDoc.create(), { kind: 'setUiKit', framework: 'react', kit: 'mui' });
     if (!res.ok) throw new Error('apply');

@@ -242,6 +242,18 @@ export const toUiTree = (
       });
     case 'avatar':
       return make({ tag: 'span', classes: ['c-avatar'], text: String(p('label')) });
+    case 'combobox': {
+      // plain = <select>(Headless UI 等を選ぶとフィルタ付きコンボボックス)
+      const options = String(p('options'))
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean);
+      return make({
+        tag: 'select',
+        classes: ['c-combobox-input'],
+        children: options.map((o) => make({ tag: 'option', text: o })),
+      });
+    }
     case 'tabs': {
       // plain = 全タブを縦に並べる(ステートレス。kit 選択時は切替式)
       const tabs = String(p('tabs'))

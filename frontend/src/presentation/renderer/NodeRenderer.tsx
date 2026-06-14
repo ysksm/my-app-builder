@@ -31,6 +31,7 @@ import {
   kitBadge,
   kitButton,
   kitChip,
+  kitCombobox,
   kitDisclosure,
   kitInput,
   kitMenu,
@@ -297,6 +298,23 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
       const k = kitAvatar(kit, { label: str(p('label')) });
       if (k) return <>{k}</>;
       return <span className="c-avatar">{str(p('label'))}</span>;
+    }
+    case 'combobox': {
+      const options = str(p('options'))
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean);
+      const k = kitCombobox(kit, { options, placeholder: str(p('placeholder')) });
+      if (k) return <>{k}</>;
+      return (
+        <select className="c-combobox-input" defaultValue="" disabled={mode === 'edit'}>
+          {options.map((o, i) => (
+            <option key={i} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      );
     }
   }
 }

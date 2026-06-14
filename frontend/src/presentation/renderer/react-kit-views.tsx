@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import MuiButton from '@mui/material/Button';
 import MuiTextField from '@mui/material/TextField';
 import MuiSwitch from '@mui/material/Switch';
@@ -31,6 +31,10 @@ import {
   TextField as RATextField,
 } from 'react-aria-components';
 import {
+  Combobox,
+  ComboboxInput,
+  ComboboxOption,
+  ComboboxOptions,
   Disclosure,
   DisclosureButton,
   DisclosurePanel,
@@ -238,6 +242,40 @@ export const kitTabs = (kit: string, p: { tabs: ReadonlyArray<string> }): ReactN
         ))}
       </RATabs>
     );
+  }
+  return null;
+};
+
+/** Headless UI Combobox(状態を持つので専用コンポーネント) */
+function ComboboxView({ options, placeholder }: { options: string[]; placeholder: string }) {
+  const [value, setValue] = useState<string>(options[0] ?? '');
+  const [query, setQuery] = useState('');
+  const filtered = query === '' ? options : options.filter((o) => o.toLowerCase().includes(query.toLowerCase()));
+  return (
+    <Combobox value={value} onChange={(v) => setValue(v ?? '')} onClose={() => setQuery('')}>
+      <ComboboxInput
+        className="c-combobox-input"
+        displayValue={(o: string) => o}
+        placeholder={placeholder}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      <ComboboxOptions anchor="bottom" className="c-menu-list">
+        {filtered.map((o) => (
+          <ComboboxOption key={o} value={o} className="c-menu-item">
+            {o}
+          </ComboboxOption>
+        ))}
+      </ComboboxOptions>
+    </Combobox>
+  );
+}
+
+export const kitCombobox = (
+  kit: string,
+  p: { options: ReadonlyArray<string>; placeholder: string },
+): ReactNode | null => {
+  if (kit === 'headless') {
+    return <ComboboxView options={[...p.options]} placeholder={p.placeholder} />;
   }
   return null;
 };

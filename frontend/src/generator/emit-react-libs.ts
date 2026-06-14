@@ -3,6 +3,41 @@ import type { ComponentNode } from '@/domain/component-node';
 import { paths } from './layout';
 import type { GeneratedFile } from './files';
 import { collectComponents, toUiTree } from './ui-model';
+import { kitIdOf } from './ui-kits';
+
+/** Headless UI Combobox(状態を持つ)用のラッパー。emit-jsx は libImports 経由で参照する */
+const appComboboxTsx = `// 自動生成 — AppForge: Headless UI Combobox(入力フィルタ付き選択)
+import { useState } from 'react';
+import { Combobox, ComboboxInput, ComboboxOption, ComboboxOptions } from '@headlessui/react';
+
+export function AppCombobox({ options, placeholder }: { options: string[]; placeholder?: string }) {
+  const [value, setValue] = useState<string>(options[0] ?? '');
+  const [query, setQuery] = useState('');
+  const filtered = query === '' ? options : options.filter((o) => o.toLowerCase().includes(query.toLowerCase()));
+  return (
+    <Combobox value={value} onChange={(v: string | null) => setValue(v ?? '')} onClose={() => setQuery('')}>
+      <ComboboxInput className="c-combobox-input" displayValue={(o: string) => o} placeholder={placeholder} onChange={(e) => setQuery(e.target.value)} />
+      <ComboboxOptions anchor="bottom" className="c-menu-list">
+        {filtered.map((o) => (
+          <ComboboxOption key={o} value={o} className="c-menu-item">{o}</ComboboxOption>
+        ))}
+      </ComboboxOptions>
+    </Combobox>
+  );
+}
+`;
+
+/** doc 内に指定 type のノードが存在するか */
+const hasNodeType = (doc: ProjectDoc, type: ComponentNode['type']): boolean => {
+  const walk = (n: ComponentNode | null): boolean =>
+    n !== null && (n.type === type || n.children.some(walk));
+  return (
+    doc.pages.some((pg) => walk(pg.root)) ||
+    doc.dialogs.some((d) => walk(d.root)) ||
+    walk(doc.layout.header) ||
+    walk(doc.layout.footer)
+  );
+};
 
 /**
  * 外部ライブラリ製コンポーネント(uPlot / ECharts / AG Grid)の React 実装ファイル生成。
@@ -209,6 +244,10 @@ export const emitReactLibFiles = (doc: ProjectDoc): GeneratedFile[] => {
   const files: GeneratedFile[] = [];
   for (const tag of Object.keys(LIB_FILES)) {
     if (used.has(tag)) files.push({ path: paths.realtimeLib(tag), content: LIB_FILES[tag]! });
+  }
+  // Headless UI 選択 + combobox 使用時は Combobox ラッパーを出力(emit-jsx が AppCombobox を参照)
+  if (kitIdOf(doc.uiKits, 'react') === 'headless' && hasNodeType(doc, 'combobox')) {
+    files.push({ path: paths.realtimeLib('AppCombobox'), content: appComboboxTsx });
   }
   return files;
 };

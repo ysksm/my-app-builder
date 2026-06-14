@@ -231,6 +231,10 @@ body {
   display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px;
   border-radius: 50%; background: var(--color-primary); color: var(--color-primary-text); font-size: 14px; font-weight: 600;
 }
+.c-combobox-input {
+  padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  background: var(--color-surface-card); color: var(--color-text); font: inherit; min-width: 200px;
+}
 
 /* 設定値の書き込みコントロール(設定ツール) */
 .c-setpoint {

@@ -52,6 +52,7 @@ const componentTypeSchema = z.enum([
   'alert',
   'badge',
   'avatar',
+  'combobox',
 ]);
 
 const actionSchema = z.discriminatedUnion('kind', [
