@@ -22,6 +22,7 @@ export type { GeneratedFile } from './files';
 export { generateVueProject } from './emit-vue-project';
 export { generateSvelteProject } from './emit-svelte-project';
 export { generateRemixProject } from './emit-remix-project';
+export { generateAngularProject } from './emit-angular-project';
 
 /** ドキュメント内にリアルタイムモニタリング部品(metric / gauge / lamp)があるか */
 const usesMetric = (doc: ProjectDoc): boolean => {

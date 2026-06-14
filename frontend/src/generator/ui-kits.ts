@@ -9,6 +9,7 @@ export type UiKitInfo = Readonly<{ id: string; label: string }>;
 export const TARGET_FRAMEWORKS: ReadonlyArray<UiKitInfo> = [
   { id: 'react', label: 'React' },
   { id: 'svelte', label: 'Svelte' },
+  { id: 'angular', label: 'Angular' },
 ];
 
 export const UI_KITS: Readonly<Record<string, ReadonlyArray<UiKitInfo>>> = {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import JSZip from 'jszip';
 import {
+  generateAngularProject,
   generateProject,
   generateRemixProject,
   generateSvelteProject,
@@ -17,7 +18,7 @@ type BuildState =
   | Readonly<{ phase: 'ok'; log: string }>
   | Readonly<{ phase: 'error'; log: string }>;
 
-type Framework = 'react' | 'vue' | 'svelte' | 'remix';
+type Framework = 'react' | 'vue' | 'svelte' | 'remix' | 'angular';
 
 /**
  * フレームワーク別にソース生成。Remix(パスルーティング)はサブパス配信に合わせて
@@ -36,6 +37,9 @@ const generateFor = (
       return generateSvelteProject(doc, name);
     case 'remix':
       return generateRemixProject(doc, name, remixBasename ?? '/');
+    case 'angular':
+      // Angular もサブパス配信時は base-href を焼き込む(Remix と同様)
+      return generateAngularProject(doc, name, remixBasename ?? '/');
     default:
       return generateProject(doc, name);
   }
