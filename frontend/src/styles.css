@@ -441,6 +441,10 @@ body {
 .rule-hint { font-size: 10px; margin-top: 2px; word-break: break-word; }
 .usecase-block { border: 1px solid var(--border); border-radius: 6px; padding: 5px 6px; margin-bottom: 5px; }
 .usecase-services { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+.usecase-guard { margin-top: 4px; }
+.guard-row { display: flex; gap: 5px; margin-top: 3px; }
+.guard-row select, .guard-row input { font-size: 12px; }
+.guard-row .guard-val { width: 70px; }
 .usecase-services .req { font-size: 10px; }
 
 /* ---------- デザインシステムエディタ ---------- */

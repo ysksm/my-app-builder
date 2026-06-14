@@ -1,4 +1,5 @@
 import type { DataModel, ModelDef, UsecaseDef } from '@/domain/data-model';
+import { ruleCondition } from './emit-domain';
 import type { GeneratedFile } from './files';
 import { toKebabCase } from './identifiers';
 import {
@@ -31,22 +32,33 @@ const emitUsecase = (model: ModelDef, usecase: UsecaseDef, layout: FeatureLayout
     .map((sid) => model.services.find((s) => s.id === sid))
     .filter((s): s is NonNullable<typeof s> => s !== undefined && eligible.has(s.id));
 
+  // 事前条件(状態遷移ガード)。input が条件を満たさなければ ValidationError を返す
+  const guardCond = usecase.guard ? ruleCondition(model, usecase.guard.left, usecase.guard.op, usecase.guard.right) : null;
+
   const imports = [
     `import { ok, type Result } from '${relativeImport(file, paths.result)}';`,
     `import { ${model.name}, type ${model.name}Input } from '${relativeImport(file, mp.model)}';`,
     `import type { ${model.name}Repository } from '${relativeImport(file, mp.repository)}';`,
     `import type { RepositoryError } from '${relativeImport(file, paths.repositoryError)}';`,
-    `import type { ValidationError } from '${relativeImport(file, paths.validation)}';`,
+    // ガードがあると ValidationError を値として使う
+    `import { ${guardCond ? '' : 'type '}ValidationError } from '${relativeImport(file, paths.validation)}';`,
     ...services.map((s) => {
       const sp = servicePaths(layout, model, s.name);
       return `import { ${s.name} } from '${relativeImport(file, sp.impl)}';`;
     }),
   ];
 
-  const body: string[] = [
+  const body: string[] = [];
+  if (guardCond && usecase.guard) {
+    body.push(
+      `  // 状態遷移ガード(事前条件)`,
+      `  if (!(${guardCond.expr})) return { ok: false, error: [ValidationError.create(${JSON.stringify(guardCond.leftName)}, ${JSON.stringify(usecase.guard.message)})] };`,
+    );
+  }
+  body.push(
     `  const created = ${model.name}.create(input);`,
     `  if (!created.ok) return created;`,
-  ];
+  );
   const hasMutation = services.length > 0;
   if (hasMutation) {
     body.push(`  let entity = created.value;`);
@@ -83,7 +95,7 @@ const emitUsecaseTest = (model: ModelDef, usecase: UsecaseDef, layout: FeatureLa
   const file = `src/features/${layout.featureOf(model.id)}/application/${toKebabCase(usecase.name)}.test.ts`;
   // サービス(未実装)/ pattern / ルールがあるとサンプル入力で成功を保証できないため todo にする
   const hasPattern = model.fields.some((f) => f.type === 'string' && f.pattern);
-  const cannotAutoTest = usecase.serviceIds.length > 0 || hasPattern || model.rules.length > 0;
+  const cannotAutoTest = usecase.serviceIds.length > 0 || hasPattern || model.rules.length > 0 || usecase.guard !== null;
   const content = cannotAutoTest
     ? `// 自動生成 — AppForge ユースケーステスト雛形
 import { describe, it } from 'vitest';

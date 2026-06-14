@@ -126,11 +126,20 @@ const domainServiceSchema = z.object({
   returns: z.enum(['string', 'number', 'boolean', 'void', 'self']),
 });
 
+const usecaseGuardSchema = z.object({
+  left: idSchema<FieldId>(),
+  op: z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte']),
+  right: ruleOperandSchema,
+  message: z.string(),
+});
+
 const usecaseSchema = z.object({
   id: idSchema<UsecaseId>(),
   name: z.string().min(1),
   serviceIds: z.array(idSchema<ServiceId>()),
   save: z.boolean(),
+  // 事前条件(状態遷移ガード)。導入以前のドキュメントは null で補完
+  guard: usecaseGuardSchema.nullable().default(null),
 });
 
 const modelDefSchema = z.object({

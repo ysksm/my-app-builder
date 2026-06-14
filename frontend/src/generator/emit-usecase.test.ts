@@ -70,4 +70,30 @@ describe('ユースケース生成', () => {
     const t2 = withSvc.find((f) => f.path === 'src/features/order/application/place-order.test.ts')!.content;
     expect(t2).toContain('it.todo');
   });
+
+  it('ガード(事前条件)を満たさないと ValidationError を返す(状態遷移ガード)', () => {
+    let dm = DataModel.empty();
+    const a = DataModel.addModel(dm, 'aggregate', 0, 0);
+    dm = unwrap(DataModel.updateModel(a.dataModel, a.model.id, { name: 'Order' }));
+    const f = unwrap(DataModel.addField(dm, a.model.id));
+    dm = unwrap(DataModel.updateField(f.dataModel, a.model.id, f.field.id, { name: 'total', type: 'number' }));
+    const u = unwrap(DataModel.addUsecase(dm, a.model.id));
+    dm = unwrap(
+      DataModel.updateUsecase(u.dataModel, a.model.id, u.usecase.id, {
+        name: 'placeOrder',
+        guard: { left: f.field.id, op: 'gte', right: { kind: 'literal', value: 1 }, message: '合計は1以上が必要です' },
+      }),
+    );
+    const files = emitUsecaseFiles(dm);
+    const uc = files.find((x) => x.path === 'src/features/order/application/place-order.ts')!.content;
+    // ガードのプリコンディションが create より前に生成される
+    expect(uc).toContain('// 状態遷移ガード(事前条件)');
+    expect(uc).toContain('if (!(input.total >= 1)) return { ok: false, error: [ValidationError.create("total", "合計は1以上が必要です")] };');
+    expect(uc.indexOf('input.total >= 1')).toBeLessThan(uc.indexOf('Order.create(input)'));
+    // ValidationError は値として import される(type ではない)
+    expect(uc).toContain("import { ValidationError } from");
+    // ガードありはテストを auto-assert しない
+    const t = files.find((x) => x.path === 'src/features/order/application/place-order.test.ts')!.content;
+    expect(t).toContain('it.todo');
+  });
 });

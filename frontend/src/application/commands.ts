@@ -405,8 +405,14 @@ const servicePatch = z
     returns: z.enum(['string', 'number', 'boolean', 'void', 'self']),
   })
   .partial();
+const usecaseGuard = z.object({ left: id, op: ruleOp, right: ruleOperand, message: z.string() });
 const usecasePatch = z
-  .object({ name: z.string(), serviceIds: z.array(id), save: z.boolean() })
+  .object({
+    name: z.string(),
+    serviceIds: z.array(id),
+    save: z.boolean(),
+    guard: usecaseGuard.nullable(),
+  })
   .partial();
 const pagePatch = z
   .object({ name: z.string(), path: z.string(), useHeader: z.boolean(), useFooter: z.boolean() })

@@ -5,6 +5,7 @@ import type {
   ModelDef,
   RelationDef,
   RuleOp,
+  RuleOperand,
   ServiceReturn,
   ValidationRule,
 } from '@/domain/data-model';
@@ -120,6 +121,31 @@ const JS_OP: Record<RuleOp, string> = {
   gte: '>=',
   lt: '<',
   lte: '<=',
+};
+
+/**
+ * ルール条件式(`input.<left> <op> <right>`)とエラー対象フィールド名を組み立てる。
+ * クロスフィールド validate とユースケースのガード(事前条件)で共有する。
+ * 参照フィールドが消えている場合は null。
+ */
+export const ruleCondition = (
+  model: ModelDef,
+  left: string,
+  op: RuleOp,
+  right: RuleOperand,
+): Readonly<{ expr: string; leftName: string }> | null => {
+  const fieldName = (idValue: string): string | null => model.fields.find((f) => f.id === idValue)?.name ?? null;
+  const l = fieldName(left);
+  if (!l) return null;
+  let r: string;
+  if (right.kind === 'field') {
+    const name = fieldName(right.fieldId);
+    if (!name) return null;
+    r = `input.${name}`;
+  } else {
+    r = JSON.stringify(right.value);
+  }
+  return { expr: `input.${l} ${JS_OP[op]} ${r}`, leftName: l };
 };
 
 /** クロスフィールドルール(§4.3)→ validate 内の検証行。「left op right が偽なら message」 */

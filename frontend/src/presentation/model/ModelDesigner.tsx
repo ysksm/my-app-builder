@@ -7,6 +7,8 @@ import {
   type RelationKind,
   type RuleOp,
   type ServiceReturn,
+  type UsecaseDef,
+  type UsecaseGuard,
 } from '@/domain/data-model';
 import type { FieldId, ModelId, RuleId, ServiceId, UsecaseId } from '@/domain/ids';
 import {
@@ -558,11 +560,75 @@ function UsecasesSection({ model }: { model: ModelDef }) {
               })}
             </div>
           )}
+          <UsecaseGuardEditor model={model} uc={uc} />
         </div>
       ))}
       <button type="button" className="btn rule-add" onClick={() => dispatch(dmUsecaseAdded({ modelId: model.id }))}>
         + ユースケース
       </button>
+    </div>
+  );
+}
+
+const GUARD_OPS: ReadonlyArray<{ v: RuleOp; l: string }> = [
+  { v: 'eq', l: '=' }, { v: 'neq', l: '≠' }, { v: 'gt', l: '>' }, { v: 'gte', l: '≥' }, { v: 'lt', l: '<' }, { v: 'lte', l: '≤' },
+];
+
+/** ユースケースの事前条件(状態遷移ガード)。リテラル比較で「条件を満たすときのみ実行」 */
+function UsecaseGuardEditor({ model, uc }: { model: ModelDef; uc: UsecaseDef }) {
+  const dispatch = useAppDispatch();
+  const g = uc.guard;
+  const setGuard = (guard: UsecaseGuard | null) =>
+    dispatch(dmUsecaseUpdated({ modelId: model.id, usecaseId: uc.id as UsecaseId, patch: { guard } }));
+  const litValue = g && g.right.kind === 'literal' ? String(g.right.value) : '';
+  return (
+    <div className="usecase-guard">
+      <label className="req" title="事前条件(状態遷移ガード)。満たさないと ValidationError を返す">
+        <input
+          type="checkbox"
+          checked={!!g}
+          onChange={(e) =>
+            setGuard(
+              e.target.checked
+                ? { left: model.fields[0]!.id, op: 'eq', right: { kind: 'literal', value: '' }, message: '実行できる状態ではありません' }
+                : null,
+            )
+          }
+        />
+        ガード(事前条件)
+      </label>
+      {g && (
+        <div className="guard-row">
+          <select value={g.left} onChange={(e) => setGuard({ ...g, left: e.target.value as typeof g.left })}>
+            {model.fields.map((f) => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
+          </select>
+          <select value={g.op} onChange={(e) => setGuard({ ...g, op: e.target.value as RuleOp })}>
+            {GUARD_OPS.map((o) => (
+              <option key={o.v} value={o.v}>{o.l}</option>
+            ))}
+          </select>
+          <input
+            className="guard-val"
+            defaultValue={litValue}
+            placeholder="値"
+            title="比較する値(数値は数値として扱う)"
+            onBlur={(e) => {
+              const raw = e.target.value;
+              const num = Number(raw);
+              const value = raw.trim() !== '' && !Number.isNaN(num) ? num : raw;
+              setGuard({ ...g, right: { kind: 'literal', value } });
+            }}
+          />
+          <input
+            className="rule-message"
+            defaultValue={g.message}
+            placeholder="エラーメッセージ"
+            onBlur={(e) => setGuard({ ...g, message: e.target.value })}
+          />
+        </div>
+      )}
     </div>
   );
 }

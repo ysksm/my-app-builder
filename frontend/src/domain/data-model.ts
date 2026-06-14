@@ -68,6 +68,14 @@ export type DomainServiceDef = Readonly<{
  * (save が true なら repository.save)→ 結果を返す。読める application 関数として生成され、
  * repository は引数注入(DIP)。
  */
+/** ユースケースの事前条件(状態遷移ガード、FR-LOGIC-02)。「left op right が成り立つときのみ実行可」 */
+export type UsecaseGuard = Readonly<{
+  left: FieldId;
+  op: RuleOp;
+  right: RuleOperand;
+  message: string;
+}>;
+
 export type UsecaseDef = Readonly<{
   id: UsecaseId;
   /** camelCase 識別子 */
@@ -76,6 +84,8 @@ export type UsecaseDef = Readonly<{
   serviceIds: ReadonlyArray<ServiceId>;
   /** repository.save するか */
   save: boolean;
+  /** 事前条件(状態遷移ガード)。null なら無し */
+  guard: UsecaseGuard | null;
 }>;
 
 export type ModelDef = Readonly<{
@@ -389,7 +399,7 @@ export const DataModel = {
     if (!model) return err(DomainError.notFound('model'));
     let n = model.usecases.length + 1;
     while (model.usecases.some((u) => u.name === `usecase${n}`)) n += 1;
-    const usecase: UsecaseDef = { id: UsecaseId.create(), name: `usecase${n}`, serviceIds: [], save: true };
+    const usecase: UsecaseDef = { id: UsecaseId.create(), name: `usecase${n}`, serviceIds: [], save: true, guard: null };
     const dataModel = {
       ...dm,
       models: dm.models.map((m) =>
