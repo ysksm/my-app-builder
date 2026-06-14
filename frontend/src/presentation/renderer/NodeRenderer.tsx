@@ -25,7 +25,16 @@ import type { DataChannelDef } from '@/domain/data-channel';
 import type { NodeId } from '@/domain/ids';
 import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
 import { DragPayload, useEditInteraction } from '../editor/edit-interaction';
-import { kitButton, kitDisclosure, kitInput, kitMenu } from './react-kit-views';
+import {
+  kitButton,
+  kitChip,
+  kitDisclosure,
+  kitInput,
+  kitMenu,
+  kitRating,
+  kitSlider,
+  kitSwitch,
+} from './react-kit-views';
 
 export type RenderMode = 'edit' | 'preview';
 
@@ -195,6 +204,57 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
           </ul>
         </details>
       );
+    }
+    case 'switch': {
+      const checked = p('checked') === true;
+      const k = kitSwitch(kit, { label: str(p('label')), checked });
+      if (k) return <>{k}</>;
+      return (
+        <label className="c-switch">
+          <input className="c-switch-input" type="checkbox" defaultChecked={checked} readOnly={mode === 'edit'} />
+          <span className="c-switch-track" />
+          <span className="c-switch-label">{str(p('label'))}</span>
+        </label>
+      );
+    }
+    case 'rating': {
+      const max = num(p('max'));
+      const v = Math.max(0, Math.min(max, num(p('value'))));
+      const k = kitRating(kit, { label: str(p('label')), value: v, max });
+      if (k) return <>{k}</>;
+      return (
+        <div className="c-rating">
+          <span className="c-rating-label">{str(p('label'))}</span>
+          <span className="c-rating-stars">{'★'.repeat(v) + '☆'.repeat(Math.max(0, max - v))}</span>
+        </div>
+      );
+    }
+    case 'slider': {
+      const k = kitSlider(kit, {
+        label: str(p('label')),
+        value: num(p('value')),
+        min: num(p('min')),
+        max: num(p('max')),
+      });
+      if (k) return <>{k}</>;
+      return (
+        <label className="c-slider">
+          <span className="c-slider-label">{str(p('label'))}</span>
+          <input
+            className="c-slider-input"
+            type="range"
+            min={num(p('min'))}
+            max={num(p('max'))}
+            defaultValue={num(p('value'))}
+            readOnly={mode === 'edit'}
+          />
+        </label>
+      );
+    }
+    case 'chip': {
+      const k = kitChip(kit, { label: str(p('label')), color: str(p('color')) });
+      if (k) return <>{k}</>;
+      return <span className={`c-chip c-chip-${str(p('color'))}`}>{str(p('label'))}</span>;
     }
   }
 }

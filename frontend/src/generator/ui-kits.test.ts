@@ -109,6 +109,46 @@ describe('UIライブラリ選択(FR-GUI-11)', () => {
     expect(get(files, 'package.json')).toContain('bits-ui');
   });
 
+  it('switch: plain は c-switch、MUI は FormControlLabel+Switch', () => {
+    let doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const target = EditTarget.page(home.id);
+    const r = applyCommand(doc, { kind: 'insertNode', target, parentId: home.root.id, index: 0, type: 'switch' });
+    if (!r.ok) throw new Error('insert');
+    doc = r.value.doc;
+    expect(get(generateProject(doc, 'x'), 'pages/Page0.tsx')).toContain('className="c-switch"');
+    const mr = applyCommand(doc, { kind: 'setUiKit', framework: 'react', kit: 'mui' });
+    if (!mr.ok) throw new Error('kit');
+    const page = get(generateProject(mr.value.doc, 'x'), 'pages/Page0.tsx');
+    expect(page).toContain('<FormControlLabel');
+    expect(page).toContain('<Switch ');
+  });
+
+  it('MUI 固有部品: rating/slider/chip が MUI 部品 + 依存で出力', () => {
+    let doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const target = EditTarget.page(home.id);
+    (['rating', 'slider', 'chip'] as const).forEach((type, i) => {
+      const r = applyCommand(doc, { kind: 'insertNode', target, parentId: home.root.id, index: i, type });
+      if (!r.ok) throw new Error('insert');
+      doc = r.value.doc;
+    });
+    const mr = applyCommand(doc, { kind: 'setUiKit', framework: 'react', kit: 'mui' });
+    if (!mr.ok) throw new Error('kit');
+    const files = generateProject(mr.value.doc, 'x');
+    const page = get(files, 'pages/Page0.tsx');
+    expect(page).toContain('<Rating ');
+    expect(page).toContain('<Slider ');
+    expect(page).toContain('<Chip ');
+    expect(get(files, 'package.json')).toContain('@mui/material');
+  });
+
+  it('kit 固有部品はパレットで kit 一致時のみ(catalog.kit)', async () => {
+    const { componentDefs } = await import('@/domain/catalog/component-defs');
+    expect(componentDefs.rating.kit).toBe('mui');
+    expect(componentDefs.switch.kit).toBeUndefined(); // switch は中立
+  });
+
   it('setUiKit は framework→kit を doc に保存', () => {
     const res = applyCommand(ProjectDoc.create(), { kind: 'setUiKit', framework: 'react', kit: 'mui' });
     if (!res.ok) throw new Error('apply');

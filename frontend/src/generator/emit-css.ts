@@ -174,6 +174,31 @@ body {
 }
 .c-menu-item:hover { background: var(--color-secondary); }
 
+/* トグル / レーティング / スライダー / チップ(plain フォールバック) */
+.c-switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.c-switch-input { width: 0; height: 0; opacity: 0; position: absolute; }
+.c-switch-track {
+  width: 38px; height: 22px; border-radius: 11px; background: var(--color-border);
+  position: relative; transition: background .15s; flex: none;
+}
+.c-switch-track::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+  border-radius: 50%; background: #fff; transition: transform .15s;
+}
+.c-switch-input:checked + .c-switch-track { background: var(--color-primary); }
+.c-switch-input:checked + .c-switch-track::after { transform: translateX(16px); }
+.c-rating { display: inline-flex; align-items: center; gap: 8px; }
+.c-rating-label { font-size: 13px; color: var(--color-text-muted); }
+.c-rating-stars { color: #f59f00; letter-spacing: 2px; }
+.c-slider { display: flex; flex-direction: column; gap: 4px; align-self: stretch; max-width: 280px; }
+.c-slider-label { font-size: 13px; color: var(--color-text-muted); }
+.c-slider-input { width: 100%; accent-color: var(--color-primary); }
+.c-chip {
+  display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 999px;
+  font-size: 13px; background: var(--color-secondary); color: var(--color-secondary-text); align-self: flex-start;
+}
+.c-chip-primary { background: var(--color-primary); color: var(--color-primary-text); }
+
 /* 設定値の書き込みコントロール(設定ツール) */
 .c-setpoint {
   display: inline-flex; flex-direction: column; gap: 8px; align-self: flex-start;

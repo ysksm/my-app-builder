@@ -17,6 +17,10 @@ export type ReactUiKit = Readonly<{
   }) => KitEmit;
   disclosure?: (a: { pad: string; titleExpr: string; contentExpr: string }) => KitEmit;
   menu?: (a: { pad: string; labelExpr: string; items: ReadonlyArray<string> }) => KitEmit;
+  switch?: (a: { pad: string; labelExpr: string; checked: boolean }) => KitEmit;
+  rating?: (a: { pad: string; labelExpr: string; value: number; max: number }) => KitEmit;
+  slider?: (a: { pad: string; labelExpr: string; value: number; min: number; max: number }) => KitEmit;
+  chip?: (a: { pad: string; labelExpr: string; color: string }) => KitEmit;
 }>;
 
 const PLAIN: ReactUiKit = { id: 'plain', deps: {} };
@@ -44,6 +48,26 @@ const MUI: ReactUiKit = {
       `${pad}<TextField label={${labelExpr}} type="${inputType}" size="small" variant="outlined"${placeholderExpr ? ` placeholder={${placeholderExpr}}` : ''} />`,
     ],
   }),
+  switch: ({ pad, labelExpr, checked }) => ({
+    imports: [`import FormControlLabel from '@mui/material/FormControlLabel';`, `import Switch from '@mui/material/Switch';`],
+    jsx: [`${pad}<FormControlLabel control={<Switch defaultChecked={${checked}} />} label={${labelExpr}} />`],
+  }),
+  rating: ({ pad, labelExpr, value, max }) => ({
+    imports: [`import Rating from '@mui/material/Rating';`],
+    jsx: [
+      `${pad}<div className="c-rating"><span className="c-rating-label">{${labelExpr}}</span><Rating defaultValue={${value}} max={${max}} /></div>`,
+    ],
+  }),
+  slider: ({ pad, labelExpr, value, min, max }) => ({
+    imports: [`import Slider from '@mui/material/Slider';`],
+    jsx: [
+      `${pad}<label className="c-slider"><span className="c-slider-label">{${labelExpr}}</span><Slider defaultValue={${value}} min={${min}} max={${max}} /></label>`,
+    ],
+  }),
+  chip: ({ pad, labelExpr, color }) => ({
+    imports: [`import Chip from '@mui/material/Chip';`],
+    jsx: [`${pad}<Chip label={${labelExpr}} color=${JSON.stringify(color === 'default' ? 'default' : color)} />`],
+  }),
 };
 
 // ---- React Aria Components(ヘッドレス・アクセシブル。スタイルは c-* トークンを流用)----
@@ -64,6 +88,12 @@ const REACT_ARIA: ReactUiKit = {
       `${pad}  <Label>{${labelExpr}}</Label>`,
       `${pad}  <Input type="${inputType}"${placeholderExpr ? ` placeholder={${placeholderExpr}}` : ''} />`,
       `${pad}</TextField>`,
+    ],
+  }),
+  switch: ({ pad, labelExpr, checked }) => ({
+    imports: [`import { Switch } from 'react-aria-components';`],
+    jsx: [
+      `${pad}<Switch defaultSelected={${checked}} className="c-switch"><span className="c-switch-indicator" />{${labelExpr}}</Switch>`,
     ],
   }),
 };

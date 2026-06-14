@@ -8,12 +8,15 @@ export function Palette() {
   const ctx = useEditInteraction();
   const dispatch = useAppDispatch();
   const customParts = useAppSelector((s) => s.editor.doc.customParts);
+  // 選択中フレームワークの UIライブラリ。固有部品(def.kit)はその kit のときだけ出す
+  const currentKit = useAppSelector((s) => s.editor.doc.uiKits[s.editor.doc.targetFramework] ?? 'plain');
+  const defs = paletteDefs.filter((def) => !def.kit || def.kit === currentKit);
 
   return (
     <section className="panel-section">
       <h3>パーツ</h3>
       <div className="palette-grid">
-        {paletteDefs.map((def) => (
+        {defs.map((def) => (
           <div
             key={def.type}
             className="palette-item"

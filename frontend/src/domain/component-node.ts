@@ -26,7 +26,12 @@ export type ComponentType =
   | 'aggrid'
   // 対話部品(plain は <details> でステートレス、UIライブラリ選択時は kit の部品)
   | 'disclosure'
-  | 'menu';
+  | 'menu'
+  | 'switch'
+  // UIライブラリ固有部品(MUI など。plain フォールバックあり)
+  | 'rating'
+  | 'slider'
+  | 'chip';
 
 export type ComponentNode = Readonly<{
   id: NodeId;

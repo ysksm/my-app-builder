@@ -307,6 +307,52 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
         `${pad}</details>`,
       ];
     }
+    case 'switch': {
+      const checked = p('checked') === true;
+      if (ctx.uiKit.switch) {
+        const e = ctx.uiKit.switch({ pad, labelExpr: s(p('label')), checked });
+        e.imports.forEach((i) => ctx.kitImports.add(i));
+        return e.jsx;
+      }
+      return [
+        `${pad}<label className="c-switch">`,
+        `${pad}  <input className="c-switch-input" type="checkbox" defaultChecked={${checked}} />`,
+        `${pad}  <span className="c-switch-track" />`,
+        `${pad}  <span className="c-switch-label">{${s(p('label'))}}</span>`,
+        `${pad}</label>`,
+      ];
+    }
+    case 'rating': {
+      const max = num(p('max'));
+      const v = Math.max(0, Math.min(max, num(p('value'))));
+      if (ctx.uiKit.rating) {
+        const e = ctx.uiKit.rating({ pad, labelExpr: s(p('label')), value: v, max });
+        e.imports.forEach((i) => ctx.kitImports.add(i));
+        return e.jsx;
+      }
+      const stars = '★'.repeat(v) + '☆'.repeat(Math.max(0, max - v));
+      return [
+        `${pad}<div className="c-rating"><span className="c-rating-label">{${s(p('label'))}}</span><span className="c-rating-stars">{${s(stars)}}</span></div>`,
+      ];
+    }
+    case 'slider': {
+      if (ctx.uiKit.slider) {
+        const e = ctx.uiKit.slider({ pad, labelExpr: s(p('label')), value: num(p('value')), min: num(p('min')), max: num(p('max')) });
+        e.imports.forEach((i) => ctx.kitImports.add(i));
+        return e.jsx;
+      }
+      return [
+        `${pad}<label className="c-slider"><span className="c-slider-label">{${s(p('label'))}}</span><input className="c-slider-input" type="range" min={${num(p('min'))}} max={${num(p('max'))}} defaultValue={${num(p('value'))}} /></label>`,
+      ];
+    }
+    case 'chip': {
+      if (ctx.uiKit.chip) {
+        const e = ctx.uiKit.chip({ pad, labelExpr: s(p('label')), color: String(p('color')) });
+        e.imports.forEach((i) => ctx.kitImports.add(i));
+        return e.jsx;
+      }
+      return [`${pad}<span className="c-chip c-chip-${String(p('color'))}">{${s(p('label'))}}</span>`];
+    }
   }
 };
 

@@ -16,6 +16,8 @@ export type ComponentDef = Readonly<{
   supportsEvents: boolean;
   defaultProps: Readonly<Record<string, PropValue>>;
   propFields: ReadonlyArray<PropFieldDef>;
+  /** UIライブラリ固有部品。設定時はその kit を選んでいる間だけパレットに出す(未設定=中立) */
+  kit?: string;
 }>;
 
 // ---------- リアルタイムモニタリング部品の共有プロパティ ----------
@@ -390,6 +392,75 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
     propFields: [
       { key: 'label', label: 'ボタン文言', input: 'text' },
       { key: 'items', label: '項目(カンマ区切り)', input: 'text' },
+    ],
+  },
+  switch: {
+    type: 'switch',
+    label: 'トグル',
+    icon: '🔘',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    // plain はチェックボックス。MUI/React Aria を選ぶと Switch
+    defaultProps: { label: '通知を受け取る', checked: true },
+    propFields: [
+      { key: 'label', label: 'ラベル', input: 'text' },
+      { key: 'checked', label: '初期 ON', input: 'checkbox' },
+    ],
+  },
+  // ---------- UIライブラリ固有部品(MUI) ----------
+  rating: {
+    type: 'rating',
+    label: 'レーティング',
+    icon: '⭐',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    kit: 'mui',
+    defaultProps: { label: '評価', value: 3, max: 5 },
+    propFields: [
+      { key: 'label', label: 'ラベル', input: 'text' },
+      { key: 'value', label: '初期値', input: 'number' },
+      { key: 'max', label: '最大', input: 'number' },
+    ],
+  },
+  slider: {
+    type: 'slider',
+    label: 'スライダー',
+    icon: '🎚️',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    kit: 'mui',
+    defaultProps: { label: '音量', value: 40, min: 0, max: 100 },
+    propFields: [
+      { key: 'label', label: 'ラベル', input: 'text' },
+      { key: 'value', label: '初期値', input: 'number' },
+      { key: 'min', label: '最小', input: 'number' },
+      { key: 'max', label: '最大', input: 'number' },
+    ],
+  },
+  chip: {
+    type: 'chip',
+    label: 'チップ',
+    icon: '🏷️',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    kit: 'mui',
+    defaultProps: { label: 'タグ', color: 'primary' },
+    propFields: [
+      { key: 'label', label: 'ラベル', input: 'text' },
+      {
+        key: 'color',
+        label: '色',
+        input: 'select',
+        options: [
+          { value: 'primary', label: 'プライマリ' },
+          { value: 'secondary', label: 'セカンダリ' },
+          { value: 'default', label: '標準' },
+        ],
+      },
     ],
   },
   header: {

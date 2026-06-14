@@ -189,6 +189,46 @@ export const toUiTree = (
         ],
       });
     }
+    case 'switch': {
+      const inputAttrs: Record<string, UiAttrValue> = { type: 'checkbox' };
+      if (p('checked') === true) inputAttrs.checked = true;
+      return make({
+        tag: 'label',
+        classes: ['c-switch'],
+        children: [
+          make({ tag: 'input', classes: ['c-switch-input'], attrs: inputAttrs }),
+          make({ tag: 'span', classes: ['c-switch-track'] }),
+          make({ tag: 'span', classes: ['c-switch-label'], text: String(p('label')) }),
+        ],
+      });
+    }
+    case 'rating': {
+      const v = Math.max(0, Math.min(num(p('max')), num(p('value'))));
+      const stars = '★'.repeat(v) + '☆'.repeat(Math.max(0, num(p('max')) - v));
+      return make({
+        tag: 'div',
+        classes: ['c-rating'],
+        children: [
+          make({ tag: 'span', classes: ['c-rating-label'], text: String(p('label')) }),
+          make({ tag: 'span', classes: ['c-rating-stars'], text: stars }),
+        ],
+      });
+    }
+    case 'slider':
+      return make({
+        tag: 'label',
+        classes: ['c-slider'],
+        children: [
+          make({ tag: 'span', classes: ['c-slider-label'], text: String(p('label')) }),
+          make({
+            tag: 'input',
+            classes: ['c-slider-input'],
+            attrs: { type: 'range', min: num(p('min')), max: num(p('max')), value: num(p('value')) },
+          }),
+        ],
+      });
+    case 'chip':
+      return make({ tag: 'span', classes: ['c-chip', `c-chip-${String(p('color'))}`], text: String(p('label')) });
     case 'metric':
     case 'gauge':
     case 'lamp':

@@ -1,7 +1,18 @@
 import type { ReactNode } from 'react';
 import MuiButton from '@mui/material/Button';
 import MuiTextField from '@mui/material/TextField';
-import { Button as RAButton, Input as RAInput, Label as RALabel, TextField as RATextField } from 'react-aria-components';
+import MuiSwitch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Rating from '@mui/material/Rating';
+import Slider from '@mui/material/Slider';
+import Chip from '@mui/material/Chip';
+import {
+  Button as RAButton,
+  Input as RAInput,
+  Label as RALabel,
+  Switch as RASwitch,
+  TextField as RATextField,
+} from 'react-aria-components';
 import {
   Disclosure,
   DisclosureButton,
@@ -69,6 +80,55 @@ export const kitDisclosure = (kit: string, p: { title: string; content: string }
         <DisclosurePanel className="c-disclosure-content">{p.content}</DisclosurePanel>
       </Disclosure>
     );
+  }
+  return null;
+};
+
+export const kitSwitch = (kit: string, p: { label: string; checked: boolean }): ReactNode | null => {
+  if (kit === 'mui') {
+    return <FormControlLabel control={<MuiSwitch defaultChecked={p.checked} />} label={p.label} />;
+  }
+  if (kit === 'react-aria') {
+    return (
+      <RASwitch defaultSelected={p.checked} className="c-switch">
+        <span className="c-switch-indicator" />
+        {p.label}
+      </RASwitch>
+    );
+  }
+  return null;
+};
+
+export const kitRating = (kit: string, p: { label: string; value: number; max: number }): ReactNode | null => {
+  if (kit === 'mui') {
+    return (
+      <div className="c-rating">
+        <span className="c-rating-label">{p.label}</span>
+        <Rating defaultValue={p.value} max={p.max} />
+      </div>
+    );
+  }
+  return null;
+};
+
+export const kitSlider = (
+  kit: string,
+  p: { label: string; value: number; min: number; max: number },
+): ReactNode | null => {
+  if (kit === 'mui') {
+    return (
+      <label className="c-slider">
+        <span className="c-slider-label">{p.label}</span>
+        <Slider defaultValue={p.value} min={p.min} max={p.max} />
+      </label>
+    );
+  }
+  return null;
+};
+
+export const kitChip = (kit: string, p: { label: string; color: string }): ReactNode | null => {
+  if (kit === 'mui') {
+    return <Chip label={p.label} color={(p.color === 'default' ? 'default' : p.color) as 'primary' | 'secondary' | 'default'} />;
   }
   return null;
 };

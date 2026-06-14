@@ -44,6 +44,10 @@ const componentTypeSchema = z.enum([
   'aggrid',
   'disclosure',
   'menu',
+  'switch',
+  'rating',
+  'slider',
+  'chip',
 ]);
 
 const actionSchema = z.discriminatedUnion('kind', [
