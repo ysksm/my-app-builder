@@ -1,8 +1,15 @@
 import type { ProjectDoc } from '@/domain/project-doc';
 import { emitAppCss, emitTokensCss } from './emit-css';
-import { emitAngularTemplate } from './emit-angular';
+import { angularUsedComponents, emitAngularTemplate } from './emit-angular';
+import {
+  angularKitImports,
+  kitSelectorSet,
+  resolveAngularKit,
+  type AngularUiKit,
+} from './angular-ui-kits';
 import type { GeneratedFile } from './files';
 import { screenStyleCss } from './screen-style';
+import { kitIdOf } from './ui-kits';
 
 /**
  * Angular(standalone components)framework generator(FR-GEN-07)。中立 UI モデルから
@@ -28,7 +35,7 @@ const toPackageName = (name: string): string =>
 /** TS テンプレートリテラルに安全に埋め込む(バッククォート/バックスラッシュ/${ をエスケープ) */
 const tsTemplate = (s: string): string => s.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
 
-const packageJson = (projectName: string): string =>
+const packageJson = (projectName: string, kitDeps: Readonly<Record<string, string>>): string =>
   `${JSON.stringify(
     {
       name: toPackageName(projectName),
@@ -44,6 +51,7 @@ const packageJson = (projectName: string): string =>
         rxjs: V.rxjs,
         tslib: V.tslib,
         'zone.js': V.zone,
+        ...kitDeps,
       },
       devDependencies: {
         '@angular-devkit/build-angular': V.buildAngular,
@@ -56,7 +64,7 @@ const packageJson = (projectName: string): string =>
     2,
   )}\n`;
 
-const angularJson = (projectName: string, baseHref: string): string =>
+const angularJson = (projectName: string, baseHref: string, extraStyles: ReadonlyArray<string>): string =>
   `${JSON.stringify(
     {
       $schema: './node_modules/@angular/cli/lib/config/schema.json',
@@ -79,7 +87,7 @@ const angularJson = (projectName: string, baseHref: string): string =>
                 polyfills: ['zone.js'],
                 tsConfig: 'tsconfig.app.json',
                 baseHref,
-                styles: ['src/styles.css'],
+                styles: ['src/styles.css', ...extraStyles],
                 assets: [],
               },
               configurations: {
@@ -152,13 +160,13 @@ import { appConfig } from './app/app.config';
 bootstrapApplication(AppComponent, appConfig).catch((err) => console.error(err));
 `;
 
-const appConfigTs = `// 自動生成 — AppForge(Angular)
+const appConfigTs = (animations: boolean): string => `// 自動生成 — AppForge(Angular)
 import { ApplicationConfig } from '@angular/core';
-import { provideRouter, withHashLocation } from '@angular/router';
+import { provideRouter, withHashLocation } from '@angular/router';${animations ? `\nimport { provideAnimations } from '@angular/platform-browser/animations';` : ''}
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
-  providers: [provideRouter(routes, withHashLocation())],
+  providers: [provideRouter(routes, withHashLocation())${animations ? ', provideAnimations()' : ''}],
 };
 `;
 
@@ -182,9 +190,14 @@ ${routes.join('\n')}
 `;
 };
 
-const appComponentTs = (doc: ProjectDoc): string => {
-  const header = doc.layout.header ? emitAngularTemplate(doc.layout.header, 3) : '';
-  const footer = doc.layout.footer ? emitAngularTemplate(doc.layout.footer, 3) : '';
+const appComponentTs = (doc: ProjectDoc, kit: AngularUiKit, selectors: ReadonlySet<string>): string => {
+  const header = doc.layout.header ? emitAngularTemplate(doc.layout.header, 3, kit.tagMap, selectors) : '';
+  const footer = doc.layout.footer ? emitAngularTemplate(doc.layout.footer, 3, kit.tagMap, selectors) : '';
+  const used = new Set<string>();
+  for (const n of [doc.layout.header, doc.layout.footer]) {
+    if (n) angularUsedComponents(n, kit.tagMap).forEach((s) => used.add(s));
+  }
+  const { importLines, classNames } = angularKitImports(kit, used, './ui');
   const body = [
     `    <div class="app-root">`,
     header ? tsTemplate(header) : '',
@@ -197,11 +210,12 @@ const appComponentTs = (doc: ProjectDoc): string => {
   return `// 自動生成 — AppForge(Angular)
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+${importLines.join('\n')}
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet],
+  imports: [RouterOutlet${classNames.length ? ', ' + classNames.join(', ') : ''}],
   template: \`
 ${body}
   \`,
@@ -210,16 +224,28 @@ export class AppComponent {}
 `;
 };
 
-const pageComponentTs = (doc: ProjectDoc, i: number): string => {
+const pageComponentTs = (
+  doc: ProjectDoc,
+  i: number,
+  kit: AngularUiKit,
+  selectors: ReadonlySet<string>,
+): string => {
   const page = doc.pages[i]!;
-  const inner = emitAngularTemplate(page.root, 3);
+  const inner = emitAngularTemplate(page.root, 3, kit.tagMap, selectors);
   const template = `      <div class="page-screen" style="${screenStyleCss(page.screen)}">\n${inner}\n      </div>`;
+  const { importLines, classNames } = angularKitImports(
+    kit,
+    angularUsedComponents(page.root, kit.tagMap),
+    '../ui',
+  );
   return `// 自動生成 — AppForge(Angular ページ: ${page.name})
 import { Component } from '@angular/core';
+${importLines.join('\n')}
 
 @Component({
   selector: '${pageSelector(i)}',
   standalone: true,
+  imports: [${classNames.join(', ')}],
   template: \`
 ${tsTemplate(template)}
   \`,
@@ -235,18 +261,24 @@ export const generateAngularProject = (
   baseHref = '/',
 ): GeneratedFile[] => {
   const base = baseHref.endsWith('/') ? baseHref : `${baseHref}/`;
+  const kit = resolveAngularKit(kitIdOf(doc.uiKits, 'angular'));
+  const selectors = kitSelectorSet(kit);
   return [
-    file('package.json', packageJson(projectName)),
-    file('angular.json', angularJson(projectName, base)),
+    file('package.json', packageJson(projectName, kit.deps)),
+    file('angular.json', angularJson(projectName, base, kit.styles)),
     file('tsconfig.json', tsconfig),
     file('tsconfig.app.json', tsconfigApp),
     file('src/index.html', indexHtml(projectName)),
     file('src/main.ts', mainTs),
     // Angular は tailwind 未配線のため css-variables 固定
     file('src/styles.css', `${emitTokensCss(doc.tokens, 'css-variables')}\n${emitAppCss()}`),
-    file('src/app/app.config.ts', appConfigTs),
+    file('src/app/app.config.ts', appConfigTs(kit.animations)),
     file('src/app/app.routes.ts', routesTs(doc)),
-    file('src/app/app.component.ts', appComponentTs(doc)),
-    ...doc.pages.map((_, i) => file(`src/app/pages/page${i}.component.ts`, pageComponentTs(doc, i))),
+    file('src/app/app.component.ts', appComponentTs(doc, kit, selectors)),
+    ...doc.pages.map((_, i) =>
+      file(`src/app/pages/page${i}.component.ts`, pageComponentTs(doc, i, kit, selectors)),
+    ),
+    // UIライブラリ(kit)のラッパーコンポーネント(Angular Material 等)
+    ...kit.components.map((c) => file(c.file, c.content)),
   ];
 };

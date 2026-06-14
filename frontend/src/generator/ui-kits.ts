@@ -23,6 +23,10 @@ export const UI_KITS: Readonly<Record<string, ReadonlyArray<UiKitInfo>>> = {
     { id: 'plain', label: '標準スタイル(c-*)' },
     { id: 'bits', label: 'Bits UI(ヘッドレス)' },
   ],
+  angular: [
+    { id: 'plain', label: '標準スタイル(c-*)' },
+    { id: 'material', label: 'Angular Material' },
+  ],
 };
 
 /** doc.uiKits からフレームワークの kit id を解決(未設定なら plain) */

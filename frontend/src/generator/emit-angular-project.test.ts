@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectDoc } from '@/domain/project-doc';
+import { ProjectDoc, EditTarget } from '@/domain/project-doc';
+import { applyCommand } from '@/application/commands';
 import { generateAngularProject } from './emit-angular-project';
 
 const get = (files: ReadonlyArray<{ path: string; content: string }>, path: string) =>
@@ -43,5 +44,24 @@ describe('generateAngularProject(FR-GEN-07)', () => {
     const page = get(files, 'page0.component.ts');
     expect(page).toContain('class="page-screen"');
     expect(page).toContain('export class Page0Component');
+  });
+
+  it('Angular Material 選択で button→app-mat-button + 依存/テーマ/ラッパー', () => {
+    let doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const target = EditTarget.page(home.id);
+    const b = applyCommand(doc, { kind: 'insertNode', target, parentId: home.root.id, index: 0, type: 'button' });
+    if (!b.ok) throw new Error('insert');
+    doc = b.value.doc;
+    const r = applyCommand(doc, { kind: 'setUiKit', framework: 'angular', kit: 'material' });
+    if (!r.ok) throw new Error('setUiKit');
+    const mf = generateAngularProject(r.value.doc, 'My App');
+    const page = get(mf, 'page0.component.ts');
+    expect(page).toContain('<app-mat-button');
+    expect(page).toContain('AppMatButtonComponent');
+    expect(get(mf, 'app/ui/app-mat-button.component.ts')).toContain("from '@angular/material/button'");
+    expect(get(mf, 'package.json')).toContain('@angular/material');
+    expect(get(mf, 'angular.json')).toContain('prebuilt-themes/azure-blue.css');
+    expect(get(mf, 'app.config.ts')).toContain('provideAnimations');
   });
 });

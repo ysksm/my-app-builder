@@ -29,12 +29,24 @@ const styleAttr = (style: Readonly<Record<string, string>>): string => {
 
 const VOID_TAGS = new Set(['img', 'input', 'br', 'hr']);
 
-/** 中立要素 → Angular テンプレート行(インデント付き) */
-export const emitAngularElement = (el: UiElement, indent = 0): string[] => {
+/** 中立要素 → Angular テンプレート行(インデント付き)。kitSelectors にある参照は実コンポーネントとして出力 */
+export const emitAngularElement = (
+  el: UiElement,
+  indent = 0,
+  kitSelectors: ReadonlySet<string> = new Set(),
+): string[] => {
   const pad = '  '.repeat(indent);
 
-  // 未対応のコンポーネント参照(Metric 等)はプレースホルダにフォールバック
   if (el.component) {
+    if (kitSelectors.has(el.tag)) {
+      // UIライブラリ(kit)のラッパーコンポーネント。文字列 props を属性で渡す
+      const attrs = Object.entries(el.attrs)
+        .filter(([, v]) => typeof v === 'string')
+        .map(([k, v]) => `${k}="${escapeAttr(String(v))}"`)
+        .join(' ');
+      return [`${pad}<${el.tag}${attrs ? ` ${attrs}` : ''}></${el.tag}>`];
+    }
+    // 未対応のコンポーネント参照(Metric 等)はプレースホルダにフォールバック
     return [`${pad}<div class="c-ext-unsupported">[${escapeText(el.tag)}]</div>`];
   }
 
@@ -61,15 +73,21 @@ export const emitAngularElement = (el: UiElement, indent = 0): string[] => {
   }
   return [
     `${pad}<${open}>`,
-    ...el.children.flatMap((c) => emitAngularElement(c, indent + 1)),
+    ...el.children.flatMap((c) => emitAngularElement(c, indent + 1, kitSelectors)),
     `${pad}</${el.tag}>`,
   ];
 };
 
 /** ComponentNode 木 → Angular テンプレート文字列(コンポーネントの template に埋める) */
-export const emitAngularTemplate = (root: ComponentNode, indent = 0): string =>
-  emitAngularElement(toUiTree(root), indent).join('\n');
+export const emitAngularTemplate = (
+  root: ComponentNode,
+  indent = 0,
+  tagMap: Readonly<Partial<Record<string, string>>> = {},
+  kitSelectors: ReadonlySet<string> = new Set(),
+): string => emitAngularElement(toUiTree(root, tagMap), indent, kitSelectors).join('\n');
 
-/** 木の中で使われている UI 部品名(未対応コンポーネント参照の検出など) */
-export const angularUsedComponents = (root: ComponentNode): Set<string> =>
-  collectComponents(toUiTree(root));
+/** 木の中で使われている UI 部品名(kit ラッパー selector の検出に使う) */
+export const angularUsedComponents = (
+  root: ComponentNode,
+  tagMap: Readonly<Partial<Record<string, string>>> = {},
+): Set<string> => collectComponents(toUiTree(root, tagMap));
