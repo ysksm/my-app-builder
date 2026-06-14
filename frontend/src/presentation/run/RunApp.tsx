@@ -9,7 +9,9 @@ import {
 } from '@/generator';
 import type { ProjectDoc } from '@/domain/project-doc';
 import { toPackageName } from '@/generator/identifiers';
-import { useAppSelector } from '../store/hooks';
+import { UI_KITS, kitIdOf } from '@/generator/ui-kits';
+import { uiKitSet } from '../store/editor-slice';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 
 type BuildState =
   | Readonly<{ phase: 'building' }>
@@ -52,10 +54,13 @@ const generateFor = (
  * ビルドランナーで npm install → 型チェック + vite build を実行、成果物を iframe で表示する。
  */
 export function RunApp() {
+  const dispatch = useAppDispatch();
   const doc = useAppSelector((s) => s.editor.doc);
   const projectId = useAppSelector((s) => s.editor.projectId);
   const projectName = useAppSelector((s) => s.editor.projectName);
   const [framework, setFramework] = useState<Framework>('react');
+  const kits = UI_KITS[framework] ?? [];
+  const currentKit = kitIdOf(doc.uiKits, framework);
   const [state, setState] = useState<BuildState>({ phase: 'building' });
   const [nonce, setNonce] = useState(0);
   const [showLog, setShowLog] = useState(false);
@@ -134,6 +139,22 @@ export function RunApp() {
             </button>
           ))}
         </div>
+        {kits.length > 1 && (
+          <label className="run-kit">
+            <span>UIライブラリ</span>
+            <select
+              value={currentKit}
+              disabled={state.phase === 'building'}
+              onChange={(e) => dispatch(uiKitSet({ framework, kit: e.target.value }))}
+            >
+              {kits.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <span className={`run-status ${state.phase}`}>{statusLabel}</span>
         <button
           type="button"

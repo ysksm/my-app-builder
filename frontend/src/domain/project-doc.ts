@@ -65,6 +65,8 @@ export type ProjectDoc = Readonly<{
   boardPositions: Readonly<Record<string, Readonly<{ x: number; y: number }>>>;
   /** 名前付きデザインテーマ(FR-DS-08)。保存したトークン一式を切り替えられる */
   themes: ReadonlyArray<ThemePreset>;
+  /** フレームワークごとの UIライブラリ選択(FR-GUI-11)。framework id → kit id(既定 plain) */
+  uiKits: Readonly<Record<string, string>>;
 }>;
 
 export const ProjectDoc = {
@@ -84,7 +86,13 @@ export const ProjectDoc = {
       channels: [],
       boardPositions: {},
       themes: [],
+      uiKits: {},
     };
+  },
+
+  /** フレームワークの UIライブラリ(kit)を設定する */
+  setUiKit(doc: ProjectDoc, framework: string, kit: string): ProjectDoc {
+    return { ...doc, uiKits: { ...doc.uiKits, [framework]: kit } };
   },
 
   findPage(doc: ProjectDoc, pageId: PageId): Page | null {

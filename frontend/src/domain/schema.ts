@@ -218,6 +218,8 @@ export const projectDocSchema = z.object({
   themes: z
     .array(z.object({ id: z.string(), name: z.string(), tokens: designTokensSchema }))
     .default(() => []),
+  // 後方互換: UIライブラリ選択(framework→kit)が無い旧プロジェクトは空(=全 plain)
+  uiKits: z.record(z.string(), z.string()).default(() => ({})),
 });
 
 /** 保存/読込境界での検証。永続化された JSON を信頼せず必ずここを通す */

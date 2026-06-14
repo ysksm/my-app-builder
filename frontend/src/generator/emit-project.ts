@@ -7,6 +7,8 @@ import { libDepsFor } from './component-libs';
 import type { GeneratedFile } from './files';
 import { toPackageName, type NameTable } from './identifiers';
 import { paths, relativeImport } from './layout';
+import { resolveReactKit } from './react-ui-kits';
+import { kitIdOf } from './ui-kits';
 import { collectComponents, toUiTree } from './ui-model';
 
 /** doc 全体で使われている UI 部品名(コンポーネント参照)を集める */
@@ -422,7 +424,8 @@ export const emitProjectShell = (
   names: NameTable,
 ): GeneratedFile[] => {
   const tailwind = doc.styleEmitter === 'tailwind';
-  const libDeps = libDepsFor(usedComponentTags(doc));
+  const reactKit = resolveReactKit(kitIdOf(doc.uiKits, 'react'));
+  const libDeps = { ...libDepsFor(usedComponentTags(doc)), ...reactKit.deps };
   const files: GeneratedFile[] = [
     file('package.json', packageJson(projectName, tailwind, libDeps)),
     file('vite.config.ts', viteConfig(tailwind)),
@@ -449,6 +452,7 @@ export const emitProjectShell = (
           names,
           filePath: paths.appHeader,
           channels: doc.channels,
+          uiKit: reactKit,
         }),
       ),
     );
@@ -464,6 +468,7 @@ export const emitProjectShell = (
           names,
           filePath: paths.appFooter,
           channels: doc.channels,
+          uiKit: reactKit,
         }),
       ),
     );

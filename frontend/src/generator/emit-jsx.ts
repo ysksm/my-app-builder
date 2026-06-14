@@ -4,6 +4,7 @@ import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/
 import type { DataChannelDef } from '@/domain/data-channel';
 import type { NameTable } from './identifiers';
 import { paths, relativeImport } from './layout';
+import { resolveReactKit, type ReactUiKit } from './react-ui-kits';
 
 /**
  * ComponentNode 木 → React コンポーネントの TSX ソース。
@@ -22,6 +23,9 @@ type EmitCtx = {
   readonly realtimeImports: Set<string>;
   // 外部ライブラリ製コンポーネント(Uplot / EChart / DataGrid)。各々別ファイルから import
   readonly libImports: Set<string>;
+  // 選択中の UIライブラリ(kit)アダプタ + その import 文(重複排除)
+  readonly uiKit: ReactUiKit;
+  readonly kitImports: Set<string>;
   // データチャネル登録簿(channelRef の解決に使う)
   readonly channels: ReadonlyArray<DataChannelDef>;
   readonly usedActions: Set<UiAction>;
@@ -115,12 +119,28 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
       const handler = compileClickHandler(node.events, ctx);
       const onClick = handler ? ` onClick={${handler}}` : '';
       const variant = String(p('variant'));
+      // UIライブラリ(kit)が button を提供すればそれを使う。なければ plain(c-*)
+      if (ctx.uiKit.button) {
+        const e = ctx.uiKit.button({ pad, labelExpr: s(p('label')), variant, onClick });
+        e.imports.forEach((i) => ctx.kitImports.add(i));
+        return e.jsx;
+      }
       return [
         `${pad}<button type="button" className="c-button v-${variant}"${onClick}>{${s(p('label'))}}</button>`,
       ];
     }
     case 'input': {
       const placeholder = String(p('placeholder'));
+      if (ctx.uiKit.input) {
+        const e = ctx.uiKit.input({
+          pad,
+          labelExpr: s(p('label')),
+          placeholderExpr: placeholder ? s(placeholder) : null,
+          inputType: String(p('inputType')),
+        });
+        e.imports.forEach((i) => ctx.kitImports.add(i));
+        return e.jsx;
+      }
       const placeholderAttr = placeholder ? ` placeholder={${s(placeholder)}}` : '';
       return [
         `${pad}<label className="c-input">`,
@@ -308,6 +328,8 @@ export type ComponentFileOptions = Readonly<{
   channels?: ReadonlyArray<DataChannelDef>;
   /** ページの画面サイズ inline style(`style={{ ... }}` の中身)。指定時は page-screen でラップ */
   screenStyle?: string;
+  /** 選択中の UIライブラリ(kit)アダプタ。未指定なら plain(c-*) */
+  uiKit?: ReactUiKit;
 }>;
 
 export const emitComponentFile = (opts: ComponentFileOptions): string => {
@@ -319,6 +341,8 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
     needsDispatch: false,
     realtimeImports: new Set(),
     libImports: new Set(),
+    uiKit: opts.uiKit ?? resolveReactKit('plain'),
+    kitImports: new Set(),
     channels: opts.channels ?? [],
     usedActions: new Set(),
   };
@@ -338,6 +362,8 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
   for (const tag of [...ctx.libImports].sort()) {
     imports.push(`import { ${tag} } from '${relativeImport(opts.filePath, paths.realtimeLib(tag))}';`);
   }
+  // UIライブラリ(kit)の import 文(MUI 等)
+  for (const line of [...ctx.kitImports].sort()) imports.push(line);
   if (ctx.usedActions.size > 0) {
     const actions = [...ctx.usedActions].sort().join(', ');
     imports.push(`import { ${actions} } from '${relativeImport(opts.filePath, paths.uiSlice)}';`);

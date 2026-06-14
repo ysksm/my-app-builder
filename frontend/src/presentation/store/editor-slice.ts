@@ -421,6 +421,10 @@ export const editorSlice = createSlice({
       run(state, { kind: 'applyPreset', presetId: action.payload });
     },
 
+    uiKitSet(state, action: PayloadAction<{ framework: string; kit: string }>) {
+      run(state, { kind: 'setUiKit', ...action.payload });
+    },
+
     modelSelected(state, action: PayloadAction<ModelId | null>) {
       state.selectedModelId = action.payload;
     },
@@ -513,6 +517,7 @@ export const {
   themeApplied,
   themeRemoved,
   presetApplied,
+  uiKitSet,
   modelSelected,
   undone,
   redone,

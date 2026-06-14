@@ -9,6 +9,8 @@ import { screenStyleJs } from './screen-style';
 import { emitOpenApi } from './emit-openapi';
 import { emitProjectShell } from './emit-project';
 import { emitReactLibFiles } from './emit-react-libs';
+import { resolveReactKit } from './react-ui-kits';
+import { kitIdOf } from './ui-kits';
 import { emitTypeSpec } from './emit-typespec';
 import { emitUsecaseFiles } from './emit-usecase';
 import type { GeneratedFile } from './files';
@@ -385,6 +387,7 @@ export function Setpoint(props: SetpointProps) {
  */
 export const generateProject = (doc: ProjectDoc, projectName: string): GeneratedFile[] => {
   const names = buildNameTable(doc);
+  const reactKit = resolveReactKit(kitIdOf(doc.uiKits, 'react'));
   const ifModel = deriveInterfaceModel(doc.dataModel, `${projectName} API`);
   return [
     ...emitProjectShell(doc, projectName, names),
@@ -411,6 +414,7 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
         filePath: paths.page(i),
         channels: doc.channels,
         screenStyle: screenStyleJs(page.screen),
+        uiKit: reactKit,
       }),
     })),
     ...doc.dialogs.map((dialog, i) => ({
@@ -422,6 +426,7 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
         names,
         filePath: paths.dialog(i),
         channels: doc.channels,
+        uiKit: reactKit,
       }),
     })),
     { path: paths.tokensCss, content: emitTokensCss(doc.tokens, doc.styleEmitter) },
