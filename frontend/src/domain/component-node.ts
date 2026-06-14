@@ -36,7 +36,10 @@ export type ComponentType =
   | 'alert'
   | 'badge'
   | 'avatar'
-  | 'combobox';
+  | 'combobox'
+  // UIライブラリ固有部品(React Aria)
+  | 'progress'
+  | 'searchfield';
 
 export type ComponentNode = Readonly<{
   id: NodeId;

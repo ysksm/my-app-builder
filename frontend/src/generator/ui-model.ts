@@ -242,6 +242,34 @@ export const toUiTree = (
       });
     case 'avatar':
       return make({ tag: 'span', classes: ['c-avatar'], text: String(p('label')) });
+    case 'progress': {
+      const v = Math.max(0, Math.min(100, num(p('value'))));
+      return make({
+        tag: 'div',
+        classes: ['c-progress'],
+        children: [
+          make({ tag: 'span', classes: ['c-progress-label'], text: `${String(p('label'))}(${v}%)` }),
+          make({
+            tag: 'div',
+            classes: ['c-progress-track'],
+            children: [make({ tag: 'div', classes: ['c-progress-fill'], style: { width: `${v}%` } })],
+          }),
+        ],
+      });
+    }
+    case 'searchfield': {
+      const placeholder = String(p('placeholder'));
+      const attrs: Record<string, UiAttrValue> = { type: 'search' };
+      if (placeholder) attrs.placeholder = placeholder;
+      return make({
+        tag: 'label',
+        classes: ['c-input'],
+        children: [
+          make({ tag: 'span', text: String(p('label')) }),
+          make({ tag: 'input', attrs }),
+        ],
+      });
+    }
     case 'combobox': {
       // plain = <select>(Headless UI 等を選ぶとフィルタ付きコンボボックス)
       const options = String(p('options'))

@@ -533,6 +533,35 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
     defaultProps: { label: 'AB' },
     propFields: [{ key: 'label', label: 'イニシャル', input: 'text' }],
   },
+  // ---------- UIライブラリ固有部品(React Aria) ----------
+  progress: {
+    type: 'progress',
+    label: 'プログレスバー',
+    icon: '📶',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    kit: 'react-aria',
+    defaultProps: { label: '進捗', value: 65 },
+    propFields: [
+      { key: 'label', label: 'ラベル', input: 'text' },
+      { key: 'value', label: '値(0-100)', input: 'number' },
+    ],
+  },
+  searchfield: {
+    type: 'searchfield',
+    label: '検索フィールド',
+    icon: '🔎',
+    acceptsChildren: false,
+    inPalette: true,
+    supportsEvents: false,
+    kit: 'react-aria',
+    defaultProps: { label: '検索', placeholder: 'キーワード…' },
+    propFields: [
+      { key: 'label', label: 'ラベル', input: 'text' },
+      { key: 'placeholder', label: 'プレースホルダ', input: 'text' },
+    ],
+  },
   // ---------- UIライブラリ固有部品(Headless UI) ----------
   combobox: {
     type: 'combobox',

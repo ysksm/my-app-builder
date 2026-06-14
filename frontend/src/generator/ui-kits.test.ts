@@ -210,6 +210,23 @@ describe('UIライブラリ選択(FR-GUI-11)', () => {
     expect(get(files, 'package.json')).toContain('@headlessui/react');
   });
 
+  it('React Aria 固有: progress/searchfield が React Aria 部品で出力(plain フォールバック)', () => {
+    let doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const target = EditTarget.page(home.id);
+    (['progress', 'searchfield'] as const).forEach((type, i) => {
+      const r = applyCommand(doc, { kind: 'insertNode', target, parentId: home.root.id, index: i, type });
+      if (!r.ok) throw new Error('insert');
+      doc = r.value.doc;
+    });
+    expect(get(generateProject(doc, 'x'), 'pages/Page0.tsx')).toContain('className="c-progress"');
+    const rr = applyCommand(doc, { kind: 'setUiKit', framework: 'react', kit: 'react-aria' });
+    if (!rr.ok) throw new Error('kit');
+    const page = get(generateProject(rr.value.doc, 'x'), 'pages/Page0.tsx');
+    expect(page).toContain('<RAria.ProgressBar');
+    expect(page).toContain('<RAria.SearchField');
+  });
+
   it('setUiKit は framework→kit を doc に保存', () => {
     const res = applyCommand(ProjectDoc.create(), { kind: 'setUiKit', framework: 'react', kit: 'mui' });
     if (!res.ok) throw new Error('apply');

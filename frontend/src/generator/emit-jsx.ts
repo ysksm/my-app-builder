@@ -416,6 +416,31 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
         `${pad}</select>`,
       ];
     }
+    case 'progress': {
+      const v = Math.max(0, Math.min(100, num(p('value'))));
+      if (ctx.uiKit.progress) {
+        const e = ctx.uiKit.progress({ pad, labelExpr: s(p('label')), value: v });
+        e.imports.forEach((i) => ctx.kitImports.add(i));
+        return e.jsx;
+      }
+      return [
+        `${pad}<div className="c-progress"><span className="c-progress-label">{${s(p('label'))}}({${v}}%)</span><div className="c-progress-track"><div className="c-progress-fill" style={{ width: ${JSON.stringify(`${v}%`)} }} /></div></div>`,
+      ];
+    }
+    case 'searchfield': {
+      const placeholder = String(p('placeholder'));
+      if (ctx.uiKit.searchfield) {
+        const e = ctx.uiKit.searchfield({ pad, labelExpr: s(p('label')), placeholderExpr: placeholder ? s(placeholder) : null });
+        e.imports.forEach((i) => ctx.kitImports.add(i));
+        return e.jsx;
+      }
+      return [
+        `${pad}<label className="c-input">`,
+        `${pad}  <span>{${s(p('label'))}}</span>`,
+        `${pad}  <input type="search"${placeholder ? ` placeholder={${s(placeholder)}}` : ''} />`,
+        `${pad}</label>`,
+      ];
+    }
   }
 };
 

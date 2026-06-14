@@ -23,6 +23,8 @@ import {
   MenuItem as RAMenuItem,
   MenuTrigger as RAMenuTrigger,
   Popover as RAPopover,
+  ProgressBar as RAProgressBar,
+  SearchField as RASearchField,
   Switch as RASwitch,
   Tab as RATab,
   TabList as RATabList,
@@ -276,6 +278,38 @@ export const kitCombobox = (
 ): ReactNode | null => {
   if (kit === 'headless') {
     return <ComboboxView options={[...p.options]} placeholder={p.placeholder} />;
+  }
+  return null;
+};
+
+export const kitProgress = (kit: string, p: { label: string; value: number }): ReactNode | null => {
+  if (kit === 'react-aria') {
+    const v = Math.max(0, Math.min(100, p.value));
+    return (
+      <RAProgressBar aria-label={p.label} value={v} className="c-progress">
+        <span className="c-progress-label">
+          {p.label}({v}%)
+        </span>
+        <div className="c-progress-track">
+          <div className="c-progress-fill" style={{ width: `${v}%` }} />
+        </div>
+      </RAProgressBar>
+    );
+  }
+  return null;
+};
+
+export const kitSearchField = (
+  kit: string,
+  p: { label: string; placeholder: string },
+): ReactNode | null => {
+  if (kit === 'react-aria') {
+    return (
+      <RASearchField className="c-input">
+        <RALabel>{p.label}</RALabel>
+        <RAInput type="search" placeholder={p.placeholder || undefined} />
+      </RASearchField>
+    );
   }
   return null;
 };

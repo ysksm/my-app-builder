@@ -235,6 +235,10 @@ body {
   padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm);
   background: var(--color-surface-card); color: var(--color-text); font: inherit; min-width: 200px;
 }
+.c-progress { display: flex; flex-direction: column; gap: 4px; align-self: stretch; max-width: 320px; }
+.c-progress-label { font-size: 13px; color: var(--color-text-muted); }
+.c-progress-track { height: 8px; border-radius: 4px; background: var(--color-secondary); overflow: hidden; }
+.c-progress-fill { height: 100%; background: var(--color-primary); transition: width .2s; }
 
 /* 設定値の書き込みコントロール(設定ツール) */
 .c-setpoint {

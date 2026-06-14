@@ -25,6 +25,8 @@ export type ReactUiKit = Readonly<{
   alert?: (a: { pad: string; messageExpr: string; severity: string }) => KitEmit;
   badge?: (a: { pad: string; labelExpr: string; count: number; color: string }) => KitEmit;
   avatar?: (a: { pad: string; labelExpr: string }) => KitEmit;
+  progress?: (a: { pad: string; labelExpr: string; value: number }) => KitEmit;
+  searchfield?: (a: { pad: string; labelExpr: string; placeholderExpr: string | null }) => KitEmit;
 }>;
 
 const PLAIN: ReactUiKit = { id: 'plain', deps: {} };
@@ -160,6 +162,27 @@ const REACT_ARIA: ReactUiKit = {
         (t, i) => `${pad}  <RAria.TabPanel id="t${i}" className="c-tab-panel">{${s(`${t} の内容`)}}</RAria.TabPanel>`,
       ),
       `${pad}</RAria.Tabs>`,
+    ],
+  }),
+  progress: ({ pad, labelExpr, value }) => {
+    const v = Math.max(0, Math.min(100, value));
+    return {
+      imports: [RA],
+      jsx: [
+        `${pad}<RAria.ProgressBar aria-label={${labelExpr}} value={${v}} className="c-progress">`,
+        `${pad}  <span className="c-progress-label">{${labelExpr}}({${v}}%)</span>`,
+        `${pad}  <div className="c-progress-track"><div className="c-progress-fill" style={{ width: ${JSON.stringify(`${v}%`)} }} /></div>`,
+        `${pad}</RAria.ProgressBar>`,
+      ],
+    };
+  },
+  searchfield: ({ pad, labelExpr, placeholderExpr }) => ({
+    imports: [RA],
+    jsx: [
+      `${pad}<RAria.SearchField className="c-input">`,
+      `${pad}  <RAria.Label>{${labelExpr}}</RAria.Label>`,
+      `${pad}  <RAria.Input type="search"${placeholderExpr ? ` placeholder={${placeholderExpr}}` : ''} />`,
+      `${pad}</RAria.SearchField>`,
     ],
   }),
 };

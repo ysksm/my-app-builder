@@ -35,7 +35,9 @@ import {
   kitDisclosure,
   kitInput,
   kitMenu,
+  kitProgress,
   kitRating,
+  kitSearchField,
   kitSlider,
   kitSwitch,
   kitTabs,
@@ -314,6 +316,31 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
             </option>
           ))}
         </select>
+      );
+    }
+    case 'progress': {
+      const v = Math.max(0, Math.min(100, num(p('value'))));
+      const k = kitProgress(kit, { label: str(p('label')), value: v });
+      if (k) return <>{k}</>;
+      return (
+        <div className="c-progress">
+          <span className="c-progress-label">
+            {str(p('label'))}({v}%)
+          </span>
+          <div className="c-progress-track">
+            <div className="c-progress-fill" style={{ width: `${v}%` }} />
+          </div>
+        </div>
+      );
+    }
+    case 'searchfield': {
+      const k = kitSearchField(kit, { label: str(p('label')), placeholder: str(p('placeholder')) });
+      if (k) return <>{k}</>;
+      return (
+        <label className="c-input">
+          <span>{str(p('label'))}</span>
+          <input type="search" placeholder={str(p('placeholder'))} readOnly={mode === 'edit'} />
+        </label>
       );
     }
   }
