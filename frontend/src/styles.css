@@ -202,11 +202,17 @@ body {
 .canvas-edit .enode textarea, .canvas-edit .enode select { pointer-events: none; }
 
 /* ---------- ドロップゾーン ---------- */
-.dropzone { min-height: 6px; border-radius: 3px; transition: background .1s; }
+.dropzone { min-height: 6px; border-radius: 4px; transition: min-height .1s, min-width .1s, background .1s; }
 .c-container[data-direction="row"] > .dropzone { min-height: auto; min-width: 6px; align-self: stretch; }
-.dropzone.active { background: rgba(108,140,255,.25); min-height: 10px; }
-.c-container[data-direction="row"] > .dropzone.active { min-width: 10px; }
-.dropzone.over { background: var(--accent); }
+/* ドラッグ中は全ドロップ位置を掴みやすい高さに広げる(2個目以降が置けない問題の対策) */
+.dropzone.active {
+  background: rgba(108,140,255,.18);
+  min-height: 28px;
+  outline: 1px dashed var(--accent);
+  outline-offset: -3px;
+}
+.c-container[data-direction="row"] > .dropzone.active { min-width: 28px; min-height: auto; }
+.dropzone.over { background: var(--accent); outline-color: var(--accent); }
 .drop-empty {
   border: 2px dashed #c3cbe8; border-radius: 8px;
   color: #8b95b8; font-size: 12px;
