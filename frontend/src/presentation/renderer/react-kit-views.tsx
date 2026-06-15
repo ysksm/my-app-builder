@@ -76,7 +76,7 @@ export const kitButton = (kit: string, p: { label: string; variant: string }): R
 
 export const kitInput = (
   kit: string,
-  p: { label: string; placeholder: string; inputType: string },
+  p: { label: string; placeholder: string; inputType: string; required: boolean },
 ): ReactNode | null => {
   if (kit === 'mui') {
     return (
@@ -84,6 +84,7 @@ export const kitInput = (
         label={p.label}
         type={p.inputType}
         placeholder={p.placeholder || undefined}
+        required={p.required}
         size="small"
         variant="outlined"
       />
@@ -91,8 +92,11 @@ export const kitInput = (
   }
   if (kit === 'react-aria') {
     return (
-      <RATextField className="c-input">
-        <RALabel>{p.label}</RALabel>
+      <RATextField className="c-input" isRequired={p.required}>
+        <RALabel>
+          {p.label}
+          {p.required ? ' *' : ''}
+        </RALabel>
         <RAInput type={p.inputType} placeholder={p.placeholder || undefined} />
       </RATextField>
     );

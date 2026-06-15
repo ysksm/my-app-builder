@@ -36,4 +36,27 @@ describe('フォーム部品(FR-GUI)', () => {
     expect(page).toContain('<form class="c-form">');
     expect(page).toContain('type="submit"');
   });
+
+  it('必須入力: HTML5 ネイティブ検証(required / MUI required / React Aria isRequired)', () => {
+    let doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const target = EditTarget.page(home.id);
+    const ins = applyCommand(doc, { kind: 'insertNode', target, parentId: home.root.id, index: 0, type: 'input' });
+    if (!ins.ok) throw new Error('insert');
+    doc = ins.value.doc;
+    const inputId = doc.pages[0]!.root.children[0]!.id;
+    const up = applyCommand(doc, { kind: 'updateNodeProps', target, nodeId: inputId, patch: { required: true } });
+    if (!up.ok) throw new Error('update');
+    doc = up.value.doc;
+    // plain
+    expect(get(generateProject(doc, 'x'), 'pages/Page0.tsx')).toContain('required');
+    // MUI
+    const mui = applyCommand(doc, { kind: 'setUiKit', framework: 'react', kit: 'mui' });
+    if (!mui.ok) throw new Error('kit');
+    expect(get(generateProject(mui.value.doc, 'x'), 'pages/Page0.tsx')).toContain('<TextField label={"ラベル"} type="text" size="small" variant="outlined" required');
+    // React Aria
+    const ra = applyCommand(doc, { kind: 'setUiKit', framework: 'react', kit: 'react-aria' });
+    if (!ra.ok) throw new Error('kit');
+    expect(get(generateProject(ra.value.doc, 'x'), 'pages/Page0.tsx')).toContain('isRequired');
+  });
 });

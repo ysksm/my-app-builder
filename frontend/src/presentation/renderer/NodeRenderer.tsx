@@ -101,18 +101,24 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
       return <ButtonView node={node} mode={mode} />;
     }
     case 'input': {
+      const required = p('required') === true;
       const k = kitInput(kit, {
         label: str(p('label')),
         placeholder: str(p('placeholder')),
         inputType: str(p('inputType')),
+        required,
       });
       if (k) return <>{k}</>;
       return (
         <label className="c-input">
-          <span>{str(p('label'))}</span>
+          <span>
+            {str(p('label'))}
+            {required ? ' *' : ''}
+          </span>
           <input
             type={str(p('inputType'))}
             placeholder={str(p('placeholder'))}
+            required={required}
             readOnly={mode === 'edit'}
           />
         </label>

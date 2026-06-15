@@ -155,7 +155,7 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
     acceptsChildren: false,
     inPalette: true,
     supportsEvents: false,
-    defaultProps: { label: 'ラベル', placeholder: '', inputType: 'text' },
+    defaultProps: { label: 'ラベル', placeholder: '', inputType: 'text', required: false },
     propFields: [
       { key: 'label', label: 'ラベル', input: 'text' },
       { key: 'placeholder', label: 'プレースホルダ', input: 'text' },
@@ -166,10 +166,13 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
         options: [
           { value: 'text', label: 'テキスト' },
           { value: 'number', label: '数値' },
+          { value: 'email', label: 'メール' },
           { value: 'date', label: '日付' },
           { value: 'password', label: 'パスワード' },
         ],
       },
+      // 必須入力(フォーム送信時に HTML5 ネイティブ検証でブロック)
+      { key: 'required', label: '必須', input: 'checkbox' },
     ],
   },
   image: {

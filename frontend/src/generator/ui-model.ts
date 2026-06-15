@@ -114,11 +114,12 @@ export const toUiTree = (
       const placeholder = String(p('placeholder'));
       const inputAttrs: Record<string, UiAttrValue> = { type: String(p('inputType')) };
       if (placeholder) inputAttrs.placeholder = placeholder;
+      if (p('required') === true) inputAttrs.required = true;
       return make({
         tag: 'label',
         classes: ['c-input'],
         children: [
-          make({ tag: 'span', text: String(p('label')) }),
+          make({ tag: 'span', text: String(p('label')) + (p('required') === true ? ' *' : '') }),
           make({ tag: 'input', attrs: inputAttrs }),
         ],
       });

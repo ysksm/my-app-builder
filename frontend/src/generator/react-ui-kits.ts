@@ -14,6 +14,7 @@ export type ReactUiKit = Readonly<{
     labelExpr: string;
     placeholderExpr: string | null;
     inputType: string;
+    required: boolean;
   }) => KitEmit;
   disclosure?: (a: { pad: string; titleExpr: string; contentExpr: string }) => KitEmit;
   menu?: (a: { pad: string; labelExpr: string; items: ReadonlyArray<string> }) => KitEmit;
@@ -48,10 +49,10 @@ const MUI: ReactUiKit = {
       `${pad}<Button variant="${muiButtonVariant(variant)}" color="${muiButtonColor(variant)}"${onClick}>{${labelExpr}}</Button>`,
     ],
   }),
-  input: ({ pad, labelExpr, placeholderExpr, inputType }) => ({
+  input: ({ pad, labelExpr, placeholderExpr, inputType, required }) => ({
     imports: [`import TextField from '@mui/material/TextField';`],
     jsx: [
-      `${pad}<TextField label={${labelExpr}} type="${inputType}" size="small" variant="outlined"${placeholderExpr ? ` placeholder={${placeholderExpr}}` : ''} />`,
+      `${pad}<TextField label={${labelExpr}} type="${inputType}" size="small" variant="outlined"${required ? ' required' : ''}${placeholderExpr ? ` placeholder={${placeholderExpr}}` : ''} />`,
     ],
   }),
   switch: ({ pad, labelExpr, checked }) => ({
@@ -116,11 +117,11 @@ const REACT_ARIA: ReactUiKit = {
       `${pad}<RAria.Button className="c-button v-${variant}"${onClick.replace('onClick=', 'onPress=')}>{${labelExpr}}</RAria.Button>`,
     ],
   }),
-  input: ({ pad, labelExpr, placeholderExpr, inputType }) => ({
+  input: ({ pad, labelExpr, placeholderExpr, inputType, required }) => ({
     imports: [RA],
     jsx: [
-      `${pad}<RAria.TextField className="c-input">`,
-      `${pad}  <RAria.Label>{${labelExpr}}</RAria.Label>`,
+      `${pad}<RAria.TextField className="c-input"${required ? ' isRequired' : ''}>`,
+      `${pad}  <RAria.Label>{${labelExpr}}${required ? ' *' : ''}</RAria.Label>`,
       `${pad}  <RAria.Input type="${inputType}"${placeholderExpr ? ` placeholder={${placeholderExpr}}` : ''} />`,
       `${pad}</RAria.TextField>`,
     ],

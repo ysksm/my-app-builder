@@ -144,21 +144,24 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
     }
     case 'input': {
       const placeholder = String(p('placeholder'));
+      const required = p('required') === true;
       if (ctx.uiKit.input) {
         const e = ctx.uiKit.input({
           pad,
           labelExpr: s(p('label')),
           placeholderExpr: placeholder ? s(placeholder) : null,
           inputType: String(p('inputType')),
+          required,
         });
         e.imports.forEach((i) => ctx.kitImports.add(i));
         return e.jsx;
       }
       const placeholderAttr = placeholder ? ` placeholder={${s(placeholder)}}` : '';
+      const labelText = String(p('label')) + (required ? ' *' : '');
       return [
         `${pad}<label className="c-input">`,
-        `${pad}  <span>{${s(p('label'))}}</span>`,
-        `${pad}  <input type="${String(p('inputType'))}"${placeholderAttr} />`,
+        `${pad}  <span>{${s(labelText)}}</span>`,
+        `${pad}  <input type="${String(p('inputType'))}"${placeholderAttr}${required ? ' required' : ''} />`,
         `${pad}</label>`,
       ];
     }
