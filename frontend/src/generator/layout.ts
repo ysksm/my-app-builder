@@ -80,6 +80,8 @@ export const paths = {
   container: `${APP}/di/container.ts`,
   dialogHost: `${APP}/DialogHost.tsx`,
   toasts: `${APP}/Toasts.tsx`,
+  // MUI kit 選択時のみ: デザイントークン連携テーマ
+  muiTheme: `${APP}/mui-theme.ts`,
 
   // shared
   result: `${SHARED}/result.ts`,

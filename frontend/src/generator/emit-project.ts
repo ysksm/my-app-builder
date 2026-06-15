@@ -8,6 +8,7 @@ import type { GeneratedFile } from './files';
 import { toPackageName, type NameTable } from './identifiers';
 import { paths, relativeImport } from './layout';
 import { resolveReactKit } from './react-ui-kits';
+import { muiThemeFile } from './mui-theme';
 import { kitIdOf } from './ui-kits';
 import { collectComponents, toUiTree } from './ui-model';
 
@@ -342,7 +343,7 @@ export function DialogHost() {
 `;
 };
 
-const appTsx = (doc: ProjectDoc, names: NameTable): string => {
+const appTsx = (doc: ProjectDoc, names: NameTable, muiTheme: boolean): string => {
   const hasHeader = doc.layout.header !== null;
   const hasFooter = doc.layout.footer !== null;
   const crud = crudRoutes(doc.dataModel);
@@ -352,6 +353,9 @@ const appTsx = (doc: ProjectDoc, names: NameTable): string => {
   const imports = [
     `import type { ReactNode } from 'react';`,
     `import { HashRouter, Route, Routes } from 'react-router';`,
+    // MUI kit 選択時はデザイントークン連携テーマを App 全体に適用
+    muiTheme ? `import { ThemeProvider } from '@mui/material/styles';` : null,
+    muiTheme ? `import { muiTheme } from '${rel(paths.muiTheme)}';` : null,
     hasHeader ? `import { AppHeader } from '${rel(paths.appHeader)}';` : null,
     hasFooter ? `import { AppFooter } from '${rel(paths.appFooter)}';` : null,
     `import { DialogHost } from '${rel(paths.dialogHost)}';`,
@@ -392,10 +396,12 @@ ${routes}
         </Routes>
       </HashRouter>`;
 
-  const appBody =
-    providers.length > 0
-      ? `  return (\n${providerOpen}\n${routesTree}\n${providerClose}\n  );`
-      : `  return (\n${routesTree}\n  );`;
+  const inner =
+    providers.length > 0 ? `${providerOpen}\n${routesTree}\n${providerClose}` : routesTree;
+  const wrapped = muiTheme
+    ? `    <ThemeProvider theme={muiTheme}>\n${inner}\n    </ThemeProvider>`
+    : inner;
+  const appBody = `  return (\n${wrapped}\n  );`;
 
   return `// 自動生成 — AppForge
 ${imports.join('\n')}
@@ -432,7 +438,9 @@ export const emitProjectShell = (
     file('tsconfig.json', tsconfig),
     file('index.html', indexHtml(projectName)),
     file(paths.mainTsx, mainTsx()),
-    file(paths.appTsx, appTsx(doc, names)),
+    file(paths.appTsx, appTsx(doc, names, reactKit.id === 'mui')),
+    // MUI kit のときだけデザイントークン連携テーマを出力
+    ...(reactKit.id === 'mui' ? [file(paths.muiTheme, muiThemeFile(doc.tokens))] : []),
     file(paths.result, resultTs),
     file(paths.uiSlice, uiSliceTs),
     file(paths.store, storeTs),

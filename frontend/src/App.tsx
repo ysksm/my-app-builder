@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadOrCreateProject } from './application/load-or-create-project';
 import { container } from './di/container';
 import { EditorPage } from './presentation/editor/EditorPage';
@@ -11,6 +11,8 @@ import { DesignSystemView } from './presentation/design/DesignSystemView';
 import { DiagramsView } from './presentation/diagrams/DiagramsView';
 import { ModelDesigner } from './presentation/model/ModelDesigner';
 import { PreviewApp } from './presentation/preview/PreviewApp';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { muiThemeOptions } from './generator/mui-theme';
 import { ChannelsContext, UiKitContext } from './presentation/renderer/NodeRenderer';
 import { RunApp } from './presentation/run/RunApp';
 import {
@@ -132,6 +134,9 @@ export function App() {
   const builderKit = useAppSelector((s) =>
     s.editor.doc.targetFramework === 'react' ? (s.editor.doc.uiKits.react ?? 'plain') : 'plain',
   );
+  // MUI 選択時、編集画面の MUI 部品をデザイントークン連携テーマで描画する
+  const tokens = useAppSelector((s) => s.editor.doc.tokens);
+  const muiTheme = useMemo(() => createTheme(muiThemeOptions(tokens)), [tokens]);
   useAutosave();
   const externallyReloaded = useExternalSync(boot.phase === 'ready');
 
@@ -174,6 +179,7 @@ export function App() {
   return (
     <ChannelsContext.Provider value={channels}>
       <UiKitContext.Provider value={builderKit}>
+      <ThemeProvider theme={muiTheme}>
       <div className="app">
         <TokenVars />
         <TopBar />
@@ -190,6 +196,7 @@ export function App() {
         {viewMode === 'preview' && <PreviewApp />}
         {viewMode === 'run' && <RunApp />}
       </div>
+      </ThemeProvider>
       </UiKitContext.Provider>
     </ChannelsContext.Provider>
   );

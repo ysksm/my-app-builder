@@ -227,6 +227,25 @@ describe('UIライブラリ選択(FR-GUI-11)', () => {
     expect(page).toContain('<RAria.SearchField');
   });
 
+  it('MUI 選択時はトークン連携テーマ(mui-theme.ts)+ ThemeProvider を出力', () => {
+    let doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const t = EditTarget.page(home.id);
+    const b = applyCommand(doc, { kind: 'insertNode', target: t, parentId: home.root.id, index: 0, type: 'button' });
+    if (!b.ok) throw new Error('insert');
+    doc = b.value.doc;
+    // plain は theme 無し
+    expect(generateProject(doc, 'x').find((f) => f.path.includes('mui-theme'))).toBeUndefined();
+    // MUI はテーマファイル + App に ThemeProvider + トークン色
+    const r = applyCommand(doc, { kind: 'setUiKit', framework: 'react', kit: 'mui' });
+    if (!r.ok) throw new Error('kit');
+    const files = generateProject(r.value.doc, 'x');
+    const theme = get(files, 'app/mui-theme.ts');
+    expect(theme).toContain('createTheme');
+    expect(theme).toContain('#4263eb'); // 既定 primary トークン
+    expect(get(files, 'app/App.tsx')).toContain('<ThemeProvider theme={muiTheme}>');
+  });
+
   it('setUiKit は framework→kit を doc に保存', () => {
     const res = applyCommand(ProjectDoc.create(), { kind: 'setUiKit', framework: 'react', kit: 'mui' });
     if (!res.ok) throw new Error('apply');
