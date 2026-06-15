@@ -41,6 +41,12 @@ export const PreviewState = {
           toasts: [...state.toasts, { id: state.nextToastId, message: action.message }],
           nextToastId: state.nextToastId + 1,
         };
+      case 'openUrl':
+        // 外部リンク(プレビューでも実際に開く)。状態は変えない
+        if (typeof window !== 'undefined' && action.url) {
+          window.open(action.url, '_blank', 'noopener,noreferrer');
+        }
+        return state;
     }
   },
 

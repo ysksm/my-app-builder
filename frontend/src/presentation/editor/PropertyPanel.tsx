@@ -147,6 +147,8 @@ const defaultActionOf = (kind: Action['kind'], doc: ProjectDoc): Action => {
       return { kind: 'closeDialog' };
     case 'showToast':
       return { kind: 'showToast', message: 'メッセージ' };
+    case 'openUrl':
+      return { kind: 'openUrl', url: 'https://example.com' };
   }
 };
 
@@ -172,6 +174,7 @@ function EventEditor({ node }: { node: ComponentNode }) {
             <option value="openDialog">ダイアログを開く</option>
             <option value="closeDialog">ダイアログを閉じる</option>
             <option value="showToast">トースト表示</option>
+            <option value="openUrl">外部URLを開く</option>
           </select>
           <ActionParams action={binding.action} doc={doc} onChange={(a) => updateAction(i, a)} />
           <button
@@ -241,6 +244,15 @@ function ActionParams({
           type="text"
           value={action.message}
           onChange={(e) => onChange({ kind: 'showToast', message: e.target.value })}
+        />
+      );
+    case 'openUrl':
+      return (
+        <input
+          type="text"
+          value={action.url}
+          placeholder="https://…"
+          onChange={(e) => onChange({ kind: 'openUrl', url: e.target.value })}
         />
       );
     case 'closeDialog':

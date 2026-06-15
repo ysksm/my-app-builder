@@ -63,6 +63,7 @@ const actionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('openDialog'), dialogId: idSchema<DialogId>() }),
   z.object({ kind: z.literal('closeDialog') }),
   z.object({ kind: z.literal('showToast'), message: z.string() }),
+  z.object({ kind: z.literal('openUrl'), url: z.string() }),
 ]);
 
 const eventBindingSchema = z.object({

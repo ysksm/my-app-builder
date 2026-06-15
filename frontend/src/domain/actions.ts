@@ -7,7 +7,8 @@ export type Action =
   | Readonly<{ kind: 'navigate'; pageId: PageId }>
   | Readonly<{ kind: 'openDialog'; dialogId: DialogId }>
   | Readonly<{ kind: 'closeDialog' }>
-  | Readonly<{ kind: 'showToast'; message: string }>;
+  | Readonly<{ kind: 'showToast'; message: string }>
+  | Readonly<{ kind: 'openUrl'; url: string }>;
 
 export type EventBinding = Readonly<{
   event: EventType;

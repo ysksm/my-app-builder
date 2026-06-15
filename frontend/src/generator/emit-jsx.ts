@@ -72,6 +72,9 @@ const compileClickHandler = (events: ReadonlyArray<EventBinding>, ctx: EmitCtx):
         ctx.usedActions.add('toastShown');
         lines.push(`dispatch(toastShown(${s(action.message)}));`);
         break;
+      case 'openUrl':
+        lines.push(`window.open(${s(action.url)}, '_blank', 'noopener,noreferrer');`);
+        break;
     }
   }
   if (lines.length === 0) return null;

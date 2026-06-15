@@ -171,6 +171,27 @@ describe('emitComponentFile(イベント→コード変換)', () => {
     expect(source).not.toContain('onClick=');
   });
 
+  it('openUrl アクションは window.open を生成する', () => {
+    const doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const button = ComponentNode.create('button', { label: 'リンク' });
+    const inserted = ComponentNode.insert(home.root, home.root.id, 0, button);
+    if (!inserted.ok) throw new Error();
+    const withEvents = ComponentNode.setEvents(inserted.value, button.id, [
+      { event: 'onClick', action: { kind: 'openUrl', url: 'https://example.com' } },
+    ]);
+    if (!withEvents.ok) throw new Error();
+    const source = emitComponentFile({
+      componentName: 'Page0',
+      originalName: 'ホーム',
+      root: withEvents.value,
+      names: buildNameTable(doc),
+      filePath: 'src/pages/Page0.tsx',
+    });
+    expect(source).toContain(`window.open("https://example.com", '_blank', 'noopener,noreferrer')`);
+    expect(source).toContain('onClick=');
+  });
+
   it('テキストは JSX 式としてエスケープされる', () => {
     const doc = ProjectDoc.create();
     const text = ComponentNode.create('text', { text: '<b>{危険}</b> & "quote"' });

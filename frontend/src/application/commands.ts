@@ -394,6 +394,7 @@ const action = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('openDialog'), dialogId: id }),
   z.object({ kind: z.literal('closeDialog') }),
   z.object({ kind: z.literal('showToast'), message: z.string() }),
+  z.object({ kind: z.literal('openUrl'), url: z.string() }),
 ]);
 const eventBinding = z.object({ event: z.literal('onClick'), action });
 const componentType = z.enum([
