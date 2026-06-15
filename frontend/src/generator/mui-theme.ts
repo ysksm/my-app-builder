@@ -10,10 +10,21 @@ const px = (v: string | undefined, fallback: number): number => {
   return Number.isFinite(n) ? n : fallback;
 };
 
+/** 背景色の知覚輝度が低ければダークテーマと判定する */
+const isDarkSurface = (hex: string): boolean => {
+  const h = hex.replace('#', '');
+  const n = h.length === 3 ? h.split('').map((x) => x + x).join('') : h.padEnd(6, '0').slice(0, 6);
+  const r = parseInt(n.slice(0, 2), 16) || 0;
+  const g = parseInt(n.slice(2, 4), 16) || 0;
+  const b = parseInt(n.slice(4, 6), 16) || 0;
+  return 0.299 * r + 0.587 * g + 0.114 * b < 128;
+};
+
 export const muiThemeOptions = (tokens: DesignTokens): Record<string, unknown> => {
   const c = (key: string, fb: string): string => tokens.color[key]?.$value ?? fb;
   return {
     palette: {
+      mode: isDarkSurface(c('surface', '#f5f6fa')) ? 'dark' : 'light',
       primary: { main: c('primary', '#4263eb') },
       secondary: { main: c('header-bg', '#273057') },
       error: { main: c('danger', '#e03131') },

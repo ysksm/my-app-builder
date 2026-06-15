@@ -244,6 +244,11 @@ describe('UIライブラリ選択(FR-GUI-11)', () => {
     expect(theme).toContain('createTheme');
     expect(theme).toContain('#4263eb'); // 既定 primary トークン
     expect(get(files, 'app/App.tsx')).toContain('<ThemeProvider theme={muiTheme}>');
+    expect(theme).toContain('"mode": "light"'); // 既定(明るい surface)
+    // ダークプリセット適用 → mode: dark
+    const dark = applyCommand(r.value.doc, { kind: 'applyPreset', presetId: 'slate-dark' });
+    if (!dark.ok) throw new Error('preset');
+    expect(get(generateProject(dark.value.doc, 'x'), 'app/mui-theme.ts')).toContain('"mode": "dark"');
   });
 
   it('setUiKit は framework→kit を doc に保存', () => {
