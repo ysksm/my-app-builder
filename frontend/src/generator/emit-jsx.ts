@@ -94,6 +94,19 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
   const pad = ' '.repeat(indent);
 
   switch (node.type) {
+    case 'form': {
+      // 送信で preventDefault + 「送信しました」トースト
+      ctx.needsDispatch = true;
+      ctx.usedActions.add('toastShown');
+      const onSubmit = `onSubmit={(e) => { e.preventDefault(); dispatch(toastShown(${s('送信しました')})); }}`;
+      const submit = `${pad}  <button type="submit" className="c-button v-primary">{${s(p('submitLabel'))}}</button>`;
+      return [
+        `${pad}<form className="c-form" ${onSubmit}>`,
+        ...emitChildren(node, indent + 2, ctx),
+        submit,
+        `${pad}</form>`,
+      ];
+    }
     case 'container': {
       const direction = String(p('direction')) === 'row' ? 'row' : 'column';
       const style = [

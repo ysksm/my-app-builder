@@ -157,6 +157,9 @@ body {
   background: var(--accent); color: #fff; border: none; border-radius: 6px;
   padding: 4px 10px; cursor: pointer; font-size: 12px;
 }
+.c-form { display: flex; flex-direction: column; gap: 12px; align-self: stretch; align-items: stretch; }
+.c-form > .c-button { align-self: flex-start; }
+
 .page-frame {
   background: var(--color-surface, #f5f6fa); color: var(--color-text, #1d2230); border-radius: 10px;
   width: 100%; max-width: 960px; min-height: 540px;

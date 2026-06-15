@@ -166,6 +166,15 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
       );
     case 'footer':
       return <footer className="c-footer">{str(p('text'))}</footer>;
+    case 'form':
+      return (
+        <form className="c-form" onSubmit={(e) => e.preventDefault()}>
+          <Children node={node} mode={mode} />
+          <button type="submit" className="c-button v-primary">
+            {str(p('submitLabel'))}
+          </button>
+        </form>
+      );
     case 'metric':
       return <MetricView node={node} mode={mode} />;
     case 'gauge':

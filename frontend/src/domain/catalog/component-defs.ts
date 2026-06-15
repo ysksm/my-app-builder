@@ -365,6 +365,17 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
       { key: 'rows', label: 'サンプル行数', input: 'number' },
     ],
   },
+  form: {
+    type: 'form',
+    label: 'フォーム',
+    icon: '📋',
+    acceptsChildren: true,
+    inPalette: true,
+    supportsEvents: false,
+    // 入力などを内側に置き、末尾に送信ボタンを自動付与。送信で「送信しました」トースト
+    defaultProps: { submitLabel: '送信' },
+    propFields: [{ key: 'submitLabel', label: '送信ボタン文言', input: 'text' }],
+  },
   // ---------- 対話部品(UIライブラリ選択で kit の部品に切替)----------
   disclosure: {
     type: 'disclosure',

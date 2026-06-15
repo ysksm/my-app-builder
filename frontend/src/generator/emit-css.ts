@@ -33,6 +33,9 @@ body {
   font-size: 14px;
 }
 
+.c-form { display: flex; flex-direction: column; gap: 12px; align-self: stretch; align-items: stretch; }
+.c-form > .c-button { align-self: flex-start; }
+
 .app-root { min-height: 100vh; display: flex; flex-direction: column; }
 .page-main { flex: 1; display: flex; flex-direction: column; }
 .page-main > .c-container { flex: 1; }

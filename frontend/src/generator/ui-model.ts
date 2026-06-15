@@ -160,6 +160,20 @@ export const toUiTree = (
       });
     case 'footer':
       return make({ tag: 'footer', classes: ['c-footer'], text: String(p('text')) });
+    case 'form':
+      return make({
+        tag: 'form',
+        classes: ['c-form'],
+        children: [
+          ...kids(),
+          make({
+            tag: 'button',
+            classes: ['c-button', 'v-primary'],
+            attrs: { type: 'submit' },
+            text: String(p('submitLabel')),
+          }),
+        ],
+      });
     case 'disclosure': {
       // plain = <details>(ステートレス。全 framework で動く)
       return make({

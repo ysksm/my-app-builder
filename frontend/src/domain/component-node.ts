@@ -24,6 +24,8 @@ export type ComponentType =
   | 'uplot'
   | 'echarts'
   | 'aggrid'
+  // フォーム(入力をまとめて submit。acceptsChildren)
+  | 'form'
   // 対話部品(plain は <details> でステートレス、UIライブラリ選択時は kit の部品)
   | 'disclosure'
   | 'menu'

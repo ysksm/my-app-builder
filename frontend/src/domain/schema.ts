@@ -42,6 +42,7 @@ const componentTypeSchema = z.enum([
   'uplot',
   'echarts',
   'aggrid',
+  'form',
   'disclosure',
   'menu',
   'switch',
