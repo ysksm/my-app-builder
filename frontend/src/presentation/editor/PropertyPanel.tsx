@@ -71,9 +71,29 @@ function PropField({
 }) {
   const dispatch = useAppDispatch();
   const channels = useAppSelector((s) => s.editor.doc.channels);
+  const aggregates = useAppSelector((s) =>
+    s.editor.doc.dataModel.models.filter((m) => m.kind === 'aggregate'),
+  );
   const value = propValueOf(node.props, def, field.key);
   const set = (v: PropValue) =>
     dispatch(nodePropsUpdated({ nodeId: node.id, patch: { [field.key]: v } }));
+
+  // テーブルのデータバインド: 集約から選ぶ(空 = 手動の列)
+  if (field.key === 'bindAggregate') {
+    return (
+      <label className="field">
+        <span>{field.label}</span>
+        <select value={String(value)} onChange={(e) => set(e.target.value)}>
+          <option value="">(手動の列)</option>
+          {aggregates.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
 
   // データチャネル参照: 登録簿のチャネルから選ぶ(空 = 部品の直接指定にフォールバック)
   if (field.key === 'channelRef') {

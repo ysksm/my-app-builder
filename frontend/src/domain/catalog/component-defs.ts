@@ -195,8 +195,10 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
     acceptsChildren: false,
     inPalette: true,
     supportsEvents: false,
-    defaultProps: { columns: 'ID,名前,状態', rows: 3 },
+    defaultProps: { columns: 'ID,名前,状態', rows: 3, bindAggregate: '' },
     propFields: [
+      // 集約に紐付けると列・サンプル行をデータモデルから生成(空=手動の列)
+      { key: 'bindAggregate', label: 'データ集約に紐付け', input: 'select', options: [] },
       { key: 'columns', label: '列(カンマ区切り)', input: 'text' },
       { key: 'rows', label: '行数', input: 'number' },
     ],

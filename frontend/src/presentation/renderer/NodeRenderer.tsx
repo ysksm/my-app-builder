@@ -25,6 +25,8 @@ import type { DataChannelDef } from '@/domain/data-channel';
 import type { NodeId } from '@/domain/ids';
 import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
 import { DragPayload, useEditInteraction } from '../editor/edit-interaction';
+import { useAppSelector } from '../store/hooks';
+import { tableDataFromModel } from '@/application/table-bind';
 import {
   kitAlert,
   kitAvatar,
@@ -134,33 +136,8 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
           alt=""
         />
       );
-    case 'table': {
-      const cols = str(p('columns'))
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const rows = Math.max(0, Math.min(20, num(p('rows'))));
-      return (
-        <table className="c-table">
-          <thead>
-            <tr>
-              {cols.map((c, i) => (
-                <th key={i}>{c}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {Array.from({ length: rows }, (_, r) => (
-              <tr key={r}>
-                {cols.map((_, c) => (
-                  <td key={c}>—</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      );
-    }
+    case 'table':
+      return <TableView node={node} />;
     case 'header':
       return (
         <header className="c-header">
@@ -359,6 +336,42 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
       );
     }
   }
+}
+
+/** テーブル。bindAggregate が集約を指していれば列・行をデータモデルから生成(design-time バインド) */
+function TableView({ node }: { node: ComponentNode }) {
+  const def = componentDefs.table;
+  const p = (key: string) => propOf(node, def, key);
+  const dataModel = useAppSelector((s) => s.editor.doc.dataModel);
+  const rowCount = Math.max(0, Math.min(20, num(p('rows'))));
+  const bound = str(p('bindAggregate')) ? tableDataFromModel(dataModel, str(p('bindAggregate')), rowCount) : null;
+  const cols = bound
+    ? bound.columns
+    : str(p('columns'))
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+  const rows: string[][] = bound ? bound.rows : Array.from({ length: rowCount }, () => cols.map(() => '—'));
+  return (
+    <table className="c-table">
+      <thead>
+        <tr>
+          {cols.map((c, i) => (
+            <th key={i}>{c}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, r) => (
+          <tr key={r}>
+            {row.map((cell, c) => (
+              <td key={c}>{cell}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 }
 
 // AG Grid v33: モジュールは一度だけ登録する

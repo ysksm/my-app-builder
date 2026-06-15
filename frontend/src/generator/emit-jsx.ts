@@ -2,6 +2,8 @@ import type { EventBinding } from '@/domain/actions';
 import type { ComponentNode } from '@/domain/component-node';
 import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
 import type { DataChannelDef } from '@/domain/data-channel';
+import { DataModel } from '@/domain/data-model';
+import { tableDataFromModel } from '@/application/table-bind';
 import type { NameTable } from './identifiers';
 import { paths, relativeImport } from './layout';
 import { resolveReactKit, type ReactUiKit } from './react-ui-kits';
@@ -28,6 +30,8 @@ type EmitCtx = {
   readonly kitImports: Set<string>;
   // データチャネル登録簿(channelRef の解決に使う)
   readonly channels: ReadonlyArray<DataChannelDef>;
+  // データモデル(table の bindAggregate 解決に使う)
+  readonly dataModel: DataModel;
   readonly usedActions: Set<UiAction>;
 };
 
@@ -174,11 +178,20 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
       return [`${pad}<img className="c-image" src={${s(p('src'))}}${widthAttr} alt="" />`];
     }
     case 'table': {
-      const columns = String(p('columns'))
-        .split(',')
-        .map((c) => c.trim())
-        .filter(Boolean);
-      const rows = Math.max(0, Math.min(20, num(p('rows'))));
+      const rowCount = Math.max(0, Math.min(20, num(p('rows'))));
+      // 集約に紐付けられていれば列・行をデータモデルから生成(design-time バインド)
+      const bound = String(p('bindAggregate') ?? '')
+        ? tableDataFromModel(ctx.dataModel, String(p('bindAggregate')), rowCount)
+        : null;
+      const columns = bound
+        ? bound.columns
+        : String(p('columns'))
+            .split(',')
+            .map((c) => c.trim())
+            .filter(Boolean);
+      const bodyRows: string[][] = bound
+        ? bound.rows
+        : Array.from({ length: rowCount }, () => columns.map(() => '—'));
       const lines = [
         `${pad}<table className="c-table">`,
         `${pad}  <thead>`,
@@ -188,11 +201,9 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
         `${pad}  </thead>`,
         `${pad}  <tbody>`,
       ];
-      for (let r = 0; r < rows; r += 1) {
+      for (const row of bodyRows) {
         lines.push(`${pad}    <tr>`);
-        for (let c = 0; c < columns.length; c += 1) {
-          lines.push(`${pad}      <td>—</td>`);
-        }
+        for (const cell of row) lines.push(`${pad}      <td>{${s(cell)}}</td>`);
         lines.push(`${pad}    </tr>`);
       }
       lines.push(`${pad}  </tbody>`, `${pad}</table>`);
@@ -511,6 +522,8 @@ export type ComponentFileOptions = Readonly<{
   filePath: string;
   /** データチャネル登録簿(channelRef 解決用。未指定なら inline props にフォールバック) */
   channels?: ReadonlyArray<DataChannelDef>;
+  /** データモデル(table の bindAggregate 解決用) */
+  dataModel?: DataModel;
   /** ページの画面サイズ inline style(`style={{ ... }}` の中身)。指定時は page-screen でラップ */
   screenStyle?: string;
   /** 選択中の UIライブラリ(kit)アダプタ。未指定なら plain(c-*) */
@@ -529,6 +542,7 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
     uiKit: opts.uiKit ?? resolveReactKit('plain'),
     kitImports: new Set(),
     channels: opts.channels ?? [],
+    dataModel: opts.dataModel ?? DataModel.empty(),
     usedActions: new Set(),
   };
   const inner = emitNode(opts.root, opts.screenStyle ? 5 : 4, ctx);
