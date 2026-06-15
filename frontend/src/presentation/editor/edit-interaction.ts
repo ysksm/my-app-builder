@@ -1,5 +1,5 @@
 import { createContext, useContext, type DragEvent } from 'react';
-import type { ComponentType } from '@/domain/component-node';
+import type { ComponentType, GridLayout } from '@/domain/component-node';
 import type { NodeId } from '@/domain/ids';
 
 export const DRAG_MIME = 'application/x-appforge';
@@ -38,6 +38,8 @@ export type EditInteraction = Readonly<{
   onDragStart: () => void;
   onDragEnd: () => void;
   onDrop: (parentId: NodeId, index: number, payload: DragPayload) => void;
+  /** グリッドレイアウト上でノードの配置を更新する(ポインタ移動・リサイズの確定時) */
+  onLayout: (nodeId: NodeId, layout: GridLayout) => void;
 }>;
 
 export const EditInteractionContext = createContext<EditInteraction | null>(null);

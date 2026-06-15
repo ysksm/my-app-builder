@@ -78,11 +78,20 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
     acceptsChildren: true,
     inPalette: true,
     supportsEvents: false,
-    defaultProps: { direction: 'column', gap: 12, padding: 16, background: '' },
+    defaultProps: { layoutMode: 'flow', direction: 'column', gap: 12, padding: 16, background: '' },
     propFields: [
       {
+        key: 'layoutMode',
+        label: 'レイアウト',
+        input: 'select',
+        options: [
+          { value: 'flow', label: 'フロー(縦横並べ)' },
+          { value: 'grid', label: 'グリッド(自由配置)' },
+        ],
+      },
+      {
         key: 'direction',
-        label: '方向',
+        label: '方向(フロー時)',
         input: 'select',
         options: [
           { value: 'column', label: '縦' },

@@ -5,6 +5,10 @@ import { NodeId } from './ids';
 
 export type PropValue = string | number | boolean;
 
+/** グリッドレイアウト上の配置(ToolJet 風)。親コンテナが layoutMode='grid' のときのみ有効。
+ * 単位はグリッドセル(x,w は列 0..NCOLS、y,h は行)。未設定の子は描画時に自動整列される。 */
+export type GridLayout = Readonly<{ x: number; y: number; w: number; h: number }>;
+
 export type ComponentType =
   | 'container'
   | 'heading'
@@ -49,6 +53,8 @@ export type ComponentNode = Readonly<{
   props: Readonly<Record<string, PropValue>>;
   events: ReadonlyArray<EventBinding>;
   children: ReadonlyArray<ComponentNode>;
+  /** 親がグリッドレイアウトのときの配置。それ以外では無視される(任意) */
+  layout?: GridLayout;
 }>;
 
 const insertAt = <T>(items: ReadonlyArray<T>, index: number, item: T): ReadonlyArray<T> => {
@@ -175,5 +181,14 @@ export const ComponentNode = {
   ): Result<ComponentNode, DomainError> {
     if (!ComponentNode.contains(root, id)) return err(DomainError.notFound('node'));
     return ok(mapNode(root, id, (n) => ({ ...n, events })));
+  },
+
+  setLayout(
+    root: ComponentNode,
+    id: NodeId,
+    layout: GridLayout,
+  ): Result<ComponentNode, DomainError> {
+    if (!ComponentNode.contains(root, id)) return err(DomainError.notFound('node'));
+    return ok(mapNode(root, id, (n) => ({ ...n, layout })));
   },
 } as const;

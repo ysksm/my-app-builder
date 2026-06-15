@@ -3,6 +3,7 @@ import { CustomPartId, NodeId } from '@/domain/ids';
 import {
   customPartInserted,
   nodeInserted,
+  nodeLayoutUpdated,
   nodeMoved,
   nodeRemoved,
   nodeSelected,
@@ -39,6 +40,7 @@ export function EditorPage() {
           dispatch(nodeMoved({ nodeId: NodeId.from(payload.nodeId), parentId, index }));
         }
       },
+      onLayout: (nodeId, layout) => dispatch(nodeLayoutUpdated({ nodeId, layout })),
     }),
     [selectedId, dragging, dispatch],
   );

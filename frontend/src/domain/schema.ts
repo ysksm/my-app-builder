@@ -78,6 +78,9 @@ const componentNodeSchema: z.ZodType<ComponentNode> = z.lazy(() =>
     props: z.record(z.string(), propValueSchema),
     events: z.array(eventBindingSchema),
     children: z.array(componentNodeSchema),
+    layout: z
+      .object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() })
+      .optional(),
   }),
 );
 

@@ -6,7 +6,9 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
@@ -20,7 +22,8 @@ import {
 } from 'ag-grid-community';
 import { echartsOption, sampleGridRows } from './lib-component-helpers';
 import type { EventBinding, EventType } from '@/domain/actions';
-import type { ComponentNode, PropValue } from '@/domain/component-node';
+import type { ComponentNode, GridLayout, PropValue } from '@/domain/component-node';
+import { GRID, autoLayout, clampLayout, gridItemStyle } from '@/domain/grid';
 import type { DataChannelDef } from '@/domain/data-channel';
 import type { NodeId } from '@/domain/ids';
 import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
@@ -74,6 +77,17 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
 
   switch (node.type) {
     case 'container': {
+      if (str(p('layoutMode')) === 'grid') {
+        const gstyle: CSSProperties = {
+          display: 'grid',
+          gridTemplateColumns: `repeat(${GRID.cols}, 1fr)`,
+          gridAutoRows: `${GRID.rowH}px`,
+          gap: GRID.gap,
+          padding: num(p('padding')),
+          background: str(p('background')) || undefined,
+        };
+        return <GridContainer node={node} mode={mode} style={gstyle} />;
+      }
       const direction = str(p('direction')) === 'row' ? 'row' : 'column';
       const style: CSSProperties = {
         display: 'flex',
@@ -944,6 +958,128 @@ export function EditNodeView({ node }: { node: ComponentNode }) {
     >
       <span className="enode-tag">{def.label}</span>
       <NodeBody node={node} mode="edit" />
+    </div>
+  );
+}
+
+/** グリッドレイアウトのコンテナ。プレビューは CSS grid のみ、編集はドラッグ移動・リサイズ可能 */
+function GridContainer({
+  node,
+  mode,
+  style,
+}: {
+  node: ComponentNode;
+  mode: RenderMode;
+  style: CSSProperties;
+}) {
+  if (mode === 'preview') {
+    return (
+      <div className="c-container c-grid" style={style}>
+        {node.children.map((c, i) => (
+          <div key={c.id} style={gridItemStyle(c.layout ?? autoLayout(i))}>
+            <NodeBody node={c} mode="preview" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return <GridEditContainer node={node} style={style} />;
+}
+
+function GridEditContainer({ node, style }: { node: ComponentNode; style: CSSProperties }) {
+  const ctx = useEditInteraction();
+  const gridRef = useRef<HTMLDivElement>(null);
+  return (
+    <div
+      ref={gridRef}
+      className="c-container c-grid editing"
+      style={style}
+      onDragOver={(e) => {
+        if (!DragPayload.isPresent(e)) return;
+        e.preventDefault();
+      }}
+      onDrop={(e) => {
+        if (!DragPayload.isPresent(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const payload = DragPayload.read(e);
+        if (payload) ctx.onDrop(node.id, node.children.length, payload);
+      }}
+    >
+      {node.children.map((c, i) => (
+        <GridItem key={c.id} node={c} index={i} gridRef={gridRef} />
+      ))}
+      {node.children.length === 0 && (
+        <div className="grid-empty-hint">グリッド: パーツをここにドロップ</div>
+      )}
+    </div>
+  );
+}
+
+function GridItem({
+  node,
+  index,
+  gridRef,
+}: {
+  node: ComponentNode;
+  index: number;
+  gridRef: RefObject<HTMLDivElement | null>;
+}) {
+  const ctx = useEditInteraction();
+  const def = componentDefs[node.type];
+  const base = node.layout ?? autoLayout(index);
+  const [live, setLive] = useState<GridLayout | null>(null);
+  const liveRef = useRef<GridLayout | null>(null);
+  const selected = ctx.selectedId === node.id;
+  const layout = live ?? base;
+
+  const startDrag = (e: ReactPointerEvent, kind: 'move' | 'resize') => {
+    e.preventDefault();
+    e.stopPropagation();
+    ctx.onSelect(node.id);
+    const el = gridRef.current;
+    const colStep = el ? (el.clientWidth - GRID.gap * (GRID.cols - 1)) / GRID.cols + GRID.gap : 60;
+    const rowStep = GRID.rowH + GRID.gap;
+    const sx = e.clientX;
+    const sy = e.clientY;
+    const start = base;
+    const onMove = (ev: PointerEvent) => {
+      const dcol = Math.round((ev.clientX - sx) / colStep);
+      const drow = Math.round((ev.clientY - sy) / rowStep);
+      const next =
+        kind === 'move'
+          ? clampLayout({ ...start, x: start.x + dcol, y: start.y + drow })
+          : clampLayout({ ...start, w: start.w + dcol, h: start.h + drow });
+      liveRef.current = next;
+      setLive(next);
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      const v = liveRef.current;
+      liveRef.current = null;
+      setLive(null);
+      if (v) ctx.onLayout(node.id, v);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+
+  return (
+    <div
+      className={`grid-item${selected ? ' selected' : ''}`}
+      style={gridItemStyle(layout)}
+      onPointerDown={(e) => startDrag(e, 'move')}
+    >
+      <span className="enode-tag">{def.label}</span>
+      <div className="grid-item-body">
+        <NodeBody node={node} mode="edit" />
+      </div>
+      <span
+        className="grid-resize"
+        onPointerDown={(e) => startDrag(e, 'resize')}
+        aria-hidden="true"
+      />
     </div>
   );
 }

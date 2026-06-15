@@ -1,5 +1,6 @@
 import type { EventBinding } from '@/domain/actions';
 import type { ComponentNode } from '@/domain/component-node';
+import { GRID, autoLayout, clampLayout } from '@/domain/grid';
 import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
 import type { DataChannelDef } from '@/domain/data-channel';
 import { DataModel } from '@/domain/data-model';
@@ -115,6 +116,29 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
       ];
     }
     case 'container': {
+      const background = String(p('background'));
+      if (String(p('layoutMode')) === 'grid') {
+        const gstyle = [
+          `display: 'grid'`,
+          `gridTemplateColumns: 'repeat(${GRID.cols}, 1fr)'`,
+          `gridAutoRows: '${GRID.rowH}px'`,
+          `gap: ${GRID.gap}`,
+          `padding: ${num(p('padding'))}`,
+        ];
+        if (background) gstyle.push(`background: ${s(background)}`);
+        const open = `${pad}<div className="c-container c-grid" style={{ ${gstyle.join(', ')} }}>`;
+        if (node.children.length === 0) return [`${open}</div>`];
+        const kids = node.children.flatMap((child, i) => {
+          const l = clampLayout(child.layout ?? autoLayout(i));
+          const cell = `gridColumn: '${l.x + 1} / span ${l.w}', gridRow: '${l.y + 1} / span ${l.h}'`;
+          return [
+            `${pad}  <div style={{ ${cell} }}>`,
+            ...emitNode(child, indent + 4, ctx),
+            `${pad}  </div>`,
+          ];
+        });
+        return [open, ...kids, `${pad}</div>`];
+      }
       const direction = String(p('direction')) === 'row' ? 'row' : 'column';
       const style = [
         `display: 'flex'`,
@@ -122,7 +146,6 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
         `gap: ${num(p('gap'))}`,
         `padding: ${num(p('padding'))}`,
       ];
-      const background = String(p('background'));
       if (background) style.push(`background: ${s(background)}`);
       const open = `${pad}<div className="c-container" style={{ ${style.join(', ')} }}>`;
       if (node.children.length === 0) return [`${open}</div>`];

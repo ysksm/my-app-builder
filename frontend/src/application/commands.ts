@@ -3,7 +3,7 @@ import { err, ok, type Result } from '@/shared/result';
 import type { EventBinding } from '@/domain/actions';
 import { componentDefs } from '@/domain/catalog/component-defs';
 import { DomainError } from '@/domain/errors';
-import { ComponentNode, type ComponentType, type PropValue } from '@/domain/component-node';
+import { ComponentNode, type ComponentType, type GridLayout, type PropValue } from '@/domain/component-node';
 import { DesignTokens } from '@/domain/design-tokens';
 import {
   DataModel,
@@ -58,6 +58,7 @@ export type Command =
   | Readonly<{ kind: 'removeNode'; target: EditTarget; nodeId: NodeId }>
   | Readonly<{ kind: 'updateNodeProps'; target: EditTarget; nodeId: NodeId; patch: NodePatch }>
   | Readonly<{ kind: 'setNodeEvents'; target: EditTarget; nodeId: NodeId; events: ReadonlyArray<EventBinding> }>
+  | Readonly<{ kind: 'setNodeLayout'; target: EditTarget; nodeId: NodeId; layout: GridLayout }>
   // ページ
   | Readonly<{ kind: 'addPage'; name: string; path: string }>
   | Readonly<{ kind: 'removePage'; pageId: PageId }>
@@ -179,6 +180,12 @@ export const applyCommand = (
     case 'setNodeEvents': {
       const res = applyTreeCommand(doc, cmd.target, (tree) =>
         ComponentNode.setEvents(tree, cmd.nodeId, cmd.events),
+      );
+      return res.ok ? ok(outcome(res.value)) : res;
+    }
+    case 'setNodeLayout': {
+      const res = applyTreeCommand(doc, cmd.target, (tree) =>
+        ComponentNode.setLayout(tree, cmd.nodeId, cmd.layout),
       );
       return res.ok ? ok(outcome(res.value)) : res;
     }
@@ -471,6 +478,7 @@ const commandSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('removeNode'), target: editTarget, nodeId: id }),
   z.object({ kind: z.literal('updateNodeProps'), target: editTarget, nodeId: id, patch: z.record(z.string(), propValue) }),
   z.object({ kind: z.literal('setNodeEvents'), target: editTarget, nodeId: id, events: z.array(eventBinding) }),
+  z.object({ kind: z.literal('setNodeLayout'), target: editTarget, nodeId: id, layout: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }) }),
   z.object({ kind: z.literal('addPage'), name: z.string(), path: z.string() }),
   z.object({ kind: z.literal('removePage'), pageId: id }),
   z.object({ kind: z.literal('updatePage'), pageId: id, patch: pagePatch }),
