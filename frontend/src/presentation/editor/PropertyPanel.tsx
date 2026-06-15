@@ -71,9 +71,9 @@ function PropField({
 }) {
   const dispatch = useAppDispatch();
   const channels = useAppSelector((s) => s.editor.doc.channels);
-  const aggregates = useAppSelector((s) =>
-    s.editor.doc.dataModel.models.filter((m) => m.kind === 'aggregate'),
-  );
+  // models を選択してから render 内で filter(セレクタが毎回新配列を返して再レンダリングを誘発しないように)
+  const models = useAppSelector((s) => s.editor.doc.dataModel.models);
+  const aggregates = models.filter((m) => m.kind === 'aggregate');
   const value = propValueOf(node.props, def, field.key);
   const set = (v: PropValue) =>
     dispatch(nodePropsUpdated({ nodeId: node.id, patch: { [field.key]: v } }));
