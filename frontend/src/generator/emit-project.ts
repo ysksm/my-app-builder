@@ -51,6 +51,43 @@ const VERSIONS = {
 } as const;
 
 const file = (path: string, content: string): GeneratedFile => ({ path, content });
+/** ユーザーが後から編集してよいファイル(再生成で上書きしない / FR-GEN-05) */
+const userFile = (path: string, content: string): GeneratedFile => ({ path, content, overwrite: false });
+
+/** 本番配備の雛形(Dockerfile 等)。dist/ を静的配信する SPA 構成。全 framework 共通で流用可 */
+const deployFiles = (): GeneratedFile[] => [
+  userFile(
+    'Dockerfile',
+    `# build stage
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# serve stage (static SPA)
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+`,
+  ),
+  userFile(
+    'nginx.conf',
+    `server {
+  listen 80;
+  root /usr/share/nginx/html;
+  # SPA フォールバック(クライアントルーティング)
+  location / {
+    try_files $uri $uri/ /index.html;
+  }
+}
+`,
+  ),
+  userFile('.dockerignore', ['node_modules', 'dist', '.git', '*.log'].join('\n') + '\n'),
+];
 
 const packageJson = (
   projectName: string,
@@ -447,6 +484,8 @@ export const emitProjectShell = (
     file(paths.container, emitContainerWithRepositories(doc.dataModel) ?? emptyContainerTs),
     file(paths.toasts, toastsTsx()),
     file(paths.dialogHost, dialogHostTsx(doc, names)),
+    // 本番配備の雛形(Dockerfile / nginx.conf / .dockerignore、上書きしない)
+    ...deployFiles(),
   ];
 
   if (doc.layout.header) {
