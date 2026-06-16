@@ -447,6 +447,14 @@ body {
 }
 .preview-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent2); }
 .preview-url { color: var(--muted); font-size: 12px; font-family: Menlo, monospace; }
+.preview-pages { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+.preview-page-tab {
+  font-size: 12px; padding: 3px 10px; border-radius: 6px;
+  border: 1px solid var(--border); background: transparent; color: var(--muted);
+  cursor: pointer;
+}
+.preview-page-tab:hover { color: #fff; border-color: var(--accent); }
+.preview-page-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 .preview-page {
   background: var(--color-surface, #f5f6fa); color: var(--color-text, #1d2230);
   max-width: 1100px; width: 100%; margin: 0 auto; flex: 1;

@@ -23,6 +23,8 @@ export function PreviewApp() {
   const dialog = state.openDialogId ? ProjectDoc.findDialog(doc, state.openDialogId) : null;
   const closeDialog = () =>
     setState((s) => PreviewState.apply(doc, s, { kind: 'closeDialog' }));
+  const goTo = (pageId: typeof page.id) =>
+    setState((s) => PreviewState.apply(doc, s, { kind: 'navigate', pageId }));
 
   return (
     <ActionRunnerContext.Provider value={runner}>
@@ -30,6 +32,19 @@ export function PreviewApp() {
         <div className="preview-chrome">
           <span className="preview-dot" />
           <span className="preview-url">{page.path}</span>
+          <nav className="preview-pages">
+            {doc.pages.map((pg) => (
+              <button
+                key={pg.id}
+                type="button"
+                className={`preview-page-tab${pg.id === page.id ? ' active' : ''}`}
+                onClick={() => goTo(pg.id)}
+                title={pg.path}
+              >
+                {pg.name}
+              </button>
+            ))}
+          </nav>
         </div>
         <div className="preview-page">
           {page.useHeader && doc.layout.header && (
