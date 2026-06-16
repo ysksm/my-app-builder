@@ -279,6 +279,25 @@ body {
 .style-section { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
 .style-section h4 { margin: 0 0 8px; font-size: 12px; color: var(--muted); }
 
+/* 整列ウィジェット(選択中 flex コンテナに重ねる) */
+.enode-root { position: relative; }
+.flex-toolbar {
+  position: absolute; top: -34px; right: 0; z-index: 6;
+  display: flex; gap: 6px; align-items: center;
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 4px 6px; box-shadow: 0 4px 14px rgba(0,0,0,.35);
+}
+.ft-group { display: flex; gap: 2px; }
+.ft-group + .ft-group { border-left: 1px solid var(--border); padding-left: 6px; }
+.ft-btn, .ft-pad {
+  font-size: 13px; line-height: 1; min-width: 22px; height: 22px; padding: 0 5px;
+  border: 1px solid var(--border); background: var(--panel); color: var(--muted);
+  border-radius: 5px; cursor: pointer;
+}
+.ft-btn:hover, .ft-pad:hover { color: #fff; border-color: var(--accent); }
+.ft-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.ft-pad { cursor: ew-resize; white-space: nowrap; font-size: 11px; }
+
 /* ---------- 生成パーツの見た目(編集 / プレビュー共通) ---------- */
 .c-container { min-height: 24px; }
 .c-heading { line-height: 1.4; }

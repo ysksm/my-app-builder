@@ -107,6 +107,15 @@ function StyleSection({ node }: { node: ComponentNode }) {
           <option value="stretch">self-stretch</option>
         </select>
       </label>
+      <label className="field">
+        <span>外側余白 margin</span>
+        <input
+          type="text"
+          value={String(st.margin ?? '')}
+          placeholder="0 / 8px / 8px 16px"
+          onChange={(e) => set({ margin: e.target.value })}
+        />
+      </label>
     </div>
   );
 }

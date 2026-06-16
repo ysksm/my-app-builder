@@ -30,7 +30,8 @@ import type { DataChannelDef } from '@/domain/data-channel';
 import type { NodeId } from '@/domain/ids';
 import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
 import { DragPayload, useEditInteraction } from '../editor/edit-interaction';
-import { useAppSelector } from '../store/hooks';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { nodePropsUpdated } from '../store/editor-slice';
 import { tableDataFromModel } from '@/application/table-bind';
 import {
   kitAlert,
@@ -948,6 +949,105 @@ function EditChildren({ node }: { node: ComponentNode }) {
   );
 }
 
+/** flow(flex) コンテナか? — 整列ウィジェットの表示判定 */
+const isFlowContainer = (node: ComponentNode): boolean =>
+  node.type === 'container' &&
+  String(propValueOf(node.props, componentDefs.container, 'layoutMode')) !== 'grid';
+
+/** ドラッグで数値を増減する小コントロール(余白の調整に使う) */
+function DragNumber({
+  label,
+  value,
+  onCommit,
+  perPx = 4,
+}: {
+  label: string;
+  value: number;
+  onCommit: (v: number) => void;
+  perPx?: number;
+}) {
+  const [live, setLive] = useState<number | null>(null);
+  const liveRef = useRef(value);
+  const start = (e: ReactPointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sx = e.clientX;
+    const sv = value;
+    liveRef.current = sv;
+    const onMove = (ev: PointerEvent) => {
+      const v = Math.max(0, Math.round(sv + (ev.clientX - sx) / perPx));
+      liveRef.current = v;
+      setLive(v);
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      setLive(null);
+      onCommit(liveRef.current);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+  return (
+    <button type="button" className="ft-pad" title="左右ドラッグで調整" onPointerDown={start}>
+      {label} {live ?? value}
+    </button>
+  );
+}
+
+/** 選択中の flex コンテナに重ねる整列ウィジェット(方向 / justify / align / 余白) */
+function FlexToolbar({ node }: { node: ComponentNode }) {
+  const dispatch = useAppDispatch();
+  const cdef = componentDefs.container;
+  const cur = (k: string) => String(propValueOf(node.props, cdef, k));
+  const setP = (patch: Record<string, string | number>) =>
+    dispatch(nodePropsUpdated({ nodeId: node.id, patch }));
+  const dir = cur('direction') === 'row' ? 'row' : 'column';
+  const justify = cur('justifyContent');
+  const align = cur('alignItems');
+  const padding = Number(propValueOf(node.props, cdef, 'padding')) || 0;
+
+  const btn = (key: string, value: string, current: string, glyph: string, tip: string) => (
+    <button
+      type="button"
+      className={`ft-btn${current === value ? ' active' : ''}`}
+      title={tip}
+      onClick={(e) => {
+        e.stopPropagation();
+        setP({ [key]: value });
+      }}
+    >
+      {glyph}
+    </button>
+  );
+
+  return (
+    <div
+      className="flex-toolbar"
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <div className="ft-group" title="方向 flex-direction">
+        {btn('direction', 'row', dir, '↔', '横 flex-row')}
+        {btn('direction', 'column', dir, '↕', '縦 flex-col')}
+      </div>
+      <div className="ft-group" title="主軸 justify-content">
+        {btn('justifyContent', 'start', justify, '⊢', 'justify-start')}
+        {btn('justifyContent', 'center', justify, '⊟', 'justify-center')}
+        {btn('justifyContent', 'end', justify, '⊣', 'justify-end')}
+        {btn('justifyContent', 'between', justify, '⊪', 'justify-between')}
+      </div>
+      <div className="ft-group" title="交差軸 align-items">
+        {btn('alignItems', 'start', align, '▏', 'items-start')}
+        {btn('alignItems', 'center', align, '▢', 'items-center')}
+        {btn('alignItems', 'end', align, '▕', 'items-end')}
+        {btn('alignItems', 'stretch', align, '↕', 'items-stretch')}
+      </div>
+      <DragNumber label="余白" value={padding} onCommit={(v) => setP({ padding: v })} />
+    </div>
+  );
+}
+
 export function EditNodeView({ node }: { node: ComponentNode }) {
   const ctx = useEditInteraction();
   const def = componentDefs[node.type];
@@ -1002,6 +1102,11 @@ export function EditNodeView({ node }: { node: ComponentNode }) {
         ctx.onSelect(node.id);
       }}
       onDragStart={(e) => {
+        // ツールバー/リサイズハンドル発のドラッグはノード移動にしない
+        if ((e.target as HTMLElement).closest('.flex-toolbar, .enode-resize')) {
+          e.preventDefault();
+          return;
+        }
         e.stopPropagation();
         DragPayload.write(e, { kind: 'move', nodeId: node.id });
         ctx.onDragStart();
@@ -1010,6 +1115,7 @@ export function EditNodeView({ node }: { node: ComponentNode }) {
     >
       <span className="enode-tag">{def.label}</span>
       <NodeBody node={node} mode="edit" />
+      {selected && isFlowContainer(node) && <FlexToolbar node={node} />}
       {selected && (
         <>
           <span className="enode-resize e" onPointerDown={(e) => startResize(e, 'x')} />
@@ -1191,6 +1297,7 @@ export function EditRootView({ tree }: { tree: ComponentNode }) {
         ctx.onSelect(tree.id);
       }}
     >
+      {selected && isFlowContainer(tree) && <FlexToolbar node={tree} />}
       <NodeBody node={tree} mode="edit" />
     </div>
   );

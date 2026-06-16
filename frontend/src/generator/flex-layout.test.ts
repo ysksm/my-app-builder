@@ -98,8 +98,8 @@ describe('style 付き子の生成(flex アイテムのラップ)', () => {
   });
 
   it('中立モデル: style を持つ子は style 付き div でラップされる', () => {
-    const { doc, btnId } = sizedChildDoc();
-    const container = ComponentNode.find(doc.pages[0]!.root, btnId === null ? '' : doc.pages[0]!.root.children[0]!.id)!;
+    const { doc } = sizedChildDoc();
+    const container = doc.pages[0]!.root.children[0]!;
     const ui = toUiTree(container);
     const wrapper = ui.children?.[0];
     expect(wrapper?.tag).toBe('div');
