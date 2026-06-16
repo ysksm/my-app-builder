@@ -2,6 +2,7 @@ import type { EventBinding } from '@/domain/actions';
 import type { ComponentNode } from '@/domain/component-node';
 import { GRID, autoLayout, clampLayout } from '@/domain/grid';
 import { alignCss, justifyCss, wrapCss } from '@/domain/flex-style';
+import { hasNodeStyle, styleJsxEntries } from '@/domain/node-style';
 import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
 import type { DataChannelDef } from '@/domain/data-channel';
 import { DataModel } from '@/domain/data-model';
@@ -95,7 +96,16 @@ const compileClickHandler = (events: ReadonlyArray<EventBinding>, ctx: EmitCtx):
 };
 
 const emitChildren = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =>
-  node.children.flatMap((child) => emitNode(child, indent, ctx));
+  node.children.flatMap((child) => {
+    if (!hasNodeStyle(child)) return emitNode(child, indent, ctx);
+    // style を持つ子は flex アイテムとして style 付き div でラップ
+    const pad = ' '.repeat(indent);
+    return [
+      `${pad}<div style={{ ${styleJsxEntries(child.style!)} }}>`,
+      ...emitNode(child, indent + 2, ctx),
+      `${pad}</div>`,
+    ];
+  });
 
 const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] => {
   const def = componentDefs[node.type];

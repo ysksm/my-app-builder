@@ -5,6 +5,7 @@ import {
   nodeInserted,
   nodeLayoutUpdated,
   nodeMoved,
+  nodeStyleUpdated,
   nodeRemoved,
   nodeSelected,
   redone,
@@ -41,6 +42,7 @@ export function EditorPage() {
         }
       },
       onLayout: (nodeId, layout) => dispatch(nodeLayoutUpdated({ nodeId, layout })),
+      onStyle: (nodeId, patch) => dispatch(nodeStyleUpdated({ nodeId, patch })),
     }),
     [selectedId, dragging, dispatch],
   );

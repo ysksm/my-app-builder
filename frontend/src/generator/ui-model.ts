@@ -1,6 +1,7 @@
 import type { ComponentNode, PropValue } from '@/domain/component-node';
 import { componentDefs, propValueOf } from '@/domain/catalog/component-defs';
 import { alignCss, justifyCss, wrapCss } from '@/domain/flex-style';
+import { hasNodeStyle, styleCssRecord } from '@/domain/node-style';
 
 /**
  * 中立 UI 要素モデル(FR-GUI-08)。コンポーネント木をフレームワーク非依存の
@@ -74,7 +75,12 @@ export const toUiTree = (
 ): UiElement => {
   const def = componentDefs[node.type];
   const p = (k: string) => propValueOf(node.props, def, k);
-  const kids = () => node.children.map((c) => toUiTree(c, tagMap));
+  const kids = () =>
+    node.children.map((c) => {
+      const ui = toUiTree(c, tagMap);
+      // style を持つ子は flex アイテムとして style 付き div でラップ
+      return hasNodeStyle(c) ? make({ tag: 'div', style: styleCssRecord(c.style!), children: [ui] }) : ui;
+    });
 
   // kit がこの種別を差し替えるなら、props をそのまま渡すコンポーネント参照にする
   const kitTag = tagMap[node.type];

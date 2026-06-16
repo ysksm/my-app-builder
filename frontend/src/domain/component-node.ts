@@ -9,6 +9,11 @@ export type PropValue = string | number | boolean;
  * 単位はグリッドセル(x,w は列 0..NCOLS、y,h は行)。未設定の子は描画時に自動整列される。 */
 export type GridLayout = Readonly<{ x: number; y: number; w: number; h: number }>;
 
+/** ノード個別のスタイル(主に flex アイテムのサイズ・自己整列)。キーは camelCase の CSS
+ * プロパティ名(width / height / flexGrow / alignSelf / margin…)、値は CSS 値または数値。
+ * 空 = 未設定。css-variables emitter は inline style、tailwind emitter はクラスへ落とす。 */
+export type NodeStyle = Readonly<Record<string, string | number>>;
+
 export type ComponentType =
   | 'container'
   | 'heading'
@@ -55,6 +60,8 @@ export type ComponentNode = Readonly<{
   children: ReadonlyArray<ComponentNode>;
   /** 親がグリッドレイアウトのときの配置。それ以外では無視される(任意) */
   layout?: GridLayout;
+  /** ノード個別のスタイル(flex アイテムのサイズ・自己整列など。任意) */
+  style?: NodeStyle;
 }>;
 
 const insertAt = <T>(items: ReadonlyArray<T>, index: number, item: T): ReadonlyArray<T> => {
@@ -190,5 +197,23 @@ export const ComponentNode = {
   ): Result<ComponentNode, DomainError> {
     if (!ComponentNode.contains(root, id)) return err(DomainError.notFound('node'));
     return ok(mapNode(root, id, (n) => ({ ...n, layout })));
+  },
+
+  /** style をパッチマージする。値が空文字のキーは削除(未設定に戻す) */
+  setStyle(
+    root: ComponentNode,
+    id: NodeId,
+    patch: NodeStyle,
+  ): Result<ComponentNode, DomainError> {
+    if (!ComponentNode.contains(root, id)) return err(DomainError.notFound('node'));
+    return ok(
+      mapNode(root, id, (n) => {
+        const merged: Record<string, string | number> = { ...(n.style ?? {}), ...patch };
+        const cleaned = Object.fromEntries(
+          Object.entries(merged).filter(([, v]) => v !== '' && v !== undefined),
+        );
+        return { ...n, style: cleaned };
+      }),
+    );
   },
 } as const;

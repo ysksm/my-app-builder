@@ -3,7 +3,7 @@ import { ComponentNode, type PropValue } from '@/domain/component-node';
 import { DialogId } from '@/domain/ids';
 import { ProjectDoc } from '@/domain/project-doc';
 import { componentDefs, propValueOf, type ComponentDef, type PropFieldDef } from '@/domain/catalog/component-defs';
-import { customPartDefined, nodeEventsSet, nodePropsUpdated, nodeRemoved } from '../store/editor-slice';
+import { customPartDefined, nodeEventsSet, nodePropsUpdated, nodeRemoved, nodeStyleUpdated } from '../store/editor-slice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 
 export function PropertyPanel() {
@@ -34,6 +34,7 @@ function SelectedNodePanel({ node, isRoot }: { node: ComponentNode; isRoot: bool
         <PropField key={field.key} node={node} def={def} field={field} />
       ))}
       {def.supportsEvents && <EventEditor node={node} />}
+      {!isRoot && <StyleSection node={node} />}
       {!isRoot && (
         <>
           <button
@@ -57,6 +58,56 @@ function SelectedNodePanel({ node, isRoot }: { node: ComponentNode; isRoot: bool
         </>
       )}
     </section>
+  );
+}
+
+/** 全ノード共通のサイズ・自己整列(node.style)。プロパティとキャンバス操作の両方が更新する単一ソース */
+function StyleSection({ node }: { node: ComponentNode }) {
+  const dispatch = useAppDispatch();
+  const st = node.style ?? {};
+  const set = (patch: Record<string, string | number>) =>
+    dispatch(nodeStyleUpdated({ nodeId: node.id, patch }));
+  return (
+    <div className="style-section">
+      <h4>サイズ・レイアウト</h4>
+      <label className="field">
+        <span>幅 width</span>
+        <input
+          type="text"
+          value={String(st.width ?? '')}
+          placeholder="auto / 200px / 50%"
+          onChange={(e) => set({ width: e.target.value })}
+        />
+      </label>
+      <label className="field">
+        <span>高さ height</span>
+        <input
+          type="text"
+          value={String(st.height ?? '')}
+          placeholder="auto / 120px"
+          onChange={(e) => set({ height: e.target.value })}
+        />
+      </label>
+      <label className="field">
+        <span>伸長 flex-grow</span>
+        <input
+          type="number"
+          value={st.flexGrow === undefined ? '' : Number(st.flexGrow)}
+          placeholder="0"
+          onChange={(e) => set({ flexGrow: e.target.value === '' ? '' : Number(e.target.value) })}
+        />
+      </label>
+      <label className="field">
+        <span>自己整列 align-self</span>
+        <select value={String(st.alignSelf ?? '')} onChange={(e) => set({ alignSelf: e.target.value })}>
+          <option value="">(既定)</option>
+          <option value="flex-start">self-start</option>
+          <option value="center">self-center</option>
+          <option value="flex-end">self-end</option>
+          <option value="stretch">self-stretch</option>
+        </select>
+      </label>
+    </div>
   );
 }
 

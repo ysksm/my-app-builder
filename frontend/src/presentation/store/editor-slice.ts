@@ -1,7 +1,7 @@
 import { createSlice, current, type Draft, type PayloadAction } from '@reduxjs/toolkit';
 import { applyCommand, type Command, type CreatedEntities } from '@/application/commands';
 import type { EventBinding } from '@/domain/actions';
-import { ComponentNode, type ComponentType, type GridLayout, type PropValue } from '@/domain/component-node';
+import { ComponentNode, type ComponentType, type GridLayout, type NodeStyle, type PropValue } from '@/domain/component-node';
 import type {
   DomainServiceDef,
   FieldDef,
@@ -187,6 +187,13 @@ export const editorSlice = createSlice({
       action: PayloadAction<{ nodeId: NodeId; layout: GridLayout }>,
     ) {
       run(state, { kind: 'setNodeLayout', target: currentTarget(state), ...action.payload });
+    },
+
+    nodeStyleUpdated(
+      state,
+      action: PayloadAction<{ nodeId: NodeId; patch: NodeStyle }>,
+    ) {
+      run(state, { kind: 'setNodeStyle', target: currentTarget(state), ...action.payload });
     },
 
     nodeSelected(state, action: PayloadAction<NodeId | null>) {
@@ -490,6 +497,7 @@ export const {
   nodePropsUpdated,
   nodeEventsSet,
   nodeLayoutUpdated,
+  nodeStyleUpdated,
   nodeSelected,
   editTargetChanged,
   pageAdded,

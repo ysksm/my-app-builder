@@ -266,6 +266,19 @@ body {
   border: 2px dashed var(--border); border-radius: 8px;
 }
 
+/* flex アイテムの辺リサイズハンドル(選択中のみ表示) */
+.enode { position: relative; }
+.enode-resize { position: absolute; z-index: 4; background: var(--accent); opacity: .8; }
+.enode-resize:hover { opacity: 1; }
+.enode-resize.e { top: 0; right: -2px; width: 7px; height: 100%; cursor: ew-resize; border-radius: 4px; }
+.enode-resize.s { left: 0; bottom: -2px; height: 7px; width: 100%; cursor: ns-resize; border-radius: 4px; }
+.enode-resize.se {
+  right: -2px; bottom: -2px; width: 13px; height: 13px; cursor: nwse-resize;
+  border-radius: 0 0 5px 0; z-index: 5;
+}
+.style-section { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+.style-section h4 { margin: 0 0 8px; font-size: 12px; color: var(--muted); }
+
 /* ---------- 生成パーツの見た目(編集 / プレビュー共通) ---------- */
 .c-container { min-height: 24px; }
 .c-heading { line-height: 1.4; }

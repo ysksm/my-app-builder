@@ -81,6 +81,7 @@ const componentNodeSchema: z.ZodType<ComponentNode> = z.lazy(() =>
     layout: z
       .object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() })
       .optional(),
+    style: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
   }),
 );
 

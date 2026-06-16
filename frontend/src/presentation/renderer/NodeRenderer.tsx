@@ -25,6 +25,7 @@ import type { EventBinding, EventType } from '@/domain/actions';
 import type { ComponentNode, GridLayout, PropValue } from '@/domain/component-node';
 import { GRID, autoLayout, clampLayout, gridItemStyle } from '@/domain/grid';
 import { alignCss, justifyCss, wrapCss } from '@/domain/flex-style';
+import { hasNodeStyle } from '@/domain/node-style';
 import type { DataChannelDef } from '@/domain/data-channel';
 import type { NodeId } from '@/domain/ids';
 import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
@@ -914,9 +915,15 @@ function Children({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
   if (mode === 'preview') {
     return (
       <>
-        {node.children.map((c) => (
-          <NodeBody key={c.id} node={c} mode="preview" />
-        ))}
+        {node.children.map((c) =>
+          hasNodeStyle(c) ? (
+            <div key={c.id} style={c.style as CSSProperties}>
+              <NodeBody node={c} mode="preview" />
+            </div>
+          ) : (
+            <NodeBody key={c.id} node={c} mode="preview" />
+          ),
+        )}
       </>
     );
   }
@@ -945,10 +952,51 @@ export function EditNodeView({ node }: { node: ComponentNode }) {
   const ctx = useEditInteraction();
   const def = componentDefs[node.type];
   const selected = ctx.selectedId === node.id;
+  const ref = useRef<HTMLDivElement>(null);
+  const [live, setLive] = useState<{ width?: string; height?: string } | null>(null);
+  const [resizing, setResizing] = useState(false);
+  const liveRef = useRef<{ width?: string; height?: string }>({});
+  const style = { ...(node.style as CSSProperties | undefined), ...(live ?? {}) };
+
+  // 辺リサイズ: ドラッグ中はネイティブ DnD を無効化し px で width/height を確定
+  const startResize = (e: ReactPointerEvent, axis: 'x' | 'y' | 'xy') => {
+    e.preventDefault();
+    e.stopPropagation();
+    ctx.onSelect(node.id);
+    setResizing(true);
+    if (ref.current) ref.current.draggable = false;
+    const rect = ref.current?.getBoundingClientRect();
+    const sw = rect?.width ?? 0;
+    const sh = rect?.height ?? 0;
+    const sx = e.clientX;
+    const sy = e.clientY;
+    liveRef.current = {};
+    const onMove = (ev: PointerEvent) => {
+      const next: { width?: string; height?: string } = {};
+      if (axis !== 'y') next.width = `${Math.max(24, Math.round(sw + ev.clientX - sx))}px`;
+      if (axis !== 'x') next.height = `${Math.max(24, Math.round(sh + ev.clientY - sy))}px`;
+      liveRef.current = next;
+      setLive(next);
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      setResizing(false);
+      setLive(null);
+      if (ref.current) ref.current.draggable = true;
+      const v = liveRef.current;
+      if (v.width || v.height) ctx.onStyle(node.id, v);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+
   return (
     <div
+      ref={ref}
       className={`enode${selected ? ' selected' : ''}`}
-      draggable
+      style={style}
+      draggable={!resizing}
       onClick={(e) => {
         e.stopPropagation();
         ctx.onSelect(node.id);
@@ -962,6 +1010,13 @@ export function EditNodeView({ node }: { node: ComponentNode }) {
     >
       <span className="enode-tag">{def.label}</span>
       <NodeBody node={node} mode="edit" />
+      {selected && (
+        <>
+          <span className="enode-resize e" onPointerDown={(e) => startResize(e, 'x')} />
+          <span className="enode-resize s" onPointerDown={(e) => startResize(e, 'y')} />
+          <span className="enode-resize se" onPointerDown={(e) => startResize(e, 'xy')} />
+        </>
+      )}
     </div>
   );
 }
