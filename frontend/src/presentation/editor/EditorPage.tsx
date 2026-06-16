@@ -26,7 +26,6 @@ export function EditorPage() {
 
   const interaction = useMemo<EditInteraction>(
     () => ({
-      selectedId,
       dragging,
       onSelect: (id) => dispatch(nodeSelected(id)),
       onDragStart: () => setDragging(true),
@@ -44,7 +43,7 @@ export function EditorPage() {
       onLayout: (nodeId, layout) => dispatch(nodeLayoutUpdated({ nodeId, layout })),
       onStyle: (nodeId, patch) => dispatch(nodeStyleUpdated({ nodeId, patch })),
     }),
-    [selectedId, dragging, dispatch],
+    [dragging, dispatch],
   );
 
   useEffect(() => {

@@ -1051,7 +1051,8 @@ function FlexToolbar({ node }: { node: ComponentNode }) {
 export function EditNodeView({ node }: { node: ComponentNode }) {
   const ctx = useEditInteraction();
   const def = componentDefs[node.type];
-  const selected = ctx.selectedId === node.id;
+  // 選択は個別購読(I1): このノードの選択状態が変わったときだけ再描画される
+  const selected = useAppSelector((s) => s.editor.selectedNodeId === node.id);
   const ref = useRef<HTMLDivElement>(null);
   const [live, setLive] = useState<{ width?: string; height?: string } | null>(null);
   const [resizing, setResizing] = useState(false);
@@ -1195,7 +1196,7 @@ function GridItem({
   const base = node.layout ?? autoLayout(index);
   const [live, setLive] = useState<GridLayout | null>(null);
   const liveRef = useRef<GridLayout | null>(null);
-  const selected = ctx.selectedId === node.id;
+  const selected = useAppSelector((s) => s.editor.selectedNodeId === node.id);
   const layout = live ?? base;
 
   const startDrag = (e: ReactPointerEvent, kind: 'move' | 'resize') => {
@@ -1288,7 +1289,7 @@ function DropArea({
 /** 編集対象の木のルート。ドラッグ不可・クリックで選択のみ */
 export function EditRootView({ tree }: { tree: ComponentNode }) {
   const ctx = useEditInteraction();
-  const selected = ctx.selectedId === tree.id;
+  const selected = useAppSelector((s) => s.editor.selectedNodeId === tree.id);
   return (
     <div
       className={`enode-root${selected ? ' selected' : ''}`}

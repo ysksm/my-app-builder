@@ -32,7 +32,8 @@ export const DragPayload = {
 } as const;
 
 export type EditInteraction = Readonly<{
-  selectedId: NodeId | null;
+  // 選択中ノードはここに載せない。各ノードが useAppSelector で個別購読し、
+  // 選択変更時の再描画を当該ノードだけに限定する(性能 I1)。
   dragging: boolean;
   onSelect: (id: NodeId) => void;
   onDragStart: () => void;
