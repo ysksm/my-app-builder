@@ -144,8 +144,20 @@ export const ProjectDoc = {
     }
   },
 
+  /** 既存ページと衝突しないパスにする(衝突時は -2, -3 … を付与)。except は自分自身の除外用 */
+  uniquePath(doc: ProjectDoc, path: string, exceptId?: PageId): string {
+    const base = Page.normalizePath(path);
+    const taken = (p: string) => doc.pages.some((pg) => pg.id !== exceptId && pg.path === p);
+    if (!taken(base)) return base;
+    for (let i = 2; ; i += 1) {
+      const candidate = base === '/' ? `/page-${i}` : `${base}-${i}`;
+      if (!taken(candidate)) return candidate;
+    }
+  },
+
   addPage(doc: ProjectDoc, name: string, path: string): Readonly<{ doc: ProjectDoc; page: Page }> {
-    const page = Page.create(name, path);
+    // パスの重複を自動回避(ルーティング衝突を防ぐ)
+    const page = Page.create(name, ProjectDoc.uniquePath(doc, path));
     return { doc: { ...doc, pages: [...doc.pages, page] }, page };
   },
 
@@ -163,7 +175,15 @@ export const ProjectDoc = {
     patch: Partial<Pick<Page, 'name' | 'path' | 'useHeader' | 'useFooter' | 'screen'>>,
   ): Result<ProjectDoc, DomainError> {
     if (!ProjectDoc.findPage(doc, pageId)) return err(DomainError.notFound('page'));
-    const normalized = patch.path !== undefined ? { ...patch, path: Page.normalizePath(patch.path) } : patch;
+    let normalized = patch;
+    if (patch.path !== undefined) {
+      const path = Page.normalizePath(patch.path);
+      // 他ページと同一パスは拒否(ルーティング衝突を防ぐ)
+      if (doc.pages.some((p) => p.id !== pageId && p.path === path)) {
+        return err(DomainError.create('INVALID', `path already in use: ${path}`));
+      }
+      normalized = { ...patch, path };
+    }
     return ok({
       ...doc,
       pages: doc.pages.map((p) => (p.id === pageId ? { ...p, ...normalized } : p)),

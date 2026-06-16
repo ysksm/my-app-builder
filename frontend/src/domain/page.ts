@@ -38,7 +38,10 @@ export const Page = {
 
   normalizePath(path: string): string {
     const trimmed = path.trim().replace(/\s+/g, '-');
-    return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    const withLead = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    // 連続スラッシュを1つに、末尾スラッシュを除去(ルート '/' は維持)
+    const collapsed = withLead.replace(/\/{2,}/g, '/');
+    return collapsed.length > 1 ? collapsed.replace(/\/+$/, '') : '/';
   },
 
   /**
