@@ -32,19 +32,18 @@ export function PreviewApp() {
         <div className="preview-chrome">
           <span className="preview-dot" />
           <span className="preview-url">{page.path}</span>
-          <nav className="preview-pages">
+          <select
+            className="preview-page-select"
+            value={page.id}
+            onChange={(e) => goTo(e.target.value as typeof page.id)}
+            title="ページを切り替え"
+          >
             {doc.pages.map((pg) => (
-              <button
-                key={pg.id}
-                type="button"
-                className={`preview-page-tab${pg.id === page.id ? ' active' : ''}`}
-                onClick={() => goTo(pg.id)}
-                title={pg.path}
-              >
-                {pg.name}
-              </button>
+              <option key={pg.id} value={pg.id}>
+                {pg.name}（{pg.path}）
+              </option>
             ))}
-          </nav>
+          </select>
         </div>
         <div className="preview-page">
           {page.useHeader && doc.layout.header && (
