@@ -28,20 +28,23 @@ function ScreenAxisField({
   onChange: (next: SizeConstraint) => void;
 }) {
   return (
-    <label className="field row screen-axis">
-      <span className="screen-axis-label">{axisLabel}</span>
-      <select
-        value={constraint.mode}
-        onChange={(e) => onChange({ ...constraint, mode: e.target.value as SizeMode })}
-      >
-        {MODE_LABELS.map((m) => (
-          <option key={m.mode} value={m.mode}>
-            {m.label}
-          </option>
-        ))}
-      </select>
+    <div className="field screen-axis">
+      <div className="screen-axis-top">
+        <span className="screen-axis-label">{axisLabel}</span>
+        <select
+          className="screen-axis-mode"
+          value={constraint.mode}
+          onChange={(e) => onChange({ ...constraint, mode: e.target.value as SizeMode })}
+        >
+          {MODE_LABELS.map((m) => (
+            <option key={m.mode} value={m.mode}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+      </div>
       {constraint.mode !== 'auto' && (
-        <>
+        <div className="screen-axis-bottom">
           <input
             type="number"
             min={0}
@@ -50,9 +53,9 @@ function ScreenAxisField({
             onChange={(e) => onChange({ ...constraint, value: Number(e.target.value) || 0 })}
           />
           <span className="muted">px</span>
-        </>
+        </div>
       )}
-    </label>
+    </div>
   );
 }
 

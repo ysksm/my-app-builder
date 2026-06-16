@@ -169,13 +169,18 @@ body {
 .dialog-frame { width: 100%; max-width: 520px; min-height: 240px; }
 
 .detail-subhead { margin: 10px 0 4px; font-size: 12px; color: var(--muted); }
+/* 画面サイズ: 「ラベル+モード」を1段、「数値+px」を2段にして各入力に十分な幅を与える */
 .screen-axis { gap: 6px; }
-.screen-axis-label { min-width: 28px; flex: 0 0 auto; }
-/* .field select / input[type=number] の width:100% を上書き(同等以上の詳細度が必要)。
-   select は残り幅を縮みながら埋め、数値入力は固定幅にして行のはみ出しを防ぐ */
-.screen-axis select { flex: 1 1 auto; width: auto; min-width: 0; }
-.screen-axis input[type="number"].screen-axis-value { width: 56px; flex: 0 0 auto; min-width: 0; }
-.screen-axis .muted { flex: 0 0 auto; }
+.screen-axis-top { display: flex; align-items: center; gap: 6px; }
+.screen-axis-label { min-width: 28px; flex: 0 0 auto; font-size: 12px; color: var(--muted); }
+.screen-axis-mode { flex: 1 1 auto; width: auto; min-width: 0; }
+.screen-axis-bottom { display: flex; align-items: center; gap: 6px; padding-left: 34px; }
+.screen-axis input[type="number"].screen-axis-value { flex: 1 1 auto; width: auto; min-width: 0; }
+.screen-axis .muted { flex: 0 0 auto; font-size: 12px; }
+/* number のスピナーを消して数値の表示幅を確保 */
+.screen-axis input[type="number"]::-webkit-inner-spin-button,
+.screen-axis input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.screen-axis input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
 
 .layout-strip { position: relative; cursor: pointer; opacity: .75; }
 .layout-strip:hover { opacity: 1; }
