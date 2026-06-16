@@ -30,9 +30,11 @@ function SelectedNodePanel({ node, isRoot }: { node: ComponentNode; isRoot: bool
   return (
     <section className="panel-section prop-panel">
       <h3>プロパティ — {def.label}</h3>
-      {def.propFields.map((field) => (
-        <PropField key={field.key} node={node} def={def} field={field} />
-      ))}
+      {def.propFields
+        .filter((field) => !field.visibleWhen || field.visibleWhen(node.props))
+        .map((field) => (
+          <PropField key={field.key} node={node} def={def} field={field} />
+        ))}
       {def.supportsEvents && <EventEditor node={node} />}
       {!isRoot && <StyleSection node={node} />}
       {!isRoot && (

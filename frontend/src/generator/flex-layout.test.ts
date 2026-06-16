@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ProjectDoc, EditTarget } from '@/domain/project-doc';
 import { applyCommand } from '@/application/commands';
 import { ComponentNode } from '@/domain/component-node';
+import { componentDefs } from '@/domain/catalog/component-defs';
 import { toUiTree } from './ui-model';
 import { generateProject } from './index';
 
@@ -104,6 +105,24 @@ describe('style 付き子の生成(flex アイテムのラップ)', () => {
     const wrapper = ui.children?.[0];
     expect(wrapper?.tag).toBe('div');
     expect(wrapper?.style).toMatchObject({ width: '200px', flexGrow: '1' });
+  });
+});
+
+describe('コンテナの排他プロパティ表示制御 (visibleWhen)', () => {
+  it('grid モードでは flex 専用項目を隠し、flow では表示する', () => {
+    const def = componentDefs.container;
+    const flexKeys = ['direction', 'justifyContent', 'alignItems', 'flexWrap', 'gap'];
+    for (const key of flexKeys) {
+      const f = def.propFields.find((x) => x.key === key)!;
+      expect(f.visibleWhen).toBeDefined();
+      expect(f.visibleWhen!({ layoutMode: 'grid' })).toBe(false);
+      expect(f.visibleWhen!({ layoutMode: 'flow' })).toBe(true);
+      expect(f.visibleWhen!({})).toBe(true); // 既定(未設定)= flow
+    }
+    // padding / background / layoutMode は常に表示
+    for (const key of ['padding', 'background', 'layoutMode']) {
+      expect(def.propFields.find((x) => x.key === key)!.visibleWhen).toBeUndefined();
+    }
   });
 });
 

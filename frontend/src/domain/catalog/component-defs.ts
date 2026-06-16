@@ -5,6 +5,9 @@ export type PropFieldDef = Readonly<{
   label: string;
   input: 'text' | 'number' | 'select' | 'checkbox' | 'textarea';
   options?: ReadonlyArray<Readonly<{ value: string; label: string }>>;
+  /** この項目を表示する条件(他プロパティに依存。未指定=常に表示)。
+   * 排他的な設定(例: grid モードでは flex 専用項目を隠す)の制御に使う。 */
+  visibleWhen?: (props: Readonly<Record<string, PropValue>>) => boolean;
 }>;
 
 export type ComponentDef = Readonly<{
@@ -69,6 +72,9 @@ const thresholdFields: ReadonlyArray<PropFieldDef> = [
   { key: 'critBelow', label: '危険(以下)', input: 'number' },
 ];
 
+/** コンテナが flow(flex) モードか(grid 自由配置のときは flex 専用項目を隠す)。既定 flow */
+const isFlow = (props: Readonly<Record<string, PropValue>>): boolean => props.layoutMode !== 'grid';
+
 /** パーツ定義カタログ。パレット・プロパティパネル・レンダラを駆動するメタデータ */
 export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
   container: {
@@ -106,6 +112,7 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
           { value: 'column', label: '縦 (flex-col)' },
           { value: 'row', label: '横 (flex-row)' },
         ],
+        visibleWhen: isFlow,
       },
       {
         key: 'justifyContent',
@@ -119,6 +126,7 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
           { value: 'around', label: 'justify-around' },
           { value: 'evenly', label: 'justify-evenly' },
         ],
+        visibleWhen: isFlow,
       },
       {
         key: 'alignItems',
@@ -131,6 +139,7 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
           { value: 'end', label: 'items-end' },
           { value: 'baseline', label: 'items-baseline' },
         ],
+        visibleWhen: isFlow,
       },
       {
         key: 'flexWrap',
@@ -140,8 +149,9 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
           { value: 'nowrap', label: 'flex-nowrap' },
           { value: 'wrap', label: 'flex-wrap' },
         ],
+        visibleWhen: isFlow,
       },
-      { key: 'gap', label: '間隔 gap(px)', input: 'number' },
+      { key: 'gap', label: '間隔 gap(px)', input: 'number', visibleWhen: isFlow },
       { key: 'padding', label: '余白 padding(px)', input: 'number' },
       { key: 'background', label: '背景色', input: 'text' },
     ],
