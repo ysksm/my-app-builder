@@ -363,6 +363,19 @@ function TableView({ node }: { node: ComponentNode }) {
   const def = componentDefs.table;
   const p = (key: string) => propOf(node, def, key);
   const dataModel = useAppSelector((s) => s.editor.doc.dataModel);
+  const queries = useAppSelector((s) => s.editor.doc.queries);
+  // クエリにバインドされていれば設計時はライブ取得のプレースホルダ(実データは実行モードで取得)
+  const query = str(p('queryRef')) ? queries.find((q) => q.id === str(p('queryRef'))) : undefined;
+  if (query) {
+    return (
+      <div className="c-table c-query-bound">
+        <span className="c-query-badge">⇄ クエリ</span>
+        <span>
+          queries.{query.name}（{query.method} {query.path}）— 実行時にライブ取得
+        </span>
+      </div>
+    );
+  }
   const rowCount = Math.max(0, Math.min(20, num(p('rows'))));
   const bound = str(p('bindAggregate')) ? tableDataFromModel(dataModel, str(p('bindAggregate')), rowCount) : null;
   const cols = bound

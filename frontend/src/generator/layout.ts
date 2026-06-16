@@ -95,6 +95,8 @@ export const paths = {
   realtimeRuntime: `${SHARED}/realtime/runtime.tsx`,
   // 外部ライブラリ製コンポーネント(uPlot/ECharts/AG Grid)は使用時のみ個別ファイルで出力
   realtimeLib: (name: string) => `${SHARED}/realtime/${name}.tsx`,
+  // ライブデータ層: クエリ実行(fetch)+ QueryTable を1モジュールに
+  queryRuntime: `${SHARED}/data/queries.tsx`,
 
   // pages(横断 UI)
   appHeader: `${PAGES}/AppHeader.tsx`,

@@ -257,8 +257,10 @@ export const componentDefs: Readonly<Record<ComponentType, ComponentDef>> = {
     acceptsChildren: false,
     inPalette: true,
     supportsEvents: false,
-    defaultProps: { columns: 'ID,名前,状態', rows: 3, bindAggregate: '' },
+    defaultProps: { columns: 'ID,名前,状態', rows: 3, bindAggregate: '', queryRef: '' },
     propFields: [
+      // クエリに紐付けると生成アプリでライブ取得(空=集約/手動の列)。queryRef が最優先
+      { key: 'queryRef', label: 'データ(クエリ)に紐付け', input: 'select', options: [] },
       // 集約に紐付けると列・サンプル行をデータモデルから生成(空=手動の列)
       { key: 'bindAggregate', label: 'データ集約に紐付け', input: 'select', options: [] },
       { key: 'columns', label: '列(カンマ区切り)', input: 'text' },

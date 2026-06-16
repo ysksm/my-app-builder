@@ -7,6 +7,7 @@ import type { StyleEmitter } from '@/domain/project-doc';
 import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
 import type { DataChannelDef } from '@/domain/data-channel';
 import { DataModel } from '@/domain/data-model';
+import type { QueryDef } from '@/domain/data-source';
 import { tableDataFromModel } from '@/application/table-bind';
 import type { NameTable } from './identifiers';
 import { paths, relativeImport } from './layout';
@@ -36,6 +37,9 @@ type EmitCtx = {
   readonly channels: ReadonlyArray<DataChannelDef>;
   // データモデル(table の bindAggregate 解決に使う)
   readonly dataModel: DataModel;
+  // ライブデータ層: クエリ登録簿(table の queryRef 解決に使う)
+  readonly queries: ReadonlyArray<QueryDef>;
+  usesQuery: boolean;
   // スタイル出力方式(tailwind のときレイアウトをユーティリティクラスで出力)
   readonly styleEmitter: StyleEmitter;
   readonly usedActions: Set<UiAction>;
@@ -243,6 +247,13 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
       return [`${pad}<img className="c-image" src={${s(p('src'))}}${widthAttr} alt="" />`];
     }
     case 'table': {
+      // クエリ参照があればライブ取得の QueryTable を出力(最優先)
+      const queryRef = String(p('queryRef') ?? '');
+      const query = queryRef ? ctx.queries.find((q) => q.id === queryRef) : undefined;
+      if (query) {
+        ctx.usesQuery = true;
+        return [`${pad}<QueryTable query={${s(query.name)}} />`];
+      }
       const rowCount = Math.max(0, Math.min(20, num(p('rows'))));
       // 集約に紐付けられていれば列・行をデータモデルから生成(design-time バインド)
       const bound = String(p('bindAggregate') ?? '')
@@ -589,6 +600,8 @@ export type ComponentFileOptions = Readonly<{
   channels?: ReadonlyArray<DataChannelDef>;
   /** データモデル(table の bindAggregate 解決用) */
   dataModel?: DataModel;
+  /** クエリ登録簿(table の queryRef 解決用) */
+  queries?: ReadonlyArray<QueryDef>;
   /** ページの画面サイズ inline style(`style={{ ... }}` の中身)。指定時は page-screen でラップ */
   screenStyle?: string;
   /** 選択中の UIライブラリ(kit)アダプタ。未指定なら plain(c-*) */
@@ -610,6 +623,8 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
     kitImports: new Set(),
     channels: opts.channels ?? [],
     dataModel: opts.dataModel ?? DataModel.empty(),
+    queries: opts.queries ?? [],
+    usesQuery: false,
     styleEmitter: opts.styleEmitter ?? 'css-variables',
     usedActions: new Set(),
   };
@@ -628,6 +643,10 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
   // 外部ライブラリ製コンポーネントは各々の専用ファイルから import
   for (const tag of [...ctx.libImports].sort()) {
     imports.push(`import { ${tag} } from '${relativeImport(opts.filePath, paths.realtimeLib(tag))}';`);
+  }
+  // ライブデータ層: クエリにバインドした table が使う QueryTable
+  if (ctx.usesQuery) {
+    imports.push(`import { QueryTable } from '${relativeImport(opts.filePath, paths.queryRuntime)}';`);
   }
   // UIライブラリ(kit)の import 文(MUI 等)
   for (const line of [...ctx.kitImports].sort()) imports.push(line);

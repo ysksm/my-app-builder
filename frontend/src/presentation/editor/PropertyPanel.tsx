@@ -191,12 +191,30 @@ function PropField({
 }) {
   const dispatch = useAppDispatch();
   const channels = useAppSelector((s) => s.editor.doc.channels);
+  const queries = useAppSelector((s) => s.editor.doc.queries);
   // models を選択してから render 内で filter(セレクタが毎回新配列を返して再レンダリングを誘発しないように)
   const models = useAppSelector((s) => s.editor.doc.dataModel.models);
   const aggregates = models.filter((m) => m.kind === 'aggregate');
   const value = propValueOf(node.props, def, field.key);
   const set = (v: PropValue) =>
     dispatch(nodePropsUpdated({ nodeId: node.id, patch: { [field.key]: v } }));
+
+  // テーブルのライブデータバインド: クエリから選ぶ(空 = 集約/手動の列にフォールバック)
+  if (field.key === 'queryRef') {
+    return (
+      <label className="field">
+        <span>{field.label}</span>
+        <select value={String(value)} onChange={(e) => set(e.target.value)}>
+          <option value="">(クエリなし)</option>
+          {queries.map((q) => (
+            <option key={q.id} value={q.id}>
+              {q.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
 
   // テーブルのデータバインド: 集約から選ぶ(空 = 手動の列)
   if (field.key === 'bindAggregate') {
