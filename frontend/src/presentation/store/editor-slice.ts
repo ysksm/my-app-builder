@@ -37,7 +37,7 @@ import { EditTarget, ProjectDoc } from '@/domain/project-doc';
 import type { Page } from '@/domain/page';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error';
-export type ViewMode = 'edit' | 'model' | 'board' | 'diagrams' | 'design' | 'channels' | 'preview' | 'run' | 'demo';
+export type ViewMode = 'edit' | 'model' | 'board' | 'diagrams' | 'design' | 'channels' | 'data' | 'preview' | 'run' | 'demo';
 
 export type EditorState = {
   projectId: ProjectId | null;

@@ -6,6 +6,7 @@ import { TopBar } from './presentation/editor/TopBar';
 import { DesignTokens } from './domain/design-tokens';
 import { ScreenBoard } from './presentation/board/ScreenBoard';
 import { ChannelsView } from './presentation/channels/ChannelsView';
+import { DataView } from './presentation/data/DataView';
 import { DemoView } from './presentation/demo/DemoView';
 import { DesignSystemView } from './presentation/design/DesignSystemView';
 import { DiagramsView } from './presentation/diagrams/DiagramsView';
@@ -192,6 +193,7 @@ export function App() {
         {viewMode === 'diagrams' && <DiagramsView />}
         {viewMode === 'design' && <DesignSystemView />}
         {viewMode === 'channels' && <ChannelsView />}
+        {viewMode === 'data' && <DataView />}
         {viewMode === 'demo' && <DemoView />}
         {viewMode === 'preview' && <PreviewApp />}
         {viewMode === 'run' && <RunApp />}
