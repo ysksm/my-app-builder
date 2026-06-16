@@ -1,5 +1,6 @@
 import type { ComponentNode, PropValue } from '@/domain/component-node';
 import { componentDefs, propValueOf } from '@/domain/catalog/component-defs';
+import { alignCss, justifyCss, wrapCss } from '@/domain/flex-style';
 
 /**
  * 中立 UI 要素モデル(FR-GUI-08)。コンポーネント木をフレームワーク非依存の
@@ -89,6 +90,9 @@ export const toUiTree = (
       const style: Record<string, string> = {
         display: 'flex',
         flexDirection: direction,
+        justifyContent: justifyCss(String(p('justifyContent'))),
+        alignItems: alignCss(String(p('alignItems'))),
+        flexWrap: wrapCss(String(p('flexWrap'))),
         gap: `${num(p('gap'))}px`,
         padding: `${num(p('padding'))}px`,
       };

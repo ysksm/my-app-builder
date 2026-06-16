@@ -24,6 +24,7 @@ import { echartsOption, sampleGridRows } from './lib-component-helpers';
 import type { EventBinding, EventType } from '@/domain/actions';
 import type { ComponentNode, GridLayout, PropValue } from '@/domain/component-node';
 import { GRID, autoLayout, clampLayout, gridItemStyle } from '@/domain/grid';
+import { alignCss, justifyCss, wrapCss } from '@/domain/flex-style';
 import type { DataChannelDef } from '@/domain/data-channel';
 import type { NodeId } from '@/domain/ids';
 import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
@@ -92,6 +93,9 @@ export function NodeBody({ node, mode }: { node: ComponentNode; mode: RenderMode
       const style: CSSProperties = {
         display: 'flex',
         flexDirection: direction,
+        justifyContent: justifyCss(str(p('justifyContent'))),
+        alignItems: alignCss(str(p('alignItems'))),
+        flexWrap: wrapCss(str(p('flexWrap'))) as CSSProperties['flexWrap'],
         gap: num(p('gap')),
         padding: num(p('padding')),
         background: str(p('background')) || undefined,

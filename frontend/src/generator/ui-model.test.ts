@@ -64,7 +64,7 @@ describe('emitVue(Vue 3 SFC アダプタ PoC FR-GEN-07)', () => {
   it('中立ツリー → Vue テンプレート(html 要素 / バインド / コンポーネント)', () => {
     const lines = emitVueElement(toUiTree(sampleTree())).join('\n');
     // html 要素: class と :style バインド
-    expect(lines).toContain('<div class="c-container" :style="{ display: \'flex\', flexDirection: \'column\', gap: \'12px\', padding: \'16px\' }">');
+    expect(lines).toContain('<div class="c-container" :style="{ display: \'flex\', flexDirection: \'column\', justifyContent: \'flex-start\', alignItems: \'stretch\', flexWrap: \'nowrap\', gap: \'12px\', padding: \'16px\' }">');
     expect(lines).toContain('<h1 class="c-heading">タイトル</h1>');
     expect(lines).toContain('<button class="c-button v-primary" type="button">送信</button>');
     // img は void 要素として自己終了

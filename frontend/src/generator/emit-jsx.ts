@@ -1,6 +1,7 @@
 import type { EventBinding } from '@/domain/actions';
 import type { ComponentNode } from '@/domain/component-node';
 import { GRID, autoLayout, clampLayout } from '@/domain/grid';
+import { alignCss, justifyCss, wrapCss } from '@/domain/flex-style';
 import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
 import type { DataChannelDef } from '@/domain/data-channel';
 import { DataModel } from '@/domain/data-model';
@@ -143,6 +144,9 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
       const style = [
         `display: 'flex'`,
         `flexDirection: '${direction}'`,
+        `justifyContent: '${justifyCss(String(p('justifyContent')))}'`,
+        `alignItems: '${alignCss(String(p('alignItems')))}'`,
+        `flexWrap: '${wrapCss(String(p('flexWrap')))}'`,
         `gap: ${num(p('gap'))}`,
         `padding: ${num(p('padding'))}`,
       ];
