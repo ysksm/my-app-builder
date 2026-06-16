@@ -14,17 +14,20 @@ import type {
   ValidationRule,
 } from '@/domain/data-model';
 import type { DataChannelDef } from '@/domain/data-channel';
+import type { DataSourceDef, QueryDef } from '@/domain/data-source';
 import type { DesignTokens } from '@/domain/design-tokens';
 import type { StyleEmitter } from '@/domain/project-doc';
 import type {
   ChannelId,
   CustomPartId,
+  DataSourceId,
   DialogId,
   FieldId,
   ModelId,
   NodeId,
   PageId,
   ProjectId,
+  QueryId,
   RelationId,
   RuleId,
   ServiceId,
@@ -419,6 +422,31 @@ export const editorSlice = createSlice({
       run(state, { kind: 'removeChannel', channelId: action.payload });
     },
 
+    dataSourceAdded(state, action: PayloadAction<{ name?: string; baseUrl?: string } | undefined>) {
+      run(state, { kind: 'addDataSource', name: action.payload?.name, baseUrl: action.payload?.baseUrl });
+    },
+    dataSourceUpdated(
+      state,
+      action: PayloadAction<{ dataSourceId: DataSourceId; patch: Partial<Omit<DataSourceDef, 'id'>> }>,
+    ) {
+      run(state, { kind: 'updateDataSource', ...action.payload });
+    },
+    dataSourceRemoved(state, action: PayloadAction<DataSourceId>) {
+      run(state, { kind: 'removeDataSource', dataSourceId: action.payload });
+    },
+    queryAdded(state, action: PayloadAction<{ name?: string; patch?: Partial<Omit<QueryDef, 'id'>> } | undefined>) {
+      run(state, { kind: 'addQuery', name: action.payload?.name, patch: action.payload?.patch });
+    },
+    queryUpdated(
+      state,
+      action: PayloadAction<{ queryId: QueryId; patch: Partial<Omit<QueryDef, 'id'>> }>,
+    ) {
+      run(state, { kind: 'updateQuery', ...action.payload });
+    },
+    queryRemoved(state, action: PayloadAction<QueryId>) {
+      run(state, { kind: 'removeQuery', queryId: action.payload });
+    },
+
     boardPositionSet(state, action: PayloadAction<{ screenId: string; x: number; y: number }>) {
       run(state, { kind: 'setBoardPosition', ...action.payload });
     },
@@ -537,6 +565,12 @@ export const {
   channelAdded,
   channelUpdated,
   channelRemoved,
+  dataSourceAdded,
+  dataSourceUpdated,
+  dataSourceRemoved,
+  queryAdded,
+  queryUpdated,
+  queryRemoved,
   boardPositionSet,
   themeSaved,
   themeApplied,

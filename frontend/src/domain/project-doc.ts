@@ -2,12 +2,13 @@ import { err, ok, type Result } from '@/shared/result';
 import { ComponentNode } from './component-node';
 import { DataModel } from './data-model';
 import { DataChannelDef } from './data-channel';
+import { DataSourceDef, QueryDef } from './data-source';
 import { DesignTokens } from './design-tokens';
 import { findDesignPreset } from './design-presets';
 import { DialogDef } from './dialog';
 import { CustomPartId } from './ids';
 import { DomainError } from './errors';
-import type { ChannelId, DialogId, PageId } from './ids';
+import type { ChannelId, DataSourceId, DialogId, PageId, QueryId } from './ids';
 import { Page } from './page';
 
 export type EditTarget =
@@ -61,6 +62,9 @@ export type ProjectDoc = Readonly<{
   styleEmitter: StyleEmitter;
   /** データチャネル登録簿(FR-RT-01)。モニタリング部品が参照する */
   channels: ReadonlyArray<DataChannelDef>;
+  /** ライブデータ層: データソース＋クエリ(FR-DATA-01) */
+  dataSources: ReadonlyArray<DataSourceDef>;
+  queries: ReadonlyArray<QueryDef>;
   /** スクリーンボード上の画面カード位置(FR-PAGE-06)。画面 ID → 座標 */
   boardPositions: Readonly<Record<string, Readonly<{ x: number; y: number }>>>;
   /** 名前付きデザインテーマ(FR-DS-08)。保存したトークン一式を切り替えられる */
@@ -86,6 +90,8 @@ export const ProjectDoc = {
       customParts: [],
       styleEmitter: 'css-variables',
       channels: [],
+      dataSources: [],
+      queries: [],
       boardPositions: {},
       themes: [],
       uiKits: {},
@@ -282,6 +288,68 @@ export const ProjectDoc = {
   removeChannel(doc: ProjectDoc, channelId: ChannelId): Result<ProjectDoc, DomainError> {
     if (!ProjectDoc.findChannel(doc, channelId)) return err(DomainError.notFound('channel'));
     return ok({ ...doc, channels: doc.channels.filter((c) => c.id !== channelId) });
+  },
+
+  // --- ライブデータ層: データソース ---
+  findDataSource(doc: ProjectDoc, id: DataSourceId): DataSourceDef | null {
+    return doc.dataSources.find((d) => d.id === id) ?? null;
+  },
+  addDataSource(
+    doc: ProjectDoc,
+    name: string,
+    baseUrl = '',
+  ): Readonly<{ doc: ProjectDoc; dataSource: DataSourceDef }> {
+    const dataSource = DataSourceDef.create(name, baseUrl);
+    return { doc: { ...doc, dataSources: [...doc.dataSources, dataSource] }, dataSource };
+  },
+  updateDataSource(
+    doc: ProjectDoc,
+    id: DataSourceId,
+    patch: Partial<Omit<DataSourceDef, 'id'>>,
+  ): Result<ProjectDoc, DomainError> {
+    if (!ProjectDoc.findDataSource(doc, id)) return err(DomainError.notFound('data source'));
+    return ok({
+      ...doc,
+      dataSources: doc.dataSources.map((d) => (d.id === id ? { ...d, ...patch } : d)),
+    });
+  },
+  removeDataSource(doc: ProjectDoc, id: DataSourceId): Result<ProjectDoc, DomainError> {
+    if (!ProjectDoc.findDataSource(doc, id)) return err(DomainError.notFound('data source'));
+    // 参照していたクエリの dataSourceId をクリア(死参照防止)
+    return ok({
+      ...doc,
+      dataSources: doc.dataSources.filter((d) => d.id !== id),
+      queries: doc.queries.map((q) => (q.dataSourceId === id ? { ...q, dataSourceId: '' } : q)),
+    });
+  },
+
+  // --- ライブデータ層: クエリ ---
+  findQuery(doc: ProjectDoc, id: QueryId): QueryDef | null {
+    return doc.queries.find((q) => q.id === id) ?? null;
+  },
+  addQuery(
+    doc: ProjectDoc,
+    name: string,
+    patch: Partial<Omit<QueryDef, 'id'>> = {},
+  ): Readonly<{ doc: ProjectDoc; query: QueryDef }> {
+    const query = QueryDef.create(name, patch);
+    return { doc: { ...doc, queries: [...doc.queries, query] }, query };
+  },
+  updateQuery(
+    doc: ProjectDoc,
+    id: QueryId,
+    patch: Partial<Omit<QueryDef, 'id'>>,
+  ): Result<ProjectDoc, DomainError> {
+    if (!ProjectDoc.findQuery(doc, id)) return err(DomainError.notFound('query'));
+    const normalized = patch.name !== undefined ? { ...patch, name: QueryDef.slug(patch.name) } : patch;
+    return ok({
+      ...doc,
+      queries: doc.queries.map((q) => (q.id === id ? { ...q, ...normalized } : q)),
+    });
+  },
+  removeQuery(doc: ProjectDoc, id: QueryId): Result<ProjectDoc, DomainError> {
+    if (!ProjectDoc.findQuery(doc, id)) return err(DomainError.notFound('query'));
+    return ok({ ...doc, queries: doc.queries.filter((q) => q.id !== id) });
   },
 
   /** スクリーンボードの画面カード位置を保存する(FR-PAGE-06) */

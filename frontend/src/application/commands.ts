@@ -20,17 +20,20 @@ import {
 import type {
   ChannelId,
   CustomPartId,
+  DataSourceId,
   DialogId,
   FieldId,
   ModelId,
   NodeId,
   PageId,
+  QueryId,
   RelationId,
   RuleId,
   ServiceId,
   UsecaseId,
 } from '@/domain/ids';
 import type { DataChannelDef } from '@/domain/data-channel';
+import type { DataSourceDef, QueryDef } from '@/domain/data-source';
 import type { Page } from '@/domain/page';
 import { ProjectDoc, type EditTarget, type StyleEmitter } from '@/domain/project-doc';
 
@@ -102,6 +105,13 @@ export type Command =
   | Readonly<{ kind: 'addChannel'; name?: string; patch?: Partial<Omit<DataChannelDef, 'id'>> }>
   | Readonly<{ kind: 'updateChannel'; channelId: ChannelId; patch: Partial<Omit<DataChannelDef, 'id'>> }>
   | Readonly<{ kind: 'removeChannel'; channelId: ChannelId }>
+  // ライブデータ層(FR-DATA-01): データソース＋クエリ
+  | Readonly<{ kind: 'addDataSource'; name?: string; baseUrl?: string }>
+  | Readonly<{ kind: 'updateDataSource'; dataSourceId: DataSourceId; patch: Partial<Omit<DataSourceDef, 'id'>> }>
+  | Readonly<{ kind: 'removeDataSource'; dataSourceId: DataSourceId }>
+  | Readonly<{ kind: 'addQuery'; name?: string; patch?: Partial<Omit<QueryDef, 'id'>> }>
+  | Readonly<{ kind: 'updateQuery'; queryId: QueryId; patch: Partial<Omit<QueryDef, 'id'>> }>
+  | Readonly<{ kind: 'removeQuery'; queryId: QueryId }>
   // スクリーンボード配置(FR-PAGE-06)
   | Readonly<{ kind: 'setBoardPosition'; screenId: string; x: number; y: number }>
   // 名前付きデザインテーマ(FR-DS-08)
@@ -126,6 +136,8 @@ export type CreatedEntities = Readonly<{
   usecaseId?: UsecaseId;
   partId?: CustomPartId;
   channelId?: ChannelId;
+  dataSourceId?: DataSourceId;
+  queryId?: QueryId;
   themeId?: string;
 }>;
 
@@ -370,6 +382,38 @@ export const applyCommand = (
       );
       return ok(outcome(cleaned));
     }
+
+    case 'addDataSource': {
+      const { doc: next, dataSource } = ProjectDoc.addDataSource(doc, cmd.name ?? 'データソース', cmd.baseUrl ?? '');
+      return ok(outcome(next, { dataSourceId: dataSource.id }));
+    }
+    case 'updateDataSource': {
+      const res = ProjectDoc.updateDataSource(doc, cmd.dataSourceId, cmd.patch);
+      return res.ok ? ok(outcome(res.value)) : res;
+    }
+    case 'removeDataSource': {
+      const res = ProjectDoc.removeDataSource(doc, cmd.dataSourceId);
+      return res.ok ? ok(outcome(res.value)) : res;
+    }
+    case 'addQuery': {
+      const { doc: next, query } = ProjectDoc.addQuery(doc, cmd.name ?? 'query', cmd.patch ?? {});
+      return ok(outcome(next, { queryId: query.id }));
+    }
+    case 'updateQuery': {
+      const res = ProjectDoc.updateQuery(doc, cmd.queryId, cmd.patch);
+      return res.ok ? ok(outcome(res.value)) : res;
+    }
+    case 'removeQuery': {
+      const res = ProjectDoc.removeQuery(doc, cmd.queryId);
+      if (!res.ok) return res;
+      // 参照整合性: 削除したクエリを指す部品の queryRef を全ツリーでクリア
+      const cleaned = ProjectDoc.mapAllTrees(res.value, (n) =>
+        String(n.props.queryRef) === String(cmd.queryId)
+          ? { ...n, props: { ...n.props, queryRef: '' } }
+          : n,
+      );
+      return ok(outcome(cleaned));
+    }
     case 'setBoardPosition': {
       return ok(outcome(ProjectDoc.setBoardPosition(doc, cmd.screenId, cmd.x, cmd.y)));
     }
@@ -489,6 +533,15 @@ const channelPatch = z
     scale: z.number(),
   })
   .partial();
+const dataSourcePatch = z.object({ name: z.string(), baseUrl: z.string() }).partial();
+const queryPatch = z
+  .object({
+    name: z.string(),
+    dataSourceId: z.union([id, z.literal('')]),
+    method: z.enum(['GET', 'POST', 'PUT', 'DELETE']),
+    path: z.string(),
+  })
+  .partial();
 const fieldPatch = z
   .object({
     name: z.string(),
@@ -541,6 +594,12 @@ const commandSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('addChannel'), name: z.string().optional(), patch: channelPatch.optional() }),
   z.object({ kind: z.literal('updateChannel'), channelId: id, patch: channelPatch }),
   z.object({ kind: z.literal('removeChannel'), channelId: id }),
+  z.object({ kind: z.literal('addDataSource'), name: z.string().optional(), baseUrl: z.string().optional() }),
+  z.object({ kind: z.literal('updateDataSource'), dataSourceId: id, patch: dataSourcePatch }),
+  z.object({ kind: z.literal('removeDataSource'), dataSourceId: id }),
+  z.object({ kind: z.literal('addQuery'), name: z.string().optional(), patch: queryPatch.optional() }),
+  z.object({ kind: z.literal('updateQuery'), queryId: id, patch: queryPatch }),
+  z.object({ kind: z.literal('removeQuery'), queryId: id }),
   z.object({ kind: z.literal('setBoardPosition'), screenId: z.string(), x: z.number(), y: z.number() }),
   z.object({ kind: z.literal('saveTheme'), name: z.string() }),
   z.object({ kind: z.literal('applyTheme'), themeId: z.string() }),

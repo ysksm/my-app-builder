@@ -73,3 +73,17 @@ export const ChannelId = {
   create: (): ChannelId => newId() as ChannelId,
   from: (value: string): ChannelId => value as ChannelId,
 } as const;
+
+export type DataSourceId = string & { readonly __brand: 'DataSourceId' };
+
+export const DataSourceId = {
+  create: (): DataSourceId => newId() as DataSourceId,
+  from: (value: string): DataSourceId => value as DataSourceId,
+} as const;
+
+export type QueryId = string & { readonly __brand: 'QueryId' };
+
+export const QueryId = {
+  create: (): QueryId => newId() as QueryId,
+  from: (value: string): QueryId => value as QueryId,
+} as const;

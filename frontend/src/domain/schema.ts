@@ -6,6 +6,8 @@ import { DomainError } from './errors';
 import { Page } from './page';
 import type {
   ChannelId,
+  DataSourceId,
+  QueryId,
   CustomPartId,
   DialogId,
   FieldId,
@@ -232,6 +234,20 @@ export const projectDocSchema = z.object({
     .default(() => []),
   styleEmitter: z.enum(['css-variables', 'tailwind']).default('css-variables'),
   channels: z.array(dataChannelSchema).default(() => []),
+  dataSources: z
+    .array(z.object({ id: idSchema<DataSourceId>(), name: z.string(), baseUrl: z.string() }))
+    .default(() => []),
+  queries: z
+    .array(
+      z.object({
+        id: idSchema<QueryId>(),
+        name: z.string(),
+        dataSourceId: z.union([idSchema<DataSourceId>(), z.literal('')]),
+        method: z.enum(['GET', 'POST', 'PUT', 'DELETE']),
+        path: z.string(),
+      }),
+    )
+    .default(() => []),
   boardPositions: z
     .record(z.string(), z.object({ x: z.number(), y: z.number() }))
     .default(() => ({})),
