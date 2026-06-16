@@ -287,6 +287,13 @@ body {
 .style-section { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
 .style-section h4 { margin: 0 0 8px; font-size: 12px; color: var(--muted); }
 
+/* パーツ登録のインライン命名 */
+.register-part { display: flex; flex-direction: column; gap: 6px; }
+.register-part input { width: 100%; }
+.register-part-actions { display: flex; gap: 6px; }
+.register-part-actions .btn { flex: 1; }
+.btn.ghost { background: transparent; }
+
 /* 整列ウィジェット(選択中 flex コンテナに重ねる) */
 .enode-root { position: relative; }
 .flex-toolbar {

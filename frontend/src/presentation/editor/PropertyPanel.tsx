@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { Action, EventBinding } from '@/domain/actions';
 import { ComponentNode, type PropValue } from '@/domain/component-node';
 import { DialogId } from '@/domain/ids';
@@ -39,17 +40,7 @@ function SelectedNodePanel({ node, isRoot }: { node: ComponentNode; isRoot: bool
       {!isRoot && <StyleSection node={node} />}
       {!isRoot && (
         <>
-          <button
-            type="button"
-            className="btn"
-            style={{ width: '100%', marginTop: 14 }}
-            onClick={() => {
-              const name = window.prompt('パーツ名を入力', def.label);
-              if (name !== null) dispatch(customPartDefined({ nodeId: node.id, name }));
-            }}
-          >
-            ＋ 選択をパーツ登録
-          </button>
+          <RegisterPartControl node={node} defaultName={def.label} />
           <button
             type="button"
             className="btn danger"
@@ -60,6 +51,64 @@ function SelectedNodePanel({ node, isRoot }: { node: ComponentNode; isRoot: bool
         </>
       )}
     </section>
+  );
+}
+
+/** パーツ登録: window.prompt を使わず、インラインの命名入力で確定する */
+function RegisterPartControl({ node, defaultName }: { node: ComponentNode; defaultName: string }) {
+  const dispatch = useAppDispatch();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(defaultName);
+  // 別ノードを選び直したら入力を初期化
+  useEffect(() => {
+    setEditing(false);
+    setName(defaultName);
+  }, [node.id, defaultName]);
+
+  const commit = () => {
+    const trimmed = name.trim();
+    if (trimmed) dispatch(customPartDefined({ nodeId: node.id, name: trimmed }));
+    setEditing(false);
+  };
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        className="btn"
+        style={{ width: '100%', marginTop: 14 }}
+        onClick={() => {
+          setName(defaultName);
+          setEditing(true);
+        }}
+      >
+        ＋ 選択をパーツ登録
+      </button>
+    );
+  }
+  return (
+    <div className="register-part" style={{ marginTop: 14 }}>
+      <input
+        type="text"
+        autoFocus
+        aria-label="パーツ名"
+        placeholder="パーツ名を入力"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit();
+          if (e.key === 'Escape') setEditing(false);
+        }}
+      />
+      <div className="register-part-actions">
+        <button type="button" className="btn" disabled={!name.trim()} onClick={commit}>
+          登録
+        </button>
+        <button type="button" className="btn ghost" onClick={() => setEditing(false)}>
+          取消
+        </button>
+      </div>
+    </div>
   );
 }
 
