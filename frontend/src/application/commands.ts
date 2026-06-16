@@ -240,7 +240,14 @@ export const applyCommand = (
     }
     case 'removeModel': {
       const res = DataModel.removeModel(doc.dataModel, cmd.modelId);
-      return res.ok ? ok(outcome({ ...doc, dataModel: res.value })) : res;
+      if (!res.ok) return res;
+      // 参照整合性: 削除した集約を指す table の bindAggregate を全ツリーでクリア
+      const cleaned = ProjectDoc.mapAllTrees({ ...doc, dataModel: res.value }, (n) =>
+        String(n.props.bindAggregate) === String(cmd.modelId)
+          ? { ...n, props: { ...n.props, bindAggregate: '' } }
+          : n,
+      );
+      return ok(outcome(cleaned));
     }
     case 'addField': {
       const res = DataModel.addField(doc.dataModel, cmd.modelId);
@@ -354,7 +361,14 @@ export const applyCommand = (
     }
     case 'removeChannel': {
       const res = ProjectDoc.removeChannel(doc, cmd.channelId);
-      return res.ok ? ok(outcome(res.value)) : res;
+      if (!res.ok) return res;
+      // 参照整合性: 削除したチャネルを指す部品の channelRef を全ツリーでクリア
+      const cleaned = ProjectDoc.mapAllTrees(res.value, (n) =>
+        String(n.props.channelRef) === String(cmd.channelId)
+          ? { ...n, props: { ...n.props, channelRef: '' } }
+          : n,
+      );
+      return ok(outcome(cleaned));
     }
     case 'setBoardPosition': {
       return ok(outcome(ProjectDoc.setBoardPosition(doc, cmd.screenId, cmd.x, cmd.y)));

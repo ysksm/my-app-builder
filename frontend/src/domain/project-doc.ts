@@ -155,6 +155,21 @@ export const ProjectDoc = {
     }
   },
 
+  /** すべての UI ツリー(ページ/ダイアログ/共通ヘッダー・フッター)の全ノードに f を適用する */
+  mapAllTrees(doc: ProjectDoc, f: (node: ComponentNode) => ComponentNode): ProjectDoc {
+    const tree = (n: ComponentNode) => ComponentNode.mapEvery(n, f);
+    return {
+      ...doc,
+      pages: doc.pages.map((p) => ({ ...p, root: tree(p.root) })),
+      dialogs: doc.dialogs.map((d) => ({ ...d, root: tree(d.root) })),
+      layout: {
+        ...doc.layout,
+        header: doc.layout.header ? tree(doc.layout.header) : doc.layout.header,
+        footer: doc.layout.footer ? tree(doc.layout.footer) : doc.layout.footer,
+      },
+    };
+  },
+
   addPage(doc: ProjectDoc, name: string, path: string): Readonly<{ doc: ProjectDoc; page: Page }> {
     // パスの重複を自動回避(ルーティング衝突を防ぐ)
     const page = Page.create(name, ProjectDoc.uniquePath(doc, path));

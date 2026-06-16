@@ -124,6 +124,12 @@ export const ComponentNode = {
     return ComponentNode.find(root, id) !== null;
   },
 
+  /** 木の全ノードに f を適用した新しい木を返す(参照整合性の掃除などに使う) */
+  mapEvery(root: ComponentNode, f: (node: ComponentNode) => ComponentNode): ComponentNode {
+    const mapped = f(root);
+    return { ...mapped, children: mapped.children.map((c) => ComponentNode.mapEvery(c, f)) };
+  },
+
   insert(
     root: ComponentNode,
     parentId: NodeId,
