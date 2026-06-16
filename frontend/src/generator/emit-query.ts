@@ -9,12 +9,14 @@ export const usesAnyQuery = (doc: ProjectDoc): boolean => doc.queries.length > 0
  * クエリ結果を描画する QueryTable を出力する。table.queryRef はこの QueryTable に解決される。
  */
 export const queryRuntimeTsx = (doc: ProjectDoc): string => {
-  const entries = doc.queries
-    .map((q) => {
-      const ds = doc.dataSources.find((d) => d.id === q.dataSourceId);
-      const url = (ds?.baseUrl ?? '') + q.path;
-      return `  ${JSON.stringify(q.name)}: { url: ${JSON.stringify(url)}, method: ${JSON.stringify(q.method)} },`;
-    })
+  // 名前重複に備えて Map で一意化(後勝ち)。オブジェクトリテラルの重複キーを防ぐ
+  const byName = new Map<string, { url: string; method: string }>();
+  for (const q of doc.queries) {
+    const ds = doc.dataSources.find((d) => d.id === q.dataSourceId);
+    byName.set(q.name, { url: (ds?.baseUrl ?? '') + q.path, method: q.method });
+  }
+  const entries = [...byName]
+    .map(([name, spec]) => `  ${JSON.stringify(name)}: { url: ${JSON.stringify(spec.url)}, method: ${JSON.stringify(spec.method)} },`)
     .join('\n');
 
   return `// 自動生成 — AppForge: ライブデータ層(クエリ実行 + QueryTable)

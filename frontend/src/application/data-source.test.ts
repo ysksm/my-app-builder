@@ -40,6 +40,13 @@ describe('ライブデータ層: データソース＋クエリ CRUD', () => {
     expect(doc.queries).toHaveLength(0);
   });
 
+  it('クエリ名は一意化される(同名は _2 を付与。生成時の重複キー防止)', () => {
+    let doc = ProjectDoc.create();
+    doc = unwrap(applyCommand(doc, { kind: 'addQuery', name: 'getUsers' })).doc;
+    doc = unwrap(applyCommand(doc, { kind: 'addQuery', name: 'getUsers' })).doc;
+    expect(doc.queries.map((q) => q.name)).toEqual(['getUsers', 'getUsers_2']);
+  });
+
   it('schema は dataSources/queries 未保存の旧ドキュメントを既定[]で補完する(後方互換)', async () => {
     const { parseProjectDoc } = await import('@/domain/schema');
     const base = ProjectDoc.create() as Record<string, unknown>;

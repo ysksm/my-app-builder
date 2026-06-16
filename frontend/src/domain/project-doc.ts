@@ -327,12 +327,23 @@ export const ProjectDoc = {
   findQuery(doc: ProjectDoc, id: QueryId): QueryDef | null {
     return doc.queries.find((q) => q.id === id) ?? null;
   },
+  /** クエリ名(識別子)を他と衝突しないよう一意化する(生成時の重複キーを防ぐ) */
+  uniqueQueryName(doc: ProjectDoc, name: string, exceptId?: QueryId): string {
+    const base = QueryDef.slug(name);
+    const taken = (n: string) => doc.queries.some((q) => q.id !== exceptId && q.name === n);
+    if (!taken(base)) return base;
+    for (let i = 2; ; i += 1) {
+      const candidate = `${base}_${i}`;
+      if (!taken(candidate)) return candidate;
+    }
+  },
   addQuery(
     doc: ProjectDoc,
     name: string,
     patch: Partial<Omit<QueryDef, 'id'>> = {},
   ): Readonly<{ doc: ProjectDoc; query: QueryDef }> {
-    const query = QueryDef.create(name, patch);
+    const created = QueryDef.create(name, patch);
+    const query = { ...created, name: ProjectDoc.uniqueQueryName(doc, created.name) };
     return { doc: { ...doc, queries: [...doc.queries, query] }, query };
   },
   updateQuery(
@@ -341,7 +352,8 @@ export const ProjectDoc = {
     patch: Partial<Omit<QueryDef, 'id'>>,
   ): Result<ProjectDoc, DomainError> {
     if (!ProjectDoc.findQuery(doc, id)) return err(DomainError.notFound('query'));
-    const normalized = patch.name !== undefined ? { ...patch, name: QueryDef.slug(patch.name) } : patch;
+    const normalized =
+      patch.name !== undefined ? { ...patch, name: ProjectDoc.uniqueQueryName(doc, patch.name, id) } : patch;
     return ok({
       ...doc,
       queries: doc.queries.map((q) => (q.id === id ? { ...q, ...normalized } : q)),
