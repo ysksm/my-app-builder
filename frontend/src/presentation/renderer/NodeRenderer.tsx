@@ -1097,6 +1097,16 @@ export function EditNodeView({ node }: { node: ComponentNode }) {
       ref={ref}
       className={`enode${selected ? ' selected' : ''}${node.className ? ` ${node.className}` : ''}`}
       style={style}
+      role="button"
+      tabIndex={0}
+      aria-label={def.label}
+      aria-selected={selected}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.stopPropagation();
+          ctx.onSelect(node.id);
+        }
+      }}
       draggable={!resizing}
       onClick={(e) => {
         e.stopPropagation();
