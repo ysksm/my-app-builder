@@ -40,7 +40,7 @@ export function PreviewApp() {
           >
             {doc.pages.map((pg) => (
               <option key={pg.id} value={pg.id}>
-                {pg.name}（{pg.path}）
+                {pg.path}　{pg.name}
               </option>
             ))}
           </select>
