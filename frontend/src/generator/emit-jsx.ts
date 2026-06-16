@@ -1,8 +1,9 @@
 import type { EventBinding } from '@/domain/actions';
 import type { ComponentNode } from '@/domain/component-node';
 import { GRID, autoLayout, clampLayout } from '@/domain/grid';
-import { alignCss, justifyCss, wrapCss } from '@/domain/flex-style';
-import { hasNodeStyle, styleJsxEntries } from '@/domain/node-style';
+import { alignCss, justifyCss, wrapCss, flexContainerTw } from '@/domain/flex-style';
+import { hasNodeStyle, styleJsxEntries, styleTwClasses } from '@/domain/node-style';
+import type { StyleEmitter } from '@/domain/project-doc';
 import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/component-defs';
 import type { DataChannelDef } from '@/domain/data-channel';
 import { DataModel } from '@/domain/data-model';
@@ -35,6 +36,8 @@ type EmitCtx = {
   readonly channels: ReadonlyArray<DataChannelDef>;
   // データモデル(table の bindAggregate 解決に使う)
   readonly dataModel: DataModel;
+  // スタイル出力方式(tailwind のときレイアウトをユーティリティクラスで出力)
+  readonly styleEmitter: StyleEmitter;
   readonly usedActions: Set<UiAction>;
 };
 
@@ -97,14 +100,21 @@ const compileClickHandler = (events: ReadonlyArray<EventBinding>, ctx: EmitCtx):
 
 const emitChildren = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =>
   node.children.flatMap((child) => {
-    if (!hasNodeStyle(child)) return emitNode(child, indent, ctx);
-    // style を持つ子は flex アイテムとして style 付き div でラップ
+    const styled = hasNodeStyle(child);
+    const extra = (child.className ?? '').trim();
+    if (!styled && !extra) return emitNode(child, indent, ctx);
+    // style/任意クラスを持つ子は flex アイテムとして wrap
     const pad = ' '.repeat(indent);
-    return [
-      `${pad}<div style={{ ${styleJsxEntries(child.style!)} }}>`,
-      ...emitNode(child, indent + 2, ctx),
-      `${pad}</div>`,
-    ];
+    let open: string;
+    if (ctx.styleEmitter === 'tailwind') {
+      const cls = [...(styled ? styleTwClasses(child.style!) : []), extra].filter(Boolean).join(' ');
+      open = `${pad}<div className="${cls}">`;
+    } else {
+      const styleAttr = styled ? ` style={{ ${styleJsxEntries(child.style!)} }}` : '';
+      const clsAttr = extra ? ` className="${extra}"` : '';
+      open = `${pad}<div${clsAttr}${styleAttr}>`;
+    }
+    return [open, ...emitNode(child, indent + 2, ctx), `${pad}</div>`];
   });
 
 const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] => {
@@ -151,17 +161,35 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
         return [open, ...kids, `${pad}</div>`];
       }
       const direction = String(p('direction')) === 'row' ? 'row' : 'column';
-      const style = [
-        `display: 'flex'`,
-        `flexDirection: '${direction}'`,
-        `justifyContent: '${justifyCss(String(p('justifyContent')))}'`,
-        `alignItems: '${alignCss(String(p('alignItems')))}'`,
-        `flexWrap: '${wrapCss(String(p('flexWrap')))}'`,
-        `gap: ${num(p('gap'))}`,
-        `padding: ${num(p('padding'))}`,
-      ];
-      if (background) style.push(`background: ${s(background)}`);
-      const open = `${pad}<div className="c-container" style={{ ${style.join(', ')} }}>`;
+      let open: string;
+      if (ctx.styleEmitter === 'tailwind') {
+        // レイアウトはユーティリティクラス、背景色だけ inline(任意色のため)
+        const cls = [
+          'c-container',
+          ...flexContainerTw({
+            direction,
+            justify: String(p('justifyContent')),
+            align: String(p('alignItems')),
+            wrap: String(p('flexWrap')),
+            gap: num(p('gap')),
+            padding: num(p('padding')),
+          }),
+        ];
+        const bg = background ? ` style={{ background: ${s(background)} }}` : '';
+        open = `${pad}<div className="${cls.join(' ')}"${bg}>`;
+      } else {
+        const style = [
+          `display: 'flex'`,
+          `flexDirection: '${direction}'`,
+          `justifyContent: '${justifyCss(String(p('justifyContent')))}'`,
+          `alignItems: '${alignCss(String(p('alignItems')))}'`,
+          `flexWrap: '${wrapCss(String(p('flexWrap')))}'`,
+          `gap: ${num(p('gap'))}`,
+          `padding: ${num(p('padding'))}`,
+        ];
+        if (background) style.push(`background: ${s(background)}`);
+        open = `${pad}<div className="c-container" style={{ ${style.join(', ')} }}>`;
+      }
       if (node.children.length === 0) return [`${open}</div>`];
       return [open, ...emitChildren(node, indent + 2, ctx), `${pad}</div>`];
     }
@@ -565,6 +593,8 @@ export type ComponentFileOptions = Readonly<{
   screenStyle?: string;
   /** 選択中の UIライブラリ(kit)アダプタ。未指定なら plain(c-*) */
   uiKit?: ReactUiKit;
+  /** スタイル出力方式。tailwind 時はレイアウトをユーティリティクラスで出力(未指定=css-variables) */
+  styleEmitter?: StyleEmitter;
 }>;
 
 export const emitComponentFile = (opts: ComponentFileOptions): string => {
@@ -580,6 +610,7 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
     kitImports: new Set(),
     channels: opts.channels ?? [],
     dataModel: opts.dataModel ?? DataModel.empty(),
+    styleEmitter: opts.styleEmitter ?? 'css-variables',
     usedActions: new Set(),
   };
   const inner = emitNode(opts.root, opts.screenStyle ? 5 : 4, ctx);

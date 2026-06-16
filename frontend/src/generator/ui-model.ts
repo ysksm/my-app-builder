@@ -78,8 +78,16 @@ export const toUiTree = (
   const kids = () =>
     node.children.map((c) => {
       const ui = toUiTree(c, tagMap);
-      // style を持つ子は flex アイテムとして style 付き div でラップ
-      return hasNodeStyle(c) ? make({ tag: 'div', style: styleCssRecord(c.style!), children: [ui] }) : ui;
+      const styled = hasNodeStyle(c);
+      const extra = (c.className ?? '').trim();
+      // style/任意クラスを持つ子は flex アイテムとして div でラップ
+      if (!styled && !extra) return ui;
+      return make({
+        tag: 'div',
+        classes: extra ? [extra] : [],
+        style: styled ? styleCssRecord(c.style!) : {},
+        children: [ui],
+      });
     });
 
   // kit がこの種別を差し替えるなら、props をそのまま渡すコンポーネント参照にする

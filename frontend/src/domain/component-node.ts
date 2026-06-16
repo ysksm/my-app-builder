@@ -62,6 +62,8 @@ export type ComponentNode = Readonly<{
   layout?: GridLayout;
   /** ノード個別のスタイル(flex アイテムのサイズ・自己整列など。任意) */
   style?: NodeStyle;
+  /** 任意の追加クラス(Tailwind 等のエスケープハッチ。構造化できないユーティリティ用。任意) */
+  className?: string;
 }>;
 
 const insertAt = <T>(items: ReadonlyArray<T>, index: number, item: T): ReadonlyArray<T> => {
@@ -213,6 +215,24 @@ export const ComponentNode = {
           Object.entries(merged).filter(([, v]) => v !== '' && v !== undefined),
         );
         return { ...n, style: cleaned };
+      }),
+    );
+  },
+
+  /** 任意クラスを設定する。空文字なら className を外す */
+  setClassName(
+    root: ComponentNode,
+    id: NodeId,
+    className: string,
+  ): Result<ComponentNode, DomainError> {
+    if (!ComponentNode.contains(root, id)) return err(DomainError.notFound('node'));
+    const trimmed = className.trim();
+    return ok(
+      mapNode(root, id, (n) => {
+        const next = { ...n };
+        if (trimmed) next.className = trimmed;
+        else delete next.className;
+        return next;
       }),
     );
   },

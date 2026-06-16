@@ -196,6 +196,10 @@ export const editorSlice = createSlice({
       run(state, { kind: 'setNodeStyle', target: currentTarget(state), ...action.payload });
     },
 
+    nodeClassNameUpdated(state, action: PayloadAction<{ nodeId: NodeId; className: string }>) {
+      run(state, { kind: 'setNodeClassName', target: currentTarget(state), ...action.payload });
+    },
+
     nodeSelected(state, action: PayloadAction<NodeId | null>) {
       state.selectedNodeId = action.payload;
     },
@@ -498,6 +502,7 @@ export const {
   nodeEventsSet,
   nodeLayoutUpdated,
   nodeStyleUpdated,
+  nodeClassNameUpdated,
   nodeSelected,
   editTargetChanged,
   pageAdded,

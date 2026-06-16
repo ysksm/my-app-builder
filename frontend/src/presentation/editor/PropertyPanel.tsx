@@ -3,7 +3,7 @@ import { ComponentNode, type PropValue } from '@/domain/component-node';
 import { DialogId } from '@/domain/ids';
 import { ProjectDoc } from '@/domain/project-doc';
 import { componentDefs, propValueOf, type ComponentDef, type PropFieldDef } from '@/domain/catalog/component-defs';
-import { customPartDefined, nodeEventsSet, nodePropsUpdated, nodeRemoved, nodeStyleUpdated } from '../store/editor-slice';
+import { customPartDefined, nodeClassNameUpdated, nodeEventsSet, nodePropsUpdated, nodeRemoved, nodeStyleUpdated } from '../store/editor-slice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 
 export function PropertyPanel() {
@@ -114,6 +114,15 @@ function StyleSection({ node }: { node: ComponentNode }) {
           value={String(st.margin ?? '')}
           placeholder="0 / 8px / 8px 16px"
           onChange={(e) => set({ margin: e.target.value })}
+        />
+      </label>
+      <label className="field">
+        <span>追加クラス (Tailwind等)</span>
+        <input
+          type="text"
+          value={node.className ?? ''}
+          placeholder="shadow-lg rounded-xl hover:bg-…"
+          onChange={(e) => dispatch(nodeClassNameUpdated({ nodeId: node.id, className: e.target.value }))}
         />
       </label>
     </div>

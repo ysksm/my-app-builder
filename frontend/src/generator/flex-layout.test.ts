@@ -106,3 +106,44 @@ describe('style 付き子の生成(flex アイテムのラップ)', () => {
     expect(wrapper?.style).toMatchObject({ width: '200px', flexGrow: '1' });
   });
 });
+
+const tw = (doc: ProjectDoc): ProjectDoc =>
+  unwrap(applyCommand(doc, { kind: 'setStyleEmitter', emitter: 'tailwind' })).doc;
+
+describe('tailwind emitter のレイアウト生成(ユーティリティクラス)', () => {
+  it('flex コンテナはユーティリティクラスを出力(inline flex style は出さない)', () => {
+    const page = get(generateProject(tw(flexDoc().doc), 'x'), 'pages/Page0.tsx');
+    expect(page).toContain('c-container flex flex-row justify-between items-center flex-wrap gap-[12px] p-[16px]');
+    expect(page).not.toContain("display: 'flex'");
+  });
+
+  it('style を持つ子は w-[..]/grow 等のクラスでラップされる', () => {
+    const page = get(generateProject(tw(sizedChildDoc().doc), 'x'), 'pages/Page0.tsx');
+    expect(page).toContain('<div className="w-[200px] grow">');
+  });
+});
+
+describe('任意クラス(エスケープハッチ) className', () => {
+  it('setNodeClassName で設定/空文字で解除', () => {
+    const { doc, target, btnId } = sizedChildDoc();
+    let d = unwrap(applyCommand(doc, { kind: 'setNodeClassName', target, nodeId: btnId, className: 'shadow-lg' })).doc;
+    expect(ComponentNode.find(d.pages[0]!.root, btnId)!.className).toBe('shadow-lg');
+    d = unwrap(applyCommand(d, { kind: 'setNodeClassName', target, nodeId: btnId, className: '  ' })).doc;
+    expect(ComponentNode.find(d.pages[0]!.root, btnId)!.className).toBeUndefined();
+  });
+
+  it('css-variables 生成: className がラッパー div に付く', () => {
+    const { doc, target, btnId } = sizedChildDoc();
+    // style を消して className だけのケースも確認
+    const d = unwrap(applyCommand(doc, { kind: 'setNodeClassName', target, nodeId: btnId, className: 'shadow-lg' })).doc;
+    const page = get(generateProject(d, 'x'), 'pages/Page0.tsx');
+    expect(page).toContain('className="shadow-lg"');
+  });
+
+  it('tailwind 生成: サイズクラスと任意クラスが結合される', () => {
+    const { doc, target, btnId } = sizedChildDoc();
+    const d = tw(unwrap(applyCommand(doc, { kind: 'setNodeClassName', target, nodeId: btnId, className: 'shadow-lg' })).doc);
+    const page = get(generateProject(d, 'x'), 'pages/Page0.tsx');
+    expect(page).toContain('<div className="w-[200px] grow shadow-lg">');
+  });
+});

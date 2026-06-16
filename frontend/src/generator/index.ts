@@ -417,6 +417,7 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
         dataModel: doc.dataModel,
         screenStyle: screenStyleJs(page.screen),
         uiKit: reactKit,
+        styleEmitter: doc.styleEmitter,
       }),
     })),
     ...doc.dialogs.map((dialog, i) => ({
@@ -430,6 +431,7 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
         channels: doc.channels,
         dataModel: doc.dataModel,
         uiKit: reactKit,
+        styleEmitter: doc.styleEmitter,
       }),
     })),
     { path: paths.tokensCss, content: emitTokensCss(doc.tokens, doc.styleEmitter) },

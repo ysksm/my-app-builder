@@ -60,6 +60,7 @@ export type Command =
   | Readonly<{ kind: 'setNodeEvents'; target: EditTarget; nodeId: NodeId; events: ReadonlyArray<EventBinding> }>
   | Readonly<{ kind: 'setNodeLayout'; target: EditTarget; nodeId: NodeId; layout: GridLayout }>
   | Readonly<{ kind: 'setNodeStyle'; target: EditTarget; nodeId: NodeId; patch: NodeStyle }>
+  | Readonly<{ kind: 'setNodeClassName'; target: EditTarget; nodeId: NodeId; className: string }>
   // ページ
   | Readonly<{ kind: 'addPage'; name: string; path: string }>
   | Readonly<{ kind: 'removePage'; pageId: PageId }>
@@ -193,6 +194,12 @@ export const applyCommand = (
     case 'setNodeStyle': {
       const res = applyTreeCommand(doc, cmd.target, (tree) =>
         ComponentNode.setStyle(tree, cmd.nodeId, cmd.patch),
+      );
+      return res.ok ? ok(outcome(res.value)) : res;
+    }
+    case 'setNodeClassName': {
+      const res = applyTreeCommand(doc, cmd.target, (tree) =>
+        ComponentNode.setClassName(tree, cmd.nodeId, cmd.className),
       );
       return res.ok ? ok(outcome(res.value)) : res;
     }
@@ -487,6 +494,7 @@ const commandSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('setNodeEvents'), target: editTarget, nodeId: id, events: z.array(eventBinding) }),
   z.object({ kind: z.literal('setNodeLayout'), target: editTarget, nodeId: id, layout: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }) }),
   z.object({ kind: z.literal('setNodeStyle'), target: editTarget, nodeId: id, patch: z.record(z.string(), z.union([z.string(), z.number()])) }),
+  z.object({ kind: z.literal('setNodeClassName'), target: editTarget, nodeId: id, className: z.string() }),
   z.object({ kind: z.literal('addPage'), name: z.string(), path: z.string() }),
   z.object({ kind: z.literal('removePage'), pageId: id }),
   z.object({ kind: z.literal('updatePage'), pageId: id, patch: pagePatch }),

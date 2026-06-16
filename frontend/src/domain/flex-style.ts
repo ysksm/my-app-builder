@@ -41,3 +41,22 @@ const ALIGN_TW: Readonly<Record<string, string>> = {
 export const justifyTw = (v: string): string => JUSTIFY_TW[v] ?? 'justify-start';
 export const alignTw = (v: string): string => ALIGN_TW[v] ?? 'items-stretch';
 export const wrapTw = (v: string): string => (v === 'wrap' ? 'flex-wrap' : 'flex-nowrap');
+export const dirTw = (v: string): string => (v === 'row' ? 'flex-row' : 'flex-col');
+
+/** flex コンテナの Tailwind ユーティリティクラス列(任意 px は arbitrary value で正確に) */
+export const flexContainerTw = (opts: {
+  direction: string;
+  justify: string;
+  align: string;
+  wrap: string;
+  gap: number;
+  padding: number;
+}): string[] => [
+  'flex',
+  dirTw(opts.direction),
+  justifyTw(opts.justify),
+  alignTw(opts.align),
+  wrapTw(opts.wrap),
+  `gap-[${opts.gap}px]`,
+  `p-[${opts.padding}px]`,
+];

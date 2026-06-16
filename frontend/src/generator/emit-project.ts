@@ -462,6 +462,7 @@ export const emitProjectShell = (
           channels: doc.channels,
           dataModel: doc.dataModel,
           uiKit: reactKit,
+          styleEmitter: doc.styleEmitter,
         }),
       ),
     );
@@ -479,6 +480,7 @@ export const emitProjectShell = (
           channels: doc.channels,
           dataModel: doc.dataModel,
           uiKit: reactKit,
+          styleEmitter: doc.styleEmitter,
         }),
       ),
     );

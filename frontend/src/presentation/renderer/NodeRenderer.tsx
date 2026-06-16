@@ -917,8 +917,8 @@ function Children({ node, mode }: { node: ComponentNode; mode: RenderMode }) {
     return (
       <>
         {node.children.map((c) =>
-          hasNodeStyle(c) ? (
-            <div key={c.id} style={c.style as CSSProperties}>
+          hasNodeStyle(c) || c.className ? (
+            <div key={c.id} className={c.className} style={c.style as CSSProperties}>
               <NodeBody node={c} mode="preview" />
             </div>
           ) : (
@@ -1094,7 +1094,7 @@ export function EditNodeView({ node }: { node: ComponentNode }) {
   return (
     <div
       ref={ref}
-      className={`enode${selected ? ' selected' : ''}`}
+      className={`enode${selected ? ' selected' : ''}${node.className ? ` ${node.className}` : ''}`}
       style={style}
       draggable={!resizing}
       onClick={(e) => {
