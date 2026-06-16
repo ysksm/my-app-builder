@@ -169,10 +169,13 @@ body {
 .dialog-frame { width: 100%; max-width: 520px; min-height: 240px; }
 
 .detail-subhead { margin: 10px 0 4px; font-size: 12px; color: var(--muted); }
-.screen-axis { gap: 8px; }
-.screen-axis-label { min-width: 32px; }
-.screen-axis select { flex: 0 0 auto; }
-.screen-axis-value { width: 80px; flex: 0 0 auto; }
+.screen-axis { gap: 6px; }
+.screen-axis-label { min-width: 28px; flex: 0 0 auto; }
+/* .field select / input[type=number] の width:100% を上書き(同等以上の詳細度が必要)。
+   select は残り幅を縮みながら埋め、数値入力は固定幅にして行のはみ出しを防ぐ */
+.screen-axis select { flex: 1 1 auto; width: auto; min-width: 0; }
+.screen-axis input[type="number"].screen-axis-value { width: 56px; flex: 0 0 auto; min-width: 0; }
+.screen-axis .muted { flex: 0 0 auto; }
 
 .layout-strip { position: relative; cursor: pointer; opacity: .75; }
 .layout-strip:hover { opacity: 1; }
