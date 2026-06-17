@@ -89,7 +89,8 @@ function useStore(): Record<string, QueryState> {
 export function useQuery<T = unknown>(name: string): { data: T | null; loading: boolean; error: string | null } {
   const s = useStore();
   useEffect(() => {
-    if (!store[name]) runQuery(name);
+    // 自動取得は GET(読み取り)のみ。非GET(書き込み)はイベント(runQuery)でのみ実行する
+    if (!store[name] && queries[name]?.method === 'GET') runQuery(name);
   }, [name]);
   const st = pick(s, name);
   return { data: st.data as T | null, loading: st.loading, error: st.error };

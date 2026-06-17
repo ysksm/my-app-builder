@@ -107,6 +107,7 @@ describe('テーブルのクエリ・バインド生成 (data-layer slice1c)', (
     expect(rt).toContain('export function lookupJson'); // JSON 安全な埋め込み
     expect(rt).toContain('chain.has(name)'); // refetch 循環ガード
     expect(rt).toContain('body === undefined'); // body 無しは Content-Type を付けない
+    expect(rt).toContain("queries[name]?.method === 'GET'"); // 自動取得は GET のみ(書込はイベント駆動)
     // 登録簿に refetch が焼き込まれる
     const runtime = get(files, 'shared/data/queries.tsx')!.content;
     expect(runtime).toContain('"createUser": { url: "/users", method: "POST", refetch: "listUsers" }');
