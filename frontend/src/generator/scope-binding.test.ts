@@ -34,6 +34,17 @@ describe('コンポーネント間スコープ (data-layer slice2b)', () => {
     expect(ComponentNode.find(doc.pages[0]!.root, inputId)!.name).toBe('input_1');
   });
 
+  it('コンポーネント名は doc 全体で一意化される(同名→ _2。スコープ衝突/重複宣言を防ぐ)', () => {
+    const { doc } = scopeDoc();
+    const home = doc.pages[0]!;
+    const target = EditTarget.page(home.id);
+    // 2つ目の入力を input_1 と命名しようとすると input_1_2 になる
+    const ins = unwrap(applyCommand(doc, { kind: 'insertNode', target, parentId: home.root.id, index: 2, type: 'input' }));
+    const id2 = ins.doc.pages[0]!.root.children[2]!.id;
+    const d2 = unwrap(applyCommand(ins.doc, { kind: 'setNodeName', target, nodeId: id2, name: 'input_1' })).doc;
+    expect(ComponentNode.find(d2.pages[0]!.root, id2)!.name).toBe('input_1_2');
+  });
+
   it('名前付き入力は controlled + setVar を生成する', () => {
     const page = pageOf(generateProject(scopeDoc().doc, 'x'));
     expect(page).toContain("const [input_1, set_input_1] = useState('');");

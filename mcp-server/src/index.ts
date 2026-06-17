@@ -229,8 +229,13 @@ server.registerTool(
     title: 'コマンド適用(編集)',
     description:
       'ドキュメント編集コマンドの配列を順に適用して保存する。GUI と同一のコマンド層・検証を通る。' +
-      'コマンド種別: insertNode/moveNode/removeNode/updateNodeProps/setNodeEvents/addPage/removePage/updatePage/' +
-      'addDialog/removeDialog/renameDialog/addModel/updateModel/removeModel/addField/updateField/removeField/addRelation/removeRelation。' +
+      'コマンド種別(主なもの): insertNode/moveNode/removeNode/updateNodeProps/setNodeEvents/setNodeLayout/setNodeStyle/' +
+      'setNodeClassName/setNodeName、addPage/removePage/updatePage、addDialog/removeDialog/renameDialog、' +
+      'addModel/updateModel/removeModel/addField/updateField/removeField/addRelation/removeRelation、' +
+      'addRule/updateRule/removeRule/addService/updateService/removeService/addUsecase/updateUsecase/removeUsecase、' +
+      'addChannel/updateChannel/removeChannel、addDataSource/updateDataSource/removeDataSource/addQuery/updateQuery/removeQuery、' +
+      'setToken/setStyleEmitter/applyPreset/saveTheme/applyTheme/removeTheme/setUiKit/setTargetFramework/setBoardPosition、' +
+      'defineCustomPart/removeCustomPart/renameCustomPart/insertCustomPart。' +
       'expectedUpdatedAt を渡すとエディタ等による競合を検出する(get_project の updatedAt を渡す)',
     inputSchema: {
       projectId: z.string(),

@@ -16,6 +16,18 @@ describe('{{ }} 式パーサ (FR-DATA-02)', () => {
     ]);
   });
 
+  it('ドットパス以外の {{ }}(空/演算子/関数呼び出し)はリテラル扱い(契約の強制)', () => {
+    expect(hasExpr('{{ }}')).toBe(false);
+    expect(hasExpr('{{ a + b }}')).toBe(false);
+    expect(hasExpr('{{ foo() }}')).toBe(false);
+    expect(hasExpr('{{ a ? b : c }}')).toBe(false);
+    // 無効式はそのまま表示(リテラルに結合)
+    expect(parseExpr('x {{ a+b }} y')).toEqual([{ type: 'text', value: 'x {{ a+b }} y' }]);
+    // 有効なドットパスは式
+    expect(hasExpr('{{ queries.a.data }}')).toBe(true);
+    expect(hasExpr('{{ table1.selectedRow.name }}')).toBe(true);
+  });
+
   it('referencedQueries は queries.<name> を抽出(重複排除)', () => {
     expect(referencedQueries('{{queries.a.data}} {{queries.a.loading}} {{queries.b.error}} {{table1.x}}')).toEqual([
       'a',

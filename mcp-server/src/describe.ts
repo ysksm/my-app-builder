@@ -31,6 +31,8 @@ const collectTransitions = (doc: ProjectDoc, root: ComponentNode): Transition[] 
             return 'closeDialog';
           case 'showToast':
             return `showToast「${action.message}」`;
+          case 'openUrl':
+            return `openUrl → ${action.url}`;
         }
       });
       result.push({ trigger: `${node.type}「${label}」`, actions });

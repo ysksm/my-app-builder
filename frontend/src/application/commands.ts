@@ -163,6 +163,25 @@ const applyTreeCommand = (
 const outcome = (doc: ProjectDoc, created: CreatedEntities = {}): CommandOutcome => ({ doc, created });
 
 /** Command を ProjectDoc に適用する純粋関数。GUI / MCP / デモ再生の共通実行点 */
+/** doc 全体(全ページ/ダイアログ/共通ヘッダー・フッター)のコンポーネント名を集める(exceptId は除外) */
+const collectNodeNames = (root: ComponentNode, exceptId: NodeId, acc: Set<string>): void => {
+  if (root.id !== exceptId && root.name) acc.add(root.name);
+  for (const c of root.children) collectNodeNames(c, exceptId, acc);
+};
+/** base が衝突するなら _2, _3 … を付けて doc 全体で一意なコンポーネント名にする */
+const uniqueNodeName = (doc: ProjectDoc, base: string, exceptId: NodeId): string => {
+  const taken = new Set<string>();
+  doc.pages.forEach((p) => collectNodeNames(p.root, exceptId, taken));
+  doc.dialogs.forEach((d) => collectNodeNames(d.root, exceptId, taken));
+  if (doc.layout.header) collectNodeNames(doc.layout.header, exceptId, taken);
+  if (doc.layout.footer) collectNodeNames(doc.layout.footer, exceptId, taken);
+  if (!taken.has(base)) return base;
+  for (let i = 2; ; i += 1) {
+    const candidate = `${base}_${i}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+};
+
 export const applyCommand = (
   doc: ProjectDoc,
   cmd: Command,
@@ -217,8 +236,11 @@ export const applyCommand = (
       return res.ok ? ok(outcome(res.value)) : res;
     }
     case 'setNodeName': {
+      // doc 全体で一意な名前にする(コンポーネント間スコープの名前衝突 → 公開変数の上書きを防ぐ)
+      const slug = cmd.name.trim().replace(/[^A-Za-z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
+      const unique = slug ? uniqueNodeName(doc, slug, cmd.nodeId) : '';
       const res = applyTreeCommand(doc, cmd.target, (tree) =>
-        ComponentNode.setName(tree, cmd.nodeId, cmd.name),
+        ComponentNode.setName(tree, cmd.nodeId, unique),
       );
       return res.ok ? ok(outcome(res.value)) : res;
     }

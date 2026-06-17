@@ -711,8 +711,8 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
   const hooks: string[] = [];
   if (ctx.needsNavigate) hooks.push('  const navigate = useNavigate();');
   if (ctx.needsDispatch) hooks.push('  const dispatch = useDispatch();');
-  // 名前付き入力: controlled state + scope への公開
-  for (const v of ctx.scopeVars) {
+  // 名前付き入力: controlled state + scope への公開(同名は重複宣言を避けるため一意化)
+  for (const v of [...new Set(ctx.scopeVars)]) {
     hooks.push(`  const [${v}, set_${v}] = useState('');`);
     hooks.push(`  useEffect(() => { setVar(${JSON.stringify(v)}, 'value', ${v}); }, [${v}]);`);
   }
