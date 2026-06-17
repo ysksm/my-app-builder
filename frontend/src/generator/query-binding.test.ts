@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ProjectDoc, EditTarget } from '@/domain/project-doc';
 import { applyCommand } from '@/application/commands';
+import { parseProjectDoc } from '@/domain/schema';
 import { generateProject } from './index';
 
 const unwrap = <T,>(r: { ok: true; value: T } | { ok: false; error: unknown }): T => {
@@ -68,5 +69,22 @@ describe('テーブルのクエリ・バインド生成 (data-layer slice1c)', (
     const runtime = get(generateProject(doc, 'x'), 'shared/data/queries.tsx')!.content;
     expect(runtime).toContain('export async function runQuery');
     expect(runtime).toContain('useSyncExternalStore');
+  });
+
+  it('runQuery アクションを含む doc は schema で読み込める(永続化の後方互換)', () => {
+    let doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const target = EditTarget.page(home.id);
+    doc = unwrap(applyCommand(doc, { kind: 'addQuery', name: 'getUsers' })).doc;
+    const queryId = doc.queries[0]!.id;
+    const ins = unwrap(applyCommand(doc, { kind: 'insertNode', target, parentId: home.root.id, index: 0, type: 'button' }));
+    doc = ins.doc;
+    const btnId = doc.pages[0]!.root.children[0]!.id;
+    doc = unwrap(
+      applyCommand(doc, { kind: 'setNodeEvents', target, nodeId: btnId, events: [{ event: 'onClick', action: { kind: 'runQuery', queryId } }] }),
+    ).doc;
+    // JSON 化 → parseProjectDoc で round-trip(保存ドキュメントの読込)
+    const round = parseProjectDoc(JSON.parse(JSON.stringify(doc)));
+    expect(round.ok).toBe(true);
   });
 });

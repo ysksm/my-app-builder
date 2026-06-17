@@ -66,6 +66,7 @@ const actionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('closeDialog') }),
   z.object({ kind: z.literal('showToast'), message: z.string() }),
   z.object({ kind: z.literal('openUrl'), url: z.string() }),
+  z.object({ kind: z.literal('runQuery'), queryId: idSchema<QueryId>() }),
 ]);
 
 const eventBindingSchema = z.object({
