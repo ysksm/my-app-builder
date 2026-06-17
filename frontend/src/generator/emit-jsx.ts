@@ -43,6 +43,8 @@ type EmitCtx = {
   usesQuery: boolean;
   // runQuery アクション(ボタン等のクリックでクエリ実行)を使うか
   usesRunQuery: boolean;
+  // body テンプレートで lookupJson(JSON 安全な値埋め込み)を使うか
+  usesLookupJson: boolean;
   // {{ }} 式が参照するクエリ名(useQuery 呼び出し + scope の生成に使う)
   readonly exprQueries: Set<string>;
   // {{ }} 式が queries 以外(コンポーネント公開変数)を参照するか → useScope を使う
@@ -60,16 +62,18 @@ const s = (value: unknown): string => JSON.stringify(String(value));
 
 /** {{ }} を含む文字列 → JSX 用テンプレートリテラル式。参照クエリを ctx に登録する。
  * 式断片は lookup(__scope, 'path') に、テキスト断片はエスケープして埋め込む。 */
-const compileExpr = (text: string, ctx: EmitCtx): string => {
+const compileExpr = (text: string, ctx: EmitCtx, helper: 'lookup' | 'lookupJson' = 'lookup'): string => {
   referencedQueries(text).forEach((n) => ctx.exprQueries.add(n));
   // queries. 以外のパスはコンポーネント公開変数の参照 → scope(useScope)を使う
   if (parseExpr(text).some((seg) => seg.type === 'expr' && !/^queries\./.test(seg.path))) {
     ctx.usesScope = true;
   }
+  // body(JSON)は lookupJson で値をエスケープして埋め込む
+  if (helper === 'lookupJson') ctx.usesLookupJson = true;
   const parts = parseExpr(text).map((seg) =>
     seg.type === 'text'
       ? seg.value.replace(/[\\`$]/g, '\\$&')
-      : `\${lookup(__scope, ${JSON.stringify(seg.path)})}`,
+      : `\${${helper}(__scope, ${JSON.stringify(seg.path)})}`,
   );
   return '`' + parts.join('') + '`';
 };
@@ -120,7 +124,10 @@ const compileClickHandler = (events: ReadonlyArray<EventBinding>, ctx: EmitCtx):
         const q = ctx.queries.find((x) => x.id === action.queryId);
         if (!q) break; // 削除済みクエリへの参照は no-op(インタープリタと同じ)
         ctx.usesRunQuery = true;
-        lines.push(`runQuery(${s(q.name)});`);
+        // 書き込み(非GET)で body があれば {{ }} 式をコンパイルして第2引数に渡す
+        const body = q.method !== 'GET' && q.body ? q.body : null;
+        if (body) lines.push(`runQuery(${s(q.name)}, ${compileExpr(body, ctx, 'lookupJson')});`);
+        else lines.push(`runQuery(${s(q.name)});`);
         break;
       }
     }
@@ -677,6 +684,7 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
     queries: opts.queries ?? [],
     usesQuery: false,
     usesRunQuery: false,
+    usesLookupJson: false,
     exprQueries: new Set(),
     usesScope: false,
     scopeVars: [],
@@ -710,6 +718,7 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
   const dataNames: string[] = [];
   if (ctx.usesQuery) dataNames.push('QueryTable');
   if (ctx.usesRunQuery) dataNames.push('runQuery');
+  if (ctx.usesLookupJson) dataNames.push('lookupJson');
   if (hasQueryExpr) dataNames.push('lookup', 'useQuery');
   if (dataNames.length > 0) {
     imports.push(`import { ${dataNames.sort().join(', ')} } from '${relativeImport(opts.filePath, paths.queryRuntime)}';`);

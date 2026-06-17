@@ -46,4 +46,25 @@ describe('参照整合性 (F1): 削除時の死参照クリア', () => {
     doc = unwrap(applyCommand(doc, { kind: 'removeChannel', channelId })).doc;
     expect(ComponentNode.find(doc.pages[0]!.root, metricId)!.props.channelRef).toBe('');
   });
+
+  it('removeQuery は他クエリの refetch とボタンの runQuery イベントの死参照を掃除する (slice2c-B)', () => {
+    let doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const target = EditTarget.page(home.id);
+    // listUsers(GET) と createUser(POST, refetch=listUsers)
+    doc = unwrap(applyCommand(doc, { kind: 'addQuery', name: 'listUsers' })).doc;
+    const listId = doc.queries[0]!.id;
+    doc = unwrap(applyCommand(doc, { kind: 'addQuery', name: 'createUser', patch: { method: 'POST', refetch: 'listUsers' } })).doc;
+    // listUsers を runQuery するボタン
+    const ins = unwrap(applyCommand(doc, { kind: 'insertNode', target, parentId: home.root.id, index: 0, type: 'button' }));
+    doc = ins.doc;
+    const btnId = doc.pages[0]!.root.children[0]!.id;
+    doc = unwrap(
+      applyCommand(doc, { kind: 'setNodeEvents', target, nodeId: btnId, events: [{ event: 'onClick', action: { kind: 'runQuery', queryId: listId } }] }),
+    ).doc;
+    // listUsers を削除 → createUser.refetch クリア + ボタンの runQuery イベント除去
+    doc = unwrap(applyCommand(doc, { kind: 'removeQuery', queryId: listId })).doc;
+    expect(doc.queries.find((q) => q.name === 'createUser')!.refetch).toBeUndefined();
+    expect(ComponentNode.find(doc.pages[0]!.root, btnId)!.events).toHaveLength(0);
+  });
 });

@@ -47,6 +47,40 @@ describe('ライブデータ層: データソース＋クエリ CRUD', () => {
     expect(doc.queries.map((q) => q.name)).toEqual(['getUsers', 'getUsers_2']);
   });
 
+  it('書き込みクエリの body / refetch を CRUD でき、schema で round-trip する(slice2c-B)', async () => {
+    const { parseProjectDoc } = await import('@/domain/schema');
+    let doc = ProjectDoc.create();
+    // 一覧クエリ(再取得先)+ 書き込みクエリ(body / refetch 付き)
+    doc = unwrap(applyCommand(doc, { kind: 'addQuery', name: 'listUsers', patch: { method: 'GET', path: '/users' } })).doc;
+    const addPost = unwrap(
+      applyCommand(doc, {
+        kind: 'addQuery',
+        name: 'createUser',
+        patch: { method: 'POST', path: '/users', body: '{ "name": "{{input1.value}}" }', refetch: 'listUsers' },
+      }),
+    );
+    doc = addPost.doc;
+    const postId = addPost.created!.queryId!;
+    const post = doc.queries.find((q) => q.id === postId)!;
+    expect(post.body).toBe('{ "name": "{{input1.value}}" }');
+    expect(post.refetch).toBe('listUsers');
+
+    // 更新でも body / refetch が流れる
+    doc = unwrap(applyCommand(doc, { kind: 'updateQuery', queryId: postId, patch: { body: '{ "x": 1 }', refetch: '' } })).doc;
+    const updated = doc.queries.find((q) => q.id === postId)!;
+    expect(updated.body).toBe('{ "x": 1 }');
+    expect(updated.refetch).toBe('');
+
+    // 保存 → 読込の round-trip で body / refetch が保持される
+    const round = parseProjectDoc(JSON.parse(JSON.stringify(doc)));
+    expect(round.ok).toBe(true);
+    if (round.ok) {
+      const r = round.value.queries.find((q) => q.id === postId)!;
+      expect(r.body).toBe('{ "x": 1 }');
+      expect(r.refetch).toBe('');
+    }
+  });
+
   it('schema は dataSources/queries 未保存の旧ドキュメントを既定[]で補完する(後方互換)', async () => {
     const { parseProjectDoc } = await import('@/domain/schema');
     const base = ProjectDoc.create() as Record<string, unknown>;

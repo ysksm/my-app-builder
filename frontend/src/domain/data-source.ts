@@ -24,6 +24,10 @@ export type QueryDef = Readonly<{
   method: HttpMethod;
   /** baseUrl からの相対パス(例: /users) */
   path: string;
+  /** 書き込み(非GET)のリクエストボディ。JSON テンプレート({{ }} 式可)。空 = ボディなし */
+  body?: string;
+  /** 成功後に再取得するクエリ名(一覧の自動更新など)。空 = なし */
+  refetch?: string;
 }>;
 
 const slug = (s: string): string =>
@@ -40,12 +44,18 @@ export const DataSourceDef = {
 
 export const QueryDef = {
   create(name: string, patch: Partial<Omit<QueryDef, 'id'>> = {}): QueryDef {
-    return {
+    const base: QueryDef = {
       id: QueryId.create(),
       name: slug(patch.name ?? name),
       dataSourceId: patch.dataSourceId ?? '',
       method: patch.method ?? 'GET',
       path: patch.path ?? '/',
+    };
+    // 書き込みクエリの任意フィールドは指定があるときだけ載せる(後方互換: 既定は未設定)
+    return {
+      ...base,
+      ...(patch.body !== undefined ? { body: patch.body } : {}),
+      ...(patch.refetch !== undefined ? { refetch: patch.refetch } : {}),
     };
   },
   /** name を一意な識別子に整える(コード参照用) */

@@ -71,6 +71,51 @@ describe('テーブルのクエリ・バインド生成 (data-layer slice1c)', (
     expect(runtime).toContain('useSyncExternalStore');
   });
 
+  it('非GETクエリ + runQuery アクションは body をコンパイルして渡し、登録簿に refetch を焼き込む(slice2c-B)', () => {
+    let doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const target = EditTarget.page(home.id);
+    // 一覧クエリ(再取得先)
+    doc = unwrap(applyCommand(doc, { kind: 'addQuery', name: 'listUsers', patch: { method: 'GET', path: '/users' } })).doc;
+    // 書き込みクエリ(POST + body + refetch)
+    doc = unwrap(
+      applyCommand(doc, {
+        kind: 'addQuery',
+        name: 'createUser',
+        patch: { method: 'POST', path: '/users', body: '{ "name": "{{input1.value}}" }', refetch: 'listUsers' },
+      }),
+    ).doc;
+    const createId = doc.queries.find((q) => q.name === 'createUser')!.id;
+    const ins = unwrap(applyCommand(doc, { kind: 'insertNode', target, parentId: home.root.id, index: 0, type: 'button' }));
+    doc = ins.doc;
+    const btnId = doc.pages[0]!.root.children[0]!.id;
+    doc = unwrap(
+      applyCommand(doc, {
+        kind: 'setNodeEvents',
+        target,
+        nodeId: btnId,
+        events: [{ event: 'onClick', action: { kind: 'runQuery', queryId: createId } }],
+      }),
+    ).doc;
+
+    const files = generateProject(doc, 'x');
+    const page = get(files, 'pages/Page0.tsx')!.content;
+    // body は {{ }} 式コンパイル済みのテンプレートリテラルとして第2引数に渡る
+    // body は lookupJson で JSON 安全に値を埋め込む(引用符・改行をエスケープ)
+    expect(page).toContain('runQuery("createUser", `{ "name": "${lookupJson(__scope, "input1.value")}" }`);');
+    const rt = get(generateProject(doc, 'x'), 'shared/data/queries.tsx')!.content;
+    expect(rt).toContain('export function lookupJson'); // JSON 安全な埋め込み
+    expect(rt).toContain('chain.has(name)'); // refetch 循環ガード
+    expect(rt).toContain('body === undefined'); // body 無しは Content-Type を付けない
+    // 登録簿に refetch が焼き込まれる
+    const runtime = get(files, 'shared/data/queries.tsx')!.content;
+    expect(runtime).toContain('"createUser": { url: "/users", method: "POST", refetch: "listUsers" }');
+    // GET(一覧)は refetch なし
+    expect(runtime).toContain('"listUsers": { url: "/users", method: "GET" }');
+    // runQuery ランタイムが body / refetch を扱う
+    expect(runtime).toContain('export async function runQuery(name: string, body?: string,');
+  });
+
   it('runQuery アクションを含む doc は schema で読み込める(永続化の後方互換)', () => {
     let doc = ProjectDoc.create();
     const home = doc.pages[0]!;

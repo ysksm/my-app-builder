@@ -433,14 +433,29 @@ export const applyCommand = (
       return res.ok ? ok(outcome(res.value)) : res;
     }
     case 'removeQuery': {
+      const removed = ProjectDoc.findQuery(doc, cmd.queryId);
       const res = ProjectDoc.removeQuery(doc, cmd.queryId);
       if (!res.ok) return res;
-      // 参照整合性: 削除したクエリを指す部品の queryRef を全ツリーでクリア
-      const cleaned = ProjectDoc.mapAllTrees(res.value, (n) =>
-        String(n.props.queryRef) === String(cmd.queryId)
-          ? { ...n, props: { ...n.props, queryRef: '' } }
-          : n,
-      );
+      // 他クエリの refetch(名前参照)が削除クエリを指していたらクリア
+      let next = res.value;
+      if (removed) {
+        next = {
+          ...next,
+          queries: next.queries.map((q) => (q.refetch === removed.name ? { ...q, refetch: undefined } : q)),
+        };
+      }
+      // 参照整合性: queryRef プロパティと runQuery イベントの死参照を全ツリーで除去
+      const cleaned = ProjectDoc.mapAllTrees(next, (n) => {
+        const props =
+          String(n.props.queryRef) === String(cmd.queryId)
+            ? { ...n.props, queryRef: '' }
+            : n.props;
+        const events = n.events.filter(
+          (b) => !(b.action.kind === 'runQuery' && String(b.action.queryId) === String(cmd.queryId)),
+        );
+        if (props === n.props && events.length === n.events.length) return n;
+        return { ...n, props, events };
+      });
       return ok(outcome(cleaned));
     }
     case 'setBoardPosition': {
@@ -570,6 +585,8 @@ const queryPatch = z
     dataSourceId: z.union([id, z.literal('')]),
     method: z.enum(['GET', 'POST', 'PUT', 'DELETE']),
     path: z.string(),
+    body: z.string().optional(),
+    refetch: z.string().optional(),
   })
   .partial();
 const fieldPatch = z

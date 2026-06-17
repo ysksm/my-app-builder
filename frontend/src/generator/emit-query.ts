@@ -10,19 +10,27 @@ export const usesAnyQuery = (doc: ProjectDoc): boolean => doc.queries.length > 0
  */
 export const queryRuntimeTsx = (doc: ProjectDoc): string => {
   // 名前重複に備えて Map で一意化(後勝ち)。オブジェクトリテラルの重複キーを防ぐ
-  const byName = new Map<string, { url: string; method: string }>();
+  const byName = new Map<string, { url: string; method: string; refetch?: string }>();
   for (const q of doc.queries) {
     const ds = doc.dataSources.find((d) => d.id === q.dataSourceId);
-    byName.set(q.name, { url: (ds?.baseUrl ?? '') + q.path, method: q.method });
+    byName.set(q.name, {
+      url: (ds?.baseUrl ?? '') + q.path,
+      method: q.method,
+      // body は実行時にコンポーネントから渡すので登録簿には入れない。refetch だけ焼き込む
+      ...(q.refetch ? { refetch: q.refetch } : {}),
+    });
   }
   const entries = [...byName]
-    .map(([name, spec]) => `  ${JSON.stringify(name)}: { url: ${JSON.stringify(spec.url)}, method: ${JSON.stringify(spec.method)} },`)
+    .map(([name, spec]) => {
+      const refetch = spec.refetch ? `, refetch: ${JSON.stringify(spec.refetch)}` : '';
+      return `  ${JSON.stringify(name)}: { url: ${JSON.stringify(spec.url)}, method: ${JSON.stringify(spec.method)}${refetch} },`;
+    })
     .join('\n');
 
   return `// 自動生成 — AppForge: ライブデータ層(共有クエリストア + 実行 + QueryTable)
 import { useEffect, useState, useSyncExternalStore } from 'react';
 
-type QuerySpec = { url: string; method: string };
+type QuerySpec = { url: string; method: string; refetch?: string };
 const queries: Record<string, QuerySpec> = {
 ${entries}
 };
@@ -37,18 +45,31 @@ const set = (name: string, st: QueryState) => {
   listeners.forEach((l) => l());
 };
 
-/** クエリを実行し結果を共有ストアへ反映する(ボタン等から手動実行も可能 / runQuery アクション) */
-export async function runQuery(name: string): Promise<void> {
+/** クエリを実行し結果を共有ストアへ反映する(ボタン等から手動実行も可能 / runQuery アクション)。
+ * 非GET(書き込み)のときは body(JSON 文字列)を送信し、成功後 spec.refetch があれば一覧を再取得する。 */
+export async function runQuery(name: string, body?: string, seen?: Set<string>): Promise<void> {
   const spec = queries[name];
   if (!spec) return;
+  // refetch の循環(A→B→A)を遮断するため、1回の連鎖で同じクエリは一度だけ
+  const chain = seen ?? new Set<string>();
+  if (chain.has(name)) return;
+  chain.add(name);
   set(name, { ...pick(store, name), loading: true });
+  let ok = false;
   try {
-    const r = await fetch(spec.url, { method: spec.method });
+    const init: RequestInit =
+      spec.method === 'GET' || body === undefined
+        ? { method: spec.method }
+        : { method: spec.method, headers: { 'Content-Type': 'application/json' }, body };
+    const r = await fetch(spec.url, init);
     const d = await r.json();
     set(name, { data: d, loading: false, error: null });
+    ok = true;
   } catch (e) {
     set(name, { data: null, loading: false, error: String(e) });
   }
+  // 成功後のみ再取得(refetch の失敗は別クエリの状態に出る。この書き込みの成功は保持)
+  if (ok && spec.refetch) runQuery(spec.refetch, undefined, chain);
 }
 
 function useStore(): Record<string, QueryState> {
@@ -82,6 +103,12 @@ export function lookup(scope: unknown, path: string): string {
   );
   if (v == null) return '';
   return typeof v === 'object' ? JSON.stringify(v) : String(v);
+}
+
+/** JSON ボディテンプレートの "..." 内に安全に埋め込む値(引用符・改行をエスケープ。囲みの " は含めない) */
+export function lookupJson(scope: unknown, path: string): string {
+  const s = lookup(scope, path);
+  return JSON.stringify(s).slice(1, -1);
 }
 
 type Row = Record<string, unknown>;

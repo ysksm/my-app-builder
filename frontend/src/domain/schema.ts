@@ -247,6 +247,9 @@ export const projectDocSchema = z.object({
         dataSourceId: z.union([idSchema<DataSourceId>(), z.literal('')]),
         method: z.enum(['GET', 'POST', 'PUT', 'DELETE']),
         path: z.string(),
+        // 書き込み(非GET)のリクエストボディ / 成功後の再取得クエリ名。旧ドキュメントは undefined
+        body: z.string().optional(),
+        refetch: z.string().optional(),
       }),
     )
     .default(() => []),

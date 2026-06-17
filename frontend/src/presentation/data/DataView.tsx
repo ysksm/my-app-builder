@@ -61,7 +61,7 @@ export function DataView() {
       ) : (
         <ul className="channel-list">
           {queries.map((q) => (
-            <QueryCard key={q.id} query={q} dataSources={dataSources} />
+            <QueryCard key={q.id} query={q} dataSources={dataSources} queries={queries} />
           ))}
         </ul>
       )}
@@ -100,10 +100,20 @@ function DataSourceCard({ dataSource }: { dataSource: DataSourceDef }) {
   );
 }
 
-function QueryCard({ query, dataSources }: { query: QueryDef; dataSources: ReadonlyArray<DataSourceDef> }) {
+function QueryCard({
+  query,
+  dataSources,
+  queries,
+}: {
+  query: QueryDef;
+  dataSources: ReadonlyArray<DataSourceDef>;
+  queries: ReadonlyArray<QueryDef>;
+}) {
   const dispatch = useAppDispatch();
   const id = query.id as QueryId;
   const patch = (p: Partial<Omit<QueryDef, 'id'>>) => dispatch(queryUpdated({ queryId: id, patch: p }));
+  // 成功後に再取得できる候補は自分以外のクエリ(一覧更新など)
+  const others = queries.filter((q) => q.id !== query.id);
 
   return (
     <li className="channel-card">
@@ -140,6 +150,28 @@ function QueryCard({ query, dataSources }: { query: QueryDef; dataSources: Reado
         <Field label="パス">
           <input value={query.path} onChange={(e) => patch({ path: e.target.value })} placeholder="/users" />
         </Field>
+        {query.method !== 'GET' && (
+          <>
+            <Field label="リクエストボディ(JSON, {{ }} 式可)">
+              <textarea
+                value={query.body ?? ''}
+                onChange={(e) => patch({ body: e.target.value || undefined })}
+                placeholder={'{ "name": "{{input1.value}}" }'}
+                rows={3}
+              />
+            </Field>
+            <Field label="成功後に再取得">
+              <select value={query.refetch ?? ''} onChange={(e) => patch({ refetch: e.target.value || undefined })}>
+                <option value="">(なし)</option>
+                {others.map((q) => (
+                  <option key={q.id} value={q.name}>
+                    {q.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </>
+        )}
       </div>
     </li>
   );
