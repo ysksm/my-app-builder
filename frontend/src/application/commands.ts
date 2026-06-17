@@ -503,6 +503,7 @@ const action = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('closeDialog') }),
   z.object({ kind: z.literal('showToast'), message: z.string() }),
   z.object({ kind: z.literal('openUrl'), url: z.string() }),
+  z.object({ kind: z.literal('runQuery'), queryId: id }),
 ]);
 const eventBinding = z.object({ event: z.literal('onClick'), action });
 const componentType = z.enum([

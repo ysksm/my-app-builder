@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Action, EventBinding } from '@/domain/actions';
 import { ComponentNode, type PropValue } from '@/domain/component-node';
-import { DialogId } from '@/domain/ids';
+import { DialogId, QueryId } from '@/domain/ids';
 import { ProjectDoc } from '@/domain/project-doc';
 import { componentDefs, propValueOf, type ComponentDef, type PropFieldDef } from '@/domain/catalog/component-defs';
 import { customPartDefined, nodeClassNameUpdated, nodeEventsSet, nodeNameUpdated, nodePropsUpdated, nodeRemoved, nodeStyleUpdated } from '../store/editor-slice';
@@ -316,6 +316,8 @@ const defaultActionOf = (kind: Action['kind'], doc: ProjectDoc): Action => {
       return { kind: 'showToast', message: 'メッセージ' };
     case 'openUrl':
       return { kind: 'openUrl', url: 'https://example.com' };
+    case 'runQuery':
+      return { kind: 'runQuery', queryId: doc.queries[0]?.id ?? QueryId.from('') };
   }
 };
 
@@ -342,6 +344,7 @@ function EventEditor({ node }: { node: ComponentNode }) {
             <option value="closeDialog">ダイアログを閉じる</option>
             <option value="showToast">トースト表示</option>
             <option value="openUrl">外部URLを開く</option>
+            <option value="runQuery">クエリを実行</option>
           </select>
           <ActionParams action={binding.action} doc={doc} onChange={(a) => updateAction(i, a)} />
           <button
@@ -421,6 +424,20 @@ function ActionParams({
           placeholder="https://…"
           onChange={(e) => onChange({ kind: 'openUrl', url: e.target.value })}
         />
+      );
+    case 'runQuery':
+      if (doc.queries.length === 0) return <span className="muted">クエリ未作成</span>;
+      return (
+        <select
+          value={action.queryId}
+          onChange={(e) => onChange({ kind: 'runQuery', queryId: QueryId.from(e.target.value) })}
+        >
+          {doc.queries.map((q) => (
+            <option key={q.id} value={q.id}>
+              {q.name}
+            </option>
+          ))}
+        </select>
       );
     case 'closeDialog':
       return null;

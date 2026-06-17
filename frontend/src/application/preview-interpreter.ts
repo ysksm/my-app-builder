@@ -47,6 +47,9 @@ export const PreviewState = {
           window.open(action.url, '_blank', 'noopener,noreferrer');
         }
         return state;
+      case 'runQuery':
+        // プレビューはクエリを実行しない(実行モードでライブ取得)。状態は変えない
+        return state;
     }
   },
 

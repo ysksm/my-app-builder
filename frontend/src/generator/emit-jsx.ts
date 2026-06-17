@@ -41,6 +41,8 @@ type EmitCtx = {
   // ライブデータ層: クエリ登録簿(table の queryRef 解決に使う)
   readonly queries: ReadonlyArray<QueryDef>;
   usesQuery: boolean;
+  // runQuery アクション(ボタン等のクリックでクエリ実行)を使うか
+  usesRunQuery: boolean;
   // {{ }} 式が参照するクエリ名(useQuery 呼び出し + scope の生成に使う)
   readonly exprQueries: Set<string>;
   // {{ }} 式が queries 以外(コンポーネント公開変数)を参照するか → useScope を使う
@@ -112,6 +114,13 @@ const compileClickHandler = (events: ReadonlyArray<EventBinding>, ctx: EmitCtx):
       case 'openUrl':
         lines.push(`window.open(${s(action.url)}, '_blank', 'noopener,noreferrer');`);
         break;
+      case 'runQuery': {
+        const q = ctx.queries.find((x) => x.id === action.queryId);
+        if (!q) break; // 削除済みクエリへの参照は no-op(インタープリタと同じ)
+        ctx.usesRunQuery = true;
+        lines.push(`runQuery(${s(q.name)});`);
+        break;
+      }
     }
   }
   if (lines.length === 0) return null;
@@ -658,6 +667,7 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
     dataModel: opts.dataModel ?? DataModel.empty(),
     queries: opts.queries ?? [],
     usesQuery: false,
+    usesRunQuery: false,
     exprQueries: new Set(),
     usesScope: false,
     scopeVars: [],
@@ -689,6 +699,7 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
   // queryRuntime: QueryTable(queryRef) / useQuery + lookup(queries.* 式)
   const dataNames: string[] = [];
   if (ctx.usesQuery) dataNames.push('QueryTable');
+  if (ctx.usesRunQuery) dataNames.push('runQuery');
   if (hasQueryExpr) dataNames.push('lookup', 'useQuery');
   if (dataNames.length > 0) {
     imports.push(`import { ${dataNames.sort().join(', ')} } from '${relativeImport(opts.filePath, paths.queryRuntime)}';`);

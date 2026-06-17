@@ -49,4 +49,24 @@ describe('テーブルのクエリ・バインド生成 (data-layer slice1c)', (
     const files = generateProject(ProjectDoc.create(), 'x');
     expect(get(files, 'shared/data/queries.tsx')).toBeUndefined();
   });
+
+  it('ボタンの runQuery アクションは runQuery(name) を生成する(イベント起動)', () => {
+    let doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const target = EditTarget.page(home.id);
+    doc = unwrap(applyCommand(doc, { kind: 'addQuery', name: 'getUsers', patch: { path: '/users' } })).doc;
+    const queryId = doc.queries[0]!.id;
+    const ins = unwrap(applyCommand(doc, { kind: 'insertNode', target, parentId: home.root.id, index: 0, type: 'button' }));
+    doc = ins.doc;
+    const btnId = doc.pages[0]!.root.children[0]!.id;
+    doc = unwrap(
+      applyCommand(doc, { kind: 'setNodeEvents', target, nodeId: btnId, events: [{ event: 'onClick', action: { kind: 'runQuery', queryId } }] }),
+    ).doc;
+    const page = get(generateProject(doc, 'x'), 'pages/Page0.tsx')!.content;
+    expect(page).toContain('runQuery("getUsers");');
+    expect(page).toContain('import { runQuery }');
+    const runtime = get(generateProject(doc, 'x'), 'shared/data/queries.tsx')!.content;
+    expect(runtime).toContain('export async function runQuery');
+    expect(runtime).toContain('useSyncExternalStore');
+  });
 });

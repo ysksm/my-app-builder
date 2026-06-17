@@ -19,41 +19,59 @@ export const queryRuntimeTsx = (doc: ProjectDoc): string => {
     .map(([name, spec]) => `  ${JSON.stringify(name)}: { url: ${JSON.stringify(spec.url)}, method: ${JSON.stringify(spec.method)} },`)
     .join('\n');
 
-  return `// 自動生成 — AppForge: ライブデータ層(クエリ実行 + QueryTable)
-import { useEffect, useState } from 'react';
+  return `// 自動生成 — AppForge: ライブデータ層(共有クエリストア + 実行 + QueryTable)
+import { useEffect, useSyncExternalStore } from 'react';
 
 type QuerySpec = { url: string; method: string };
 const queries: Record<string, QuerySpec> = {
 ${entries}
 };
 
-export function useQuery<T = unknown>(name: string) {
-  const [state, setState] = useState<{ data: T | null; loading: boolean; error: string | null }>({
-    data: null,
-    loading: true,
-    error: null,
-  });
+type QueryState = { data: unknown; loading: boolean; error: string | null };
+let store: Record<string, QueryState> = {};
+const listeners = new Set<() => void>();
+const pick = (s: Record<string, QueryState>, name: string): QueryState =>
+  s[name] ?? { data: null, loading: false, error: null };
+const set = (name: string, st: QueryState) => {
+  store = { ...store, [name]: st };
+  listeners.forEach((l) => l());
+};
+
+/** クエリを実行し結果を共有ストアへ反映する(ボタン等から手動実行も可能 / runQuery アクション) */
+export async function runQuery(name: string): Promise<void> {
+  const spec = queries[name];
+  if (!spec) return;
+  set(name, { ...pick(store, name), loading: true });
+  try {
+    const r = await fetch(spec.url, { method: spec.method });
+    const d = await r.json();
+    set(name, { data: d, loading: false, error: null });
+  } catch (e) {
+    set(name, { data: null, loading: false, error: String(e) });
+  }
+}
+
+function useStore(): Record<string, QueryState> {
+  return useSyncExternalStore(
+    (cb) => {
+      listeners.add(cb);
+      return () => {
+        listeners.delete(cb);
+      };
+    },
+    () => store,
+    () => store,
+  );
+}
+
+/** クエリ状態を購読する。初回購読時に自動実行(従来の表示バインドの挙動を維持) */
+export function useQuery<T = unknown>(name: string): { data: T | null; loading: boolean; error: string | null } {
+  const s = useStore();
   useEffect(() => {
-    const spec = queries[name];
-    if (!spec) {
-      setState({ data: null, loading: false, error: 'unknown query: ' + name });
-      return;
-    }
-    let aborted = false;
-    setState((s) => ({ ...s, loading: true }));
-    fetch(spec.url, { method: spec.method })
-      .then((r) => r.json())
-      .then((d) => {
-        if (!aborted) setState({ data: d as T, loading: false, error: null });
-      })
-      .catch((e) => {
-        if (!aborted) setState({ data: null, loading: false, error: String(e) });
-      });
-    return () => {
-      aborted = true;
-    };
+    if (!store[name]) runQuery(name);
   }, [name]);
-  return state;
+  const st = pick(s, name);
+  return { data: st.data as T | null, loading: st.loading, error: st.error };
 }
 
 /** {{ }} 式のドットパスを scope から安全に解決して文字列化する(FR-DATA-02) */
