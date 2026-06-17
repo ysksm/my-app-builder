@@ -8,6 +8,7 @@ import { componentDefs, propValueOf, type ComponentDef } from '@/domain/catalog/
 import type { DataChannelDef } from '@/domain/data-channel';
 import { DataModel } from '@/domain/data-model';
 import type { QueryDef } from '@/domain/data-source';
+import { hasExpr, parseExpr, referencedQueries } from '@/domain/expr';
 import { tableDataFromModel } from '@/application/table-bind';
 import type { NameTable } from './identifiers';
 import { paths, relativeImport } from './layout';
@@ -40,12 +41,26 @@ type EmitCtx = {
   // ライブデータ層: クエリ登録簿(table の queryRef 解決に使う)
   readonly queries: ReadonlyArray<QueryDef>;
   usesQuery: boolean;
+  // {{ }} 式が参照するクエリ名(useQuery 呼び出し + scope の生成に使う)
+  readonly exprQueries: Set<string>;
   // スタイル出力方式(tailwind のときレイアウトをユーティリティクラスで出力)
   readonly styleEmitter: StyleEmitter;
   readonly usedActions: Set<UiAction>;
 };
 
 const s = (value: unknown): string => JSON.stringify(String(value));
+
+/** {{ }} を含む文字列 → JSX 用テンプレートリテラル式。参照クエリを ctx に登録する。
+ * 式断片は lookup(__scope, 'path') に、テキスト断片はエスケープして埋め込む。 */
+const compileExpr = (text: string, ctx: EmitCtx): string => {
+  referencedQueries(text).forEach((n) => ctx.exprQueries.add(n));
+  const parts = parseExpr(text).map((seg) =>
+    seg.type === 'text'
+      ? seg.value.replace(/[\\`$]/g, '\\$&')
+      : `\${lookup(__scope, ${JSON.stringify(seg.path)})}`,
+  );
+  return '`' + parts.join('') + '`';
+};
 
 const num = (value: unknown): number => (typeof value === 'number' ? value : Number(value) || 0);
 
@@ -200,10 +215,15 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
     case 'heading': {
       const level = num(p('level'));
       const tag = level === 1 ? 'h1' : level === 3 ? 'h3' : 'h2';
-      return [`${pad}<${tag} className="c-heading">{${s(p('text'))}}</${tag}>`];
+      const ht = String(p('text'));
+      const content = hasExpr(ht) ? compileExpr(ht, ctx) : s(p('text'));
+      return [`${pad}<${tag} className="c-heading">{${content}}</${tag}>`];
     }
-    case 'text':
-      return [`${pad}<p className="c-text">{${s(p('text'))}}</p>`];
+    case 'text': {
+      const tt = String(p('text'));
+      const content = hasExpr(tt) ? compileExpr(tt, ctx) : s(p('text'));
+      return [`${pad}<p className="c-text">{${content}}</p>`];
+    }
     case 'button': {
       const handler = compileClickHandler(node.events, ctx);
       const onClick = handler ? ` onClick={${handler}}` : '';
@@ -625,6 +645,7 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
     dataModel: opts.dataModel ?? DataModel.empty(),
     queries: opts.queries ?? [],
     usesQuery: false,
+    exprQueries: new Set(),
     styleEmitter: opts.styleEmitter ?? 'css-variables',
     usedActions: new Set(),
   };
@@ -644,9 +665,12 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
   for (const tag of [...ctx.libImports].sort()) {
     imports.push(`import { ${tag} } from '${relativeImport(opts.filePath, paths.realtimeLib(tag))}';`);
   }
-  // ライブデータ層: クエリにバインドした table が使う QueryTable
-  if (ctx.usesQuery) {
-    imports.push(`import { QueryTable } from '${relativeImport(opts.filePath, paths.queryRuntime)}';`);
+  // ライブデータ層: QueryTable(queryRef) / useQuery+lookup({{ }} 式)を queryRuntime から import
+  const dataNames: string[] = [];
+  if (ctx.usesQuery) dataNames.push('QueryTable');
+  if (ctx.exprQueries.size > 0) dataNames.push('lookup', 'useQuery');
+  if (dataNames.length > 0) {
+    imports.push(`import { ${dataNames.sort().join(', ')} } from '${relativeImport(opts.filePath, paths.queryRuntime)}';`);
   }
   // UIライブラリ(kit)の import 文(MUI 等)
   for (const line of [...ctx.kitImports].sort()) imports.push(line);
@@ -658,6 +682,12 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
   const hooks: string[] = [];
   if (ctx.needsNavigate) hooks.push('  const navigate = useNavigate();');
   if (ctx.needsDispatch) hooks.push('  const dispatch = useDispatch();');
+  // {{ }} 式が参照するクエリを購読し、式評価用の scope を組む
+  if (ctx.exprQueries.size > 0) {
+    const names = [...ctx.exprQueries].sort();
+    for (const n of names) hooks.push(`  const q_${n} = useQuery(${JSON.stringify(n)});`);
+    hooks.push(`  const __scope = { queries: { ${names.map((n) => `${n}: q_${n}`).join(', ')} } };`);
+  }
 
   const sections = [
     `// 自動生成ファイル — AppForge(元の名前: ${opts.originalName})`,

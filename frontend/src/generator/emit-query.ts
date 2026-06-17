@@ -56,6 +56,15 @@ export function useQuery<T = unknown>(name: string) {
   return state;
 }
 
+/** {{ }} 式のドットパスを scope から安全に解決して文字列化する(FR-DATA-02) */
+export function lookup(scope: unknown, path: string): string {
+  const v = path.split('.').reduce<unknown>(
+    (o, k) => (o == null ? undefined : (o as Record<string, unknown>)[k]),
+    scope,
+  );
+  return v == null ? '' : String(v);
+}
+
 type Row = Record<string, unknown>;
 
 export function QueryTable({ query }: { query: string }) {
