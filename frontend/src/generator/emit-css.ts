@@ -270,6 +270,7 @@ body {
 }
 .c-table th, .c-table td { border: 1px solid var(--color-border); padding: 7px 10px; text-align: left; }
 .c-table th { background: var(--color-surface); }
+.c-table tr.c-row-selected td { background: var(--color-primary); color: #fff; }
 
 .c-header {
   display: flex;

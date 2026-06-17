@@ -71,4 +71,25 @@ describe('コンポーネント間スコープ (data-layer slice2b)', () => {
   it('名前も式も無ければ scope.tsx は出力しない', () => {
     expect(has(generateProject(ProjectDoc.create(), 'x'), 'shared/data/scope.tsx')).toBe(false);
   });
+
+  it('名前付き query テーブルは行選択で selectedRow を公開する (slice2c-C)', () => {
+    let doc = ProjectDoc.create();
+    const home = doc.pages[0]!;
+    const target = EditTarget.page(home.id);
+    doc = unwrap(applyCommand(doc, { kind: 'addQuery', name: 'getUsers', patch: { path: '/users' } })).doc;
+    const queryId = doc.queries[0]!.id;
+    const ins = unwrap(applyCommand(doc, { kind: 'insertNode', target, parentId: home.root.id, index: 0, type: 'table' }));
+    doc = ins.doc;
+    const tableId = doc.pages[0]!.root.children[0]!.id;
+    doc = unwrap(applyCommand(doc, { kind: 'updateNodeProps', target, nodeId: tableId, patch: { queryRef: queryId } })).doc;
+    doc = unwrap(applyCommand(doc, { kind: 'setNodeName', target, nodeId: tableId, name: 'table1' })).doc;
+    const files = generateProject(doc, 'x');
+    const page = files.find((f) => f.path.includes('pages/Page0.tsx'))!.content;
+    expect(page).toContain('onSelectRow={(row) => setVar("table1", \'selectedRow\', row)}');
+    expect(page).toContain('import { setVar }');
+    const runtime = files.find((f) => f.path.includes('shared/data/queries.tsx'))!.content;
+    expect(runtime).toContain('onSelectRow');
+    // lookup はオブジェクト末端を JSON 文字列化する
+    expect(runtime).toContain("typeof v === 'object' ? JSON.stringify(v)");
+  });
 });

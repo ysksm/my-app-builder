@@ -49,6 +49,8 @@ type EmitCtx = {
   usesScope: boolean;
   // 公開変数を発行する名前付き入力(name)。controlled + setVar を生成
   readonly scopeVars: string[];
+  // setVar を直接呼ぶ(名前付きテーブルの selectedRow 公開など)
+  usesSetVar: boolean;
   // スタイル出力方式(tailwind のときレイアウトをユーティリティクラスで出力)
   readonly styleEmitter: StyleEmitter;
   readonly usedActions: Set<UiAction>;
@@ -294,6 +296,13 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
       const query = queryRef ? ctx.queries.find((q) => q.id === queryRef) : undefined;
       if (query) {
         ctx.usesQuery = true;
+        // 名前付きテーブルは行選択で selectedRow を scope に公開({{table1.selectedRow.x}})
+        if (node.name) {
+          ctx.usesSetVar = true;
+          return [
+            `${pad}<QueryTable query={${s(query.name)}} onSelectRow={(row) => setVar(${s(node.name)}, 'selectedRow', row)} />`,
+          ];
+        }
         return [`${pad}<QueryTable query={${s(query.name)}} />`];
       }
       const rowCount = Math.max(0, Math.min(20, num(p('rows'))));
@@ -671,6 +680,7 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
     exprQueries: new Set(),
     usesScope: false,
     scopeVars: [],
+    usesSetVar: false,
     styleEmitter: opts.styleEmitter ?? 'css-variables',
     usedActions: new Set(),
   };
@@ -706,7 +716,7 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
   }
   // scopeRuntime: 公開変数の発行 setVar / 参照 useScope。lookup は queryRuntime 未使用時のみこちらから
   const scopeNames: string[] = [];
-  if (ctx.scopeVars.length > 0) scopeNames.push('setVar');
+  if (ctx.scopeVars.length > 0 || ctx.usesSetVar) scopeNames.push('setVar');
   if (ctx.usesScope) scopeNames.push('useScope');
   if (ctx.usesScope && !hasQueryExpr) scopeNames.push('lookup');
   if (scopeNames.length > 0) {

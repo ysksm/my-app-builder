@@ -20,7 +20,7 @@ export const queryRuntimeTsx = (doc: ProjectDoc): string => {
     .join('\n');
 
   return `// 自動生成 — AppForge: ライブデータ層(共有クエリストア + 実行 + QueryTable)
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 
 type QuerySpec = { url: string; method: string };
 const queries: Record<string, QuerySpec> = {
@@ -80,13 +80,15 @@ export function lookup(scope: unknown, path: string): string {
     (o, k) => (o == null ? undefined : (o as Record<string, unknown>)[k]),
     scope,
   );
-  return v == null ? '' : String(v);
+  if (v == null) return '';
+  return typeof v === 'object' ? JSON.stringify(v) : String(v);
 }
 
 type Row = Record<string, unknown>;
 
-export function QueryTable({ query }: { query: string }) {
+export function QueryTable({ query, onSelectRow }: { query: string; onSelectRow?: (row: Row) => void }) {
   const { data, loading, error } = useQuery<Row[]>(query);
+  const [selected, setSelected] = useState<number | null>(null);
   if (loading) return <div className="c-query-state">読み込み中…</div>;
   if (error) return <div className="c-query-state c-query-error">エラー: {error}</div>;
   const rows: Row[] = Array.isArray(data) ? data : [];
@@ -102,7 +104,12 @@ export function QueryTable({ query }: { query: string }) {
       </thead>
       <tbody>
         {rows.map((row, i) => (
-          <tr key={i}>
+          <tr
+            key={i}
+            className={selected === i ? 'c-row-selected' : undefined}
+            onClick={onSelectRow ? () => { setSelected(i); onSelectRow(row); } : undefined}
+            style={onSelectRow ? { cursor: 'pointer' } : undefined}
+          >
             {cols.map((c) => (
               <td key={c}>{String(row[c] ?? '')}</td>
             ))}
