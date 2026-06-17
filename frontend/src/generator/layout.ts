@@ -97,6 +97,8 @@ export const paths = {
   realtimeLib: (name: string) => `${SHARED}/realtime/${name}.tsx`,
   // ライブデータ層: クエリ実行(fetch)+ QueryTable を1モジュールに
   queryRuntime: `${SHARED}/data/queries.tsx`,
+  // コンポーネント間スコープ(公開変数の共有ストア)
+  scopeRuntime: `${SHARED}/data/scope.tsx`,
 
   // pages(横断 UI)
   appHeader: `${PAGES}/AppHeader.tsx`,

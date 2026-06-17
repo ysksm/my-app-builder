@@ -203,6 +203,10 @@ export const editorSlice = createSlice({
       run(state, { kind: 'setNodeClassName', target: currentTarget(state), ...action.payload });
     },
 
+    nodeNameUpdated(state, action: PayloadAction<{ nodeId: NodeId; name: string }>) {
+      run(state, { kind: 'setNodeName', target: currentTarget(state), ...action.payload });
+    },
+
     nodeSelected(state, action: PayloadAction<NodeId | null>) {
       state.selectedNodeId = action.payload;
     },
@@ -531,6 +535,7 @@ export const {
   nodeLayoutUpdated,
   nodeStyleUpdated,
   nodeClassNameUpdated,
+  nodeNameUpdated,
   nodeSelected,
   editTargetChanged,
   pageAdded,

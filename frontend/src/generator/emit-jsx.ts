@@ -43,6 +43,10 @@ type EmitCtx = {
   usesQuery: boolean;
   // {{ }} 式が参照するクエリ名(useQuery 呼び出し + scope の生成に使う)
   readonly exprQueries: Set<string>;
+  // {{ }} 式が queries 以外(コンポーネント公開変数)を参照するか → useScope を使う
+  usesScope: boolean;
+  // 公開変数を発行する名前付き入力(name)。controlled + setVar を生成
+  readonly scopeVars: string[];
   // スタイル出力方式(tailwind のときレイアウトをユーティリティクラスで出力)
   readonly styleEmitter: StyleEmitter;
   readonly usedActions: Set<UiAction>;
@@ -54,6 +58,10 @@ const s = (value: unknown): string => JSON.stringify(String(value));
  * 式断片は lookup(__scope, 'path') に、テキスト断片はエスケープして埋め込む。 */
 const compileExpr = (text: string, ctx: EmitCtx): string => {
   referencedQueries(text).forEach((n) => ctx.exprQueries.add(n));
+  // queries. 以外のパスはコンポーネント公開変数の参照 → scope(useScope)を使う
+  if (parseExpr(text).some((seg) => seg.type === 'expr' && !/^queries\./.test(seg.path))) {
+    ctx.usesScope = true;
+  }
   const parts = parseExpr(text).map((seg) =>
     seg.type === 'text'
       ? seg.value.replace(/[\\`$]/g, '\\$&')
@@ -254,10 +262,15 @@ const emitNode = (node: ComponentNode, indent: number, ctx: EmitCtx): string[] =
       }
       const placeholderAttr = placeholder ? ` placeholder={${s(placeholder)}}` : '';
       const labelText = String(p('label')) + (required ? ' *' : '');
+      // 名前付き入力は controlled にして value を scope に公開({{ name.value }} で参照可能)
+      const ctrl = node.name
+        ? ` value={${node.name}} onChange={(e) => set_${node.name}(e.target.value)}`
+        : '';
+      if (node.name) ctx.scopeVars.push(node.name);
       return [
         `${pad}<label className="c-input">`,
         `${pad}  <span>{${s(labelText)}}</span>`,
-        `${pad}  <input type="${String(p('inputType'))}"${placeholderAttr}${required ? ' required' : ''} />`,
+        `${pad}  <input type="${String(p('inputType'))}"${placeholderAttr}${required ? ' required' : ''}${ctrl} />`,
         `${pad}</label>`,
       ];
     }
@@ -646,6 +659,8 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
     queries: opts.queries ?? [],
     usesQuery: false,
     exprQueries: new Set(),
+    usesScope: false,
+    scopeVars: [],
     styleEmitter: opts.styleEmitter ?? 'css-variables',
     usedActions: new Set(),
   };
@@ -655,6 +670,10 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
     : inner;
 
   const imports: string[] = [];
+  // React フック: 名前付き入力の controlled 化(useState/useEffect)に必要
+  const reactHooks: string[] = [];
+  if (ctx.scopeVars.length > 0) reactHooks.push('useEffect', 'useState');
+  if (reactHooks.length > 0) imports.push(`import { ${reactHooks.sort().join(', ')} } from 'react';`);
   if (ctx.needsDispatch) imports.push(`import { useDispatch } from 'react-redux';`);
   if (ctx.needsNavigate) imports.push(`import { useNavigate } from 'react-router';`);
   if (ctx.realtimeImports.size > 0) {
@@ -666,11 +685,21 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
     imports.push(`import { ${tag} } from '${relativeImport(opts.filePath, paths.realtimeLib(tag))}';`);
   }
   // ライブデータ層: QueryTable(queryRef) / useQuery+lookup({{ }} 式)を queryRuntime から import
+  const hasQueryExpr = ctx.exprQueries.size > 0;
+  // queryRuntime: QueryTable(queryRef) / useQuery + lookup(queries.* 式)
   const dataNames: string[] = [];
   if (ctx.usesQuery) dataNames.push('QueryTable');
-  if (ctx.exprQueries.size > 0) dataNames.push('lookup', 'useQuery');
+  if (hasQueryExpr) dataNames.push('lookup', 'useQuery');
   if (dataNames.length > 0) {
     imports.push(`import { ${dataNames.sort().join(', ')} } from '${relativeImport(opts.filePath, paths.queryRuntime)}';`);
+  }
+  // scopeRuntime: 公開変数の発行 setVar / 参照 useScope。lookup は queryRuntime 未使用時のみこちらから
+  const scopeNames: string[] = [];
+  if (ctx.scopeVars.length > 0) scopeNames.push('setVar');
+  if (ctx.usesScope) scopeNames.push('useScope');
+  if (ctx.usesScope && !hasQueryExpr) scopeNames.push('lookup');
+  if (scopeNames.length > 0) {
+    imports.push(`import { ${scopeNames.sort().join(', ')} } from '${relativeImport(opts.filePath, paths.scopeRuntime)}';`);
   }
   // UIライブラリ(kit)の import 文(MUI 等)
   for (const line of [...ctx.kitImports].sort()) imports.push(line);
@@ -682,11 +711,18 @@ export const emitComponentFile = (opts: ComponentFileOptions): string => {
   const hooks: string[] = [];
   if (ctx.needsNavigate) hooks.push('  const navigate = useNavigate();');
   if (ctx.needsDispatch) hooks.push('  const dispatch = useDispatch();');
-  // {{ }} 式が参照するクエリを購読し、式評価用の scope を組む
-  if (ctx.exprQueries.size > 0) {
+  // 名前付き入力: controlled state + scope への公開
+  for (const v of ctx.scopeVars) {
+    hooks.push(`  const [${v}, set_${v}] = useState('');`);
+    hooks.push(`  useEffect(() => { setVar(${JSON.stringify(v)}, 'value', ${v}); }, [${v}]);`);
+  }
+  // {{ }} 式の評価用 scope を組む(queries 購読 + コンポーネント公開変数)
+  if (ctx.exprQueries.size > 0 || ctx.usesScope) {
     const names = [...ctx.exprQueries].sort();
     for (const n of names) hooks.push(`  const q_${n} = useQuery(${JSON.stringify(n)});`);
-    hooks.push(`  const __scope = { queries: { ${names.map((n) => `${n}: q_${n}`).join(', ')} } };`);
+    if (ctx.usesScope) hooks.push('  const __live = useScope();');
+    const qpart = `queries: { ${names.map((n) => `${n}: q_${n}`).join(', ')} }`;
+    hooks.push(`  const __scope = { ${qpart}${ctx.usesScope ? ', ...__live' : ''} };`);
   }
 
   const sections = [

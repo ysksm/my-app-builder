@@ -64,6 +64,8 @@ export type ComponentNode = Readonly<{
   style?: NodeStyle;
   /** 任意の追加クラス(Tailwind 等のエスケープハッチ。構造化できないユーティリティ用。任意) */
   className?: string;
+  /** コンポーネント名(式バインドの参照名。例: input1 → {{ input1.value }})。識別子へ正規化。任意 */
+  name?: string;
 }>;
 
 const insertAt = <T>(items: ReadonlyArray<T>, index: number, item: T): ReadonlyArray<T> => {
@@ -238,6 +240,20 @@ export const ComponentNode = {
         const next = { ...n };
         if (trimmed) next.className = trimmed;
         else delete next.className;
+        return next;
+      }),
+    );
+  },
+
+  /** コンポーネント名を設定する(式参照用に識別子へ正規化)。空なら name を外す */
+  setName(root: ComponentNode, id: NodeId, name: string): Result<ComponentNode, DomainError> {
+    if (!ComponentNode.contains(root, id)) return err(DomainError.notFound('node'));
+    const slug = name.trim().replace(/[^A-Za-z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
+    return ok(
+      mapNode(root, id, (n) => {
+        const next = { ...n };
+        if (slug) next.name = slug;
+        else delete next.name;
         return next;
       }),
     );

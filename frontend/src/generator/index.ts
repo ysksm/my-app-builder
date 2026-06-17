@@ -10,6 +10,7 @@ import { emitOpenApi } from './emit-openapi';
 import { emitProjectShell } from './emit-project';
 import { emitReactLibFiles } from './emit-react-libs';
 import { queryRuntimeTsx, usesAnyQuery } from './emit-query';
+import { scopeRuntimeTsx, usesScope } from './emit-scope';
 import { resolveReactKit } from './react-ui-kits';
 import { kitIdOf } from './ui-kits';
 import { emitTypeSpec } from './emit-typespec';
@@ -442,6 +443,7 @@ export const generateProject = (doc: ProjectDoc, projectName: string): Generated
     // リアルタイム: 数値カードを使うときだけ Metric コンポーネントを出力
     ...(usesMetric(doc) ? [{ path: paths.realtimeRuntime, content: realtimeRuntimeTsx }] : []),
     ...(usesAnyQuery(doc) ? [{ path: paths.queryRuntime, content: queryRuntimeTsx(doc) }] : []),
+    ...(usesScope(doc) ? [{ path: paths.scopeRuntime, content: scopeRuntimeTsx }] : []),
     // 外部ライブラリ製コンポーネント(uPlot / ECharts / AG Grid)は使ったものだけ出力
     ...emitReactLibFiles(doc),
     // カスタムコード保護(FR-GEN-05)の第1消費者: ユーザー編集可・再生成で保持
